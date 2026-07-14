@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
-import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check } from "lucide-react";
+import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2 } from "lucide-react";
 
 const randomPassword = () => {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -34,6 +34,37 @@ export default function TeamPage() {
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   const [newPw, setNewPw] = useState(randomPassword());
+
+  const [attFor, setAttFor] = useState<any>(null);
+  const [att, setAtt] = useState({
+    photo_required: false,
+    auto_attendance: false,
+    auto_in_time: "09:30",
+    auto_out_time: "18:30",
+  });
+
+  const openAtt = (m: any) => {
+    setAtt({
+      photo_required: !!m.photo_required,
+      auto_attendance: !!m.auto_attendance,
+      auto_in_time: (m.auto_in_time || "09:30").slice(0, 5),
+      auto_out_time: (m.auto_out_time || "18:30").slice(0, 5),
+    });
+    setAttFor(m);
+  };
+
+  const saveAtt = async () => {
+    setSaving(true);
+    await supabase.from("profiles").update({
+      photo_required: att.photo_required,
+      auto_attendance: att.auto_attendance,
+      auto_in_time: att.auto_in_time,
+      auto_out_time: att.auto_out_time,
+    }).eq("id", attFor.id);
+    setSaving(false);
+    setAttFor(null);
+    load();
+  };
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
@@ -150,14 +181,25 @@ export default function TeamPage() {
                       </p>
                     )}
                   </div>
-                  {admin && m.role !== "owner" && (
-                    <button
-                      onClick={() => { setNewPw(randomPassword()); setResetFor(m); }}
-                      title="Reset password"
-                      className="flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
-                    >
-                      <KeyRound className="h-3.5 w-3.5" /> Reset
-                    </button>
+                  {admin && (
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        onClick={() => openAtt(m)}
+                        title="Attendance settings"
+                        className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
+                      >
+                        <Settings2 className="h-3.5 w-3.5" /> Attendance
+                      </button>
+                      {m.role !== "owner" && (
+                        <button
+                          onClick={() => { setNewPw(randomPassword()); setResetFor(m); }}
+                          title="Reset password"
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
+                        >
+                          <KeyRound className="h-3.5 w-3.5" /> Reset
+                        </button>
+                      )}
+                    </div>
                   )}
                 </li>
               ))}
@@ -281,6 +323,61 @@ export default function TeamPage() {
           <button onClick={resetPassword} disabled={saving}
             className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
             {saving ? "Resetting…" : "Reset password"}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ---- Per-employee attendance settings ---- */}
+      <Modal open={!!attFor} onClose={() => setAttFor(null)} title="Attendance settings">
+        <div className="space-y-5">
+          <p className="text-sm text-slate-600">
+            For <strong className="font-medium text-slate-900">{attFor?.full_name}</strong>
+          </p>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3.5">
+            <input type="checkbox" checked={att.photo_required}
+              onChange={(e) => setAtt((p) => ({ ...p, photo_required: e.target.checked }))}
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+            <span>
+              <span className="block text-sm font-medium text-slate-900">Require photo</span>
+              <span className="block text-xs text-slate-500">
+                Applies when the company photo policy is set to &quot;Selected only&quot;.
+              </span>
+            </span>
+          </label>
+
+          <div className="rounded-xl border border-slate-200 p-3.5">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" checked={att.auto_attendance}
+                onChange={(e) => setAtt((p) => ({ ...p, auto_attendance: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+              <span>
+                <span className="block text-sm font-medium text-slate-900">Automatic attendance</span>
+                <span className="block text-xs text-slate-500">
+                  Mark in and out automatically at fixed times each working day.
+                </span>
+              </span>
+            </label>
+
+            {att.auto_attendance && (
+              <div className="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Auto check-in</label>
+                  <input type="time" className={`mt-1 ${inputCls}`} value={att.auto_in_time}
+                    onChange={(e) => setAtt((p) => ({ ...p, auto_in_time: e.target.value }))} />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-600">Auto check-out</label>
+                  <input type="time" className={`mt-1 ${inputCls}`} value={att.auto_out_time}
+                    onChange={(e) => setAtt((p) => ({ ...p, auto_out_time: e.target.value }))} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <button onClick={saveAtt} disabled={saving}
+            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+            {saving ? "Saving…" : "Save settings"}
           </button>
         </div>
       </Modal>

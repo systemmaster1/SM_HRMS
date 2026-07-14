@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
-import { Building2, CreditCard, Upload, Check, ImageIcon, Clock } from "lucide-react";
+import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera } from "lucide-react";
 
 export default function SettingsForm({
   company,
@@ -38,6 +38,9 @@ export default function SettingsForm({
     earned_leave_annual: String(company?.earned_leave_annual ?? 15),
     short_leave_per_month: String(company?.short_leave_per_month ?? 2),
     short_leave_hours: String(company?.short_leave_hours ?? 2),
+    photo_policy: company?.photo_policy || "off",
+    capture_location: company?.capture_location !== false,
+    capture_ip: company?.capture_ip !== false,
   });
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
@@ -88,6 +91,9 @@ export default function SettingsForm({
       earned_leave_annual: parseFloat(f.earned_leave_annual) || 0,
       short_leave_per_month: parseInt(f.short_leave_per_month) || 0,
       short_leave_hours: parseFloat(f.short_leave_hours) || 0,
+      photo_policy: f.photo_policy,
+      capture_location: f.capture_location,
+      capture_ip: f.capture_ip,
     };
     const { error } = await supabase
       .from("companies")
@@ -312,6 +318,74 @@ export default function SettingsForm({
               <button onClick={save} disabled={saving}
                 className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
                 {saving ? "Saving…" : "Save policy"}
+              </button>
+              {saved && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                  <Check className="h-4 w-4" /> Saved
+                </span>
+              )}
+            </div>
+          </div>
+        </Card>
+
+
+        {/* Attendance capture */}
+        <Card>
+          <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5">
+            <Camera className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-900">Attendance capture</h2>
+          </div>
+
+          <div className="space-y-5 p-5">
+            <div>
+              <label className="text-sm font-medium text-slate-700">Photo on check-in / check-out</label>
+              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                {[
+                  { v: "off", t: "Off", d: "No photo required" },
+                  { v: "all", t: "All employees", d: "Everyone must take a photo" },
+                  { v: "selected", t: "Selected only", d: "Choose per employee in Team" },
+                ].map((o) => (
+                  <button key={o.v} type="button"
+                    onClick={() => set("photo_policy", o.v)}
+                    className={`rounded-xl border p-3 text-left transition ${
+                      f.photo_policy === o.v
+                        ? "border-brand-700 bg-brand-50"
+                        : "border-slate-200 hover:border-slate-300"
+                    }`}>
+                    <p className={`text-sm font-medium ${f.photo_policy === o.v ? "text-brand-700" : "text-slate-900"}`}>
+                      {o.t}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-500">{o.d}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2.5 border-t border-slate-100 pt-5">
+              <label className="flex cursor-pointer items-center gap-3">
+                <input type="checkbox" checked={f.capture_location}
+                  onChange={(e) => setF((p) => ({ ...p, capture_location: e.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+                <span>
+                  <span className="block text-sm font-medium text-slate-900">Capture location</span>
+                  <span className="block text-xs text-slate-500">Record GPS coordinates and address.</span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-3">
+                <input type="checkbox" checked={f.capture_ip}
+                  onChange={(e) => setF((p) => ({ ...p, capture_ip: e.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+                <span>
+                  <span className="block text-sm font-medium text-slate-900">Capture IP address</span>
+                  <span className="block text-xs text-slate-500">Record the public IP at check-in.</span>
+                </span>
+              </label>
+            </div>
+
+            <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
+              <button onClick={save} disabled={saving}
+                className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+                {saving ? "Saving…" : "Save capture settings"}
               </button>
               {saved && (
                 <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
