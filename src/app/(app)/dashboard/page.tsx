@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MapPin, Users, CalendarCheck, Plane, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { isAdminRole, type Role } from "@/lib/types";
+import TodayUpdates from "@/components/TodayUpdates";
 
 const statusStyles: Record<string, string> = {
   planned: "bg-slate-100 text-slate-600",
@@ -74,13 +75,15 @@ export default async function DashboardPage() {
         ))}
       </div>
 
+      <TodayUpdates />
+
       {/* Quick actions */}
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
           { href: "/attendance", label: "Mark attendance", icon: CalendarCheck },
           { href: "/leave", label: "Apply for leave", icon: Plane },
           { href: "/field-visits", label: "Log a visit", icon: MapPin },
-          { href: "/policies", label: "Company policies", icon: Users },
+          { href: "/helpdesk", label: "Raise a ticket", icon: Users },
         ].map((a) => (
           <Link key={a.href} href={a.href}
             className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">

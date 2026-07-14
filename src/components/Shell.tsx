@@ -10,6 +10,7 @@ import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types"
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
   ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
+  Contact, LifeBuoy, UserCircle,
 } from "lucide-react";
 
 interface NavItem {
@@ -26,9 +27,12 @@ const nav: NavItem[] = [
   { href: "/attendance",   label: "Attendance",  icon: <CalendarCheck className="h-[18px] w-[18px]" /> },
   { href: "/leave",        label: "Leave",       icon: <Plane className="h-[18px] w-[18px]" /> },
   { href: "/tasks",        label: "Tasks",       icon: <ListChecks className="h-[18px] w-[18px]" /> },
+  { href: "/directory",    label: "Directory",   icon: <Contact className="h-[18px] w-[18px]" /> },
+  { href: "/helpdesk",     label: "Help desk",   icon: <LifeBuoy className="h-[18px] w-[18px]" /> },
   { href: "/holidays",     label: "Holidays",    icon: <CalendarDays className="h-[18px] w-[18px]" /> },
   { href: "/policies",     label: "Policies",    icon: <FileText className="h-[18px] w-[18px]" /> },
   { href: "/organization", label: "Organization",icon: <Building2 className="h-[18px] w-[18px]" />, adminOnly: true },
+  { href: "/profile",      label: "My profile",  icon: <UserCircle className="h-[18px] w-[18px]" /> },
   { href: "/settings",     label: "Settings",    icon: <Settings className="h-[18px] w-[18px]" />, adminOnly: true },
 ];
 

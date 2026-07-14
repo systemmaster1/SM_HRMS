@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
-import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera } from "lucide-react";
+import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera, Eye } from "lucide-react";
 
 export default function SettingsForm({
   company,
@@ -41,6 +41,12 @@ export default function SettingsForm({
     photo_policy: company?.photo_policy || "off",
     capture_location: company?.capture_location !== false,
     capture_ip: company?.capture_ip !== false,
+    directory_enabled: company?.directory_enabled !== false,
+    directory_scope: company?.directory_scope || "company",
+    directory_show_phone: company?.directory_show_phone !== false,
+    directory_show_email: company?.directory_show_email !== false,
+    today_scope: company?.today_scope || "company",
+    tickets_enabled: company?.tickets_enabled !== false,
   });
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
@@ -94,6 +100,12 @@ export default function SettingsForm({
       photo_policy: f.photo_policy,
       capture_location: f.capture_location,
       capture_ip: f.capture_ip,
+      directory_enabled: f.directory_enabled,
+      directory_scope: f.directory_scope,
+      directory_show_phone: f.directory_show_phone,
+      directory_show_email: f.directory_show_email,
+      today_scope: f.today_scope,
+      tickets_enabled: f.tickets_enabled,
     };
     const { error } = await supabase
       .from("companies")
@@ -386,6 +398,119 @@ export default function SettingsForm({
               <button onClick={save} disabled={saving}
                 className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
                 {saving ? "Saving…" : "Save capture settings"}
+              </button>
+              {saved && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                  <Check className="h-4 w-4" /> Saved
+                </span>
+              )}
+            </div>
+          </div>
+        </Card>
+
+
+        {/* Directory & visibility */}
+        <Card>
+          <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5">
+            <Eye className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-900">Directory & visibility</h2>
+          </div>
+
+          <div className="space-y-5 p-5">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" checked={f.directory_enabled}
+                onChange={(e) => setF((p) => ({ ...p, directory_enabled: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+              <span>
+                <span className="block text-sm font-medium text-slate-900">Employee directory</span>
+                <span className="block text-xs text-slate-500">
+                  Let employees browse their colleagues.
+                </span>
+              </span>
+            </label>
+
+            {f.directory_enabled && (
+              <div className="space-y-5 border-t border-slate-100 pt-5">
+                <div>
+                  <p className="text-sm font-medium text-slate-700">Who can each employee see?</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {[
+                      { v: "company", t: "Everyone", d: "The whole organization" },
+                      { v: "department", t: "Own department only", d: "Just their own team" },
+                    ].map((o) => (
+                      <button key={o.v} type="button"
+                        onClick={() => set("directory_scope", o.v)}
+                        className={`rounded-xl border p-3 text-left transition ${
+                          f.directory_scope === o.v
+                            ? "border-brand-700 bg-brand-50"
+                            : "border-slate-200 hover:border-slate-300"
+                        }`}>
+                        <p className={`text-sm font-medium ${
+                          f.directory_scope === o.v ? "text-brand-700" : "text-slate-900"
+                        }`}>{o.t}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">{o.d}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2.5">
+                  <p className="text-sm font-medium text-slate-700">Contact details shown</p>
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input type="checkbox" checked={f.directory_show_email}
+                      onChange={(e) => setF((p) => ({ ...p, directory_show_email: e.target.checked }))}
+                      className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+                    <span className="text-sm text-slate-700">Show email addresses</span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input type="checkbox" checked={f.directory_show_phone}
+                      onChange={(e) => setF((p) => ({ ...p, directory_show_phone: e.target.checked }))}
+                      className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+                    <span className="text-sm text-slate-700">Show mobile numbers</span>
+                  </label>
+                </div>
+              </div>
+            )}
+
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-sm font-medium text-slate-700">Today&apos;s updates</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Birthdays and who is on leave, shown on the dashboard.
+              </p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {[
+                  { v: "company", t: "Whole company" },
+                  { v: "department", t: "Own department only" },
+                ].map((o) => (
+                  <button key={o.v} type="button"
+                    onClick={() => set("today_scope", o.v)}
+                    className={`rounded-xl border p-3 text-left text-sm font-medium transition ${
+                      f.today_scope === o.v
+                        ? "border-brand-700 bg-brand-50 text-brand-700"
+                        : "border-slate-200 text-slate-900 hover:border-slate-300"
+                    }`}>
+                    {o.t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <label className="flex cursor-pointer items-start gap-3 border-t border-slate-100 pt-5">
+              <input type="checkbox" checked={f.tickets_enabled}
+                onChange={(e) => setF((p) => ({ ...p, tickets_enabled: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+              <span>
+                <span className="block text-sm font-medium text-slate-900">Help desk</span>
+                <span className="block text-xs text-slate-500">
+                  Let employees raise support tickets.
+                </span>
+              </span>
+            </label>
+
+            <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
+              <button onClick={save} disabled={saving}
+                className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+                {saving ? "Saving…" : "Save visibility settings"}
               </button>
               {saved && (
                 <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
