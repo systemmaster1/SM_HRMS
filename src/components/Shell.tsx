@@ -5,10 +5,11 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
+import NotificationBell from "@/components/NotificationBell";
 import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types";
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
-  ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText,
+  ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
 } from "lucide-react";
 
 interface NavItem {
@@ -27,6 +28,7 @@ const nav: NavItem[] = [
   { href: "/tasks",        label: "Tasks",       icon: <ListChecks className="h-[18px] w-[18px]" /> },
   { href: "/holidays",     label: "Holidays",    icon: <CalendarDays className="h-[18px] w-[18px]" /> },
   { href: "/policies",     label: "Policies",    icon: <FileText className="h-[18px] w-[18px]" /> },
+  { href: "/organization", label: "Organization",icon: <Building2 className="h-[18px] w-[18px]" />, adminOnly: true },
   { href: "/settings",     label: "Settings",    icon: <Settings className="h-[18px] w-[18px]" />, adminOnly: true },
 ];
 
@@ -142,6 +144,7 @@ export default function Shell({
               {roleLabel[profile.role]}
             </p>
           </div>
+          <NotificationBell />
           <button
             onClick={doLogout}
             title="Sign out"

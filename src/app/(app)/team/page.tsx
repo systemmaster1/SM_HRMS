@@ -17,6 +17,8 @@ export default function TeamPage() {
   const supabase = createClient();
   const [me, setMe] = useState<Profile | null>(null);
   const [members, setMembers] = useState<Profile[]>([]);
+  const [depts, setDepts] = useState<any[]>([]);
+  const [desigs, setDesigs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -77,6 +79,13 @@ export default function TeamPage() {
       .select("*, manager:manager_id(full_name)")
       .order("created_at");
     setMembers((list as any[]) || []);
+
+    const [d, g] = await Promise.all([
+      supabase.from("departments").select("*").order("name"),
+      supabase.from("designations").select("*").order("name"),
+    ]);
+    setDepts(d.data || []);
+    setDesigs(g.data || []);
     setLoading(false);
   }, [supabase]);
 
@@ -277,13 +286,19 @@ export default function TeamPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-slate-700">Department</label>
-              <input className={`mt-1.5 ${inputCls}`} placeholder="Sales"
-                value={f.department} onChange={(e) => set("department", e.target.value)} />
+              <select className={`mt-1.5 ${inputCls}`} value={f.department}
+                onChange={(e) => set("department", e.target.value)}>
+                <option value="">Select…</option>
+                {depts.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+              </select>
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">Designation</label>
-              <input className={`mt-1.5 ${inputCls}`} placeholder="Field Executive"
-                value={f.designation} onChange={(e) => set("designation", e.target.value)} />
+              <select className={`mt-1.5 ${inputCls}`} value={f.designation}
+                onChange={(e) => set("designation", e.target.value)}>
+                <option value="">Select…</option>
+                {desigs.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+              </select>
             </div>
           </div>
 
