@@ -74,6 +74,22 @@ export default async function DashboardPage() {
         ))}
       </div>
 
+      {/* Quick actions */}
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[
+          { href: "/attendance", label: "Mark attendance", icon: CalendarCheck },
+          { href: "/leave", label: "Apply for leave", icon: Plane },
+          { href: "/field-visits", label: "Log a visit", icon: MapPin },
+          { href: "/policies", label: "Company policies", icon: Users },
+        ].map((a) => (
+          <Link key={a.href} href={a.href}
+            className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
+            <a.icon className="h-4 w-4 shrink-0" />
+            <span className="truncate">{a.label}</span>
+          </Link>
+        ))}
+      </div>
+
       <div className="mt-7">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-900">Today&apos;s field visits</h2>

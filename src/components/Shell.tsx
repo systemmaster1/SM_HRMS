@@ -8,7 +8,7 @@ import { LogoMark } from "@/components/Logo";
 import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types";
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
-  ListChecks, MapPin, LogOut, Menu, Settings, X,
+  ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText,
 } from "lucide-react";
 
 interface NavItem {
@@ -25,6 +25,8 @@ const nav: NavItem[] = [
   { href: "/attendance",   label: "Attendance",  icon: <CalendarCheck className="h-[18px] w-[18px]" /> },
   { href: "/leave",        label: "Leave",       icon: <Plane className="h-[18px] w-[18px]" /> },
   { href: "/tasks",        label: "Tasks",       icon: <ListChecks className="h-[18px] w-[18px]" /> },
+  { href: "/holidays",     label: "Holidays",    icon: <CalendarDays className="h-[18px] w-[18px]" /> },
+  { href: "/policies",     label: "Policies",    icon: <FileText className="h-[18px] w-[18px]" /> },
   { href: "/settings",     label: "Settings",    icon: <Settings className="h-[18px] w-[18px]" />, adminOnly: true },
 ];
 

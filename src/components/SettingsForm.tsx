@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
-import { Building2, CreditCard, Upload, Check, ImageIcon } from "lucide-react";
+import { Building2, CreditCard, Upload, Check, ImageIcon, Clock } from "lucide-react";
 
 export default function SettingsForm({
   company,
@@ -31,6 +31,13 @@ export default function SettingsForm({
     gst_number: company?.gst_number || "",
     work_start: company?.work_start?.slice(0, 5) || "09:30",
     work_end: company?.work_end?.slice(0, 5) || "18:30",
+    grace_minutes: String(company?.grace_minutes ?? 15),
+    half_day_minutes: String(company?.half_day_minutes ?? 240),
+    casual_leave_annual: String(company?.casual_leave_annual ?? 12),
+    sick_leave_annual: String(company?.sick_leave_annual ?? 6),
+    earned_leave_annual: String(company?.earned_leave_annual ?? 15),
+    short_leave_per_month: String(company?.short_leave_per_month ?? 2),
+    short_leave_hours: String(company?.short_leave_hours ?? 2),
   });
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
@@ -72,9 +79,19 @@ export default function SettingsForm({
   const save = async () => {
     setSaving(true);
     setError("");
+    const payload = {
+      ...f,
+      grace_minutes: parseInt(f.grace_minutes) || 0,
+      half_day_minutes: parseInt(f.half_day_minutes) || 240,
+      casual_leave_annual: parseFloat(f.casual_leave_annual) || 0,
+      sick_leave_annual: parseFloat(f.sick_leave_annual) || 0,
+      earned_leave_annual: parseFloat(f.earned_leave_annual) || 0,
+      short_leave_per_month: parseInt(f.short_leave_per_month) || 0,
+      short_leave_hours: parseFloat(f.short_leave_hours) || 0,
+    };
     const { error } = await supabase
       .from("companies")
-      .update({ ...f })
+      .update(payload)
       .eq("id", company.id);
     setSaving(false);
 
@@ -215,6 +232,86 @@ export default function SettingsForm({
                 className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60"
               >
                 {saving ? "Saving…" : "Save changes"}
+              </button>
+              {saved && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                  <Check className="h-4 w-4" /> Saved
+                </span>
+              )}
+            </div>
+          </div>
+        </Card>
+
+
+        {/* Attendance & leave policy */}
+        <Card>
+          <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5">
+            <Clock className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-900">Attendance & leave policy</h2>
+          </div>
+
+          <div className="space-y-5 p-5">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Attendance</p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Grace period (min)</label>
+                  <input type="number" className={`mt-1.5 ${inputCls}`} value={f.grace_minutes}
+                    onChange={(e) => set("grace_minutes", e.target.value)} />
+                  <p className="mt-1 text-xs text-slate-400">Late marked after this.</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Half-day after (min)</label>
+                  <input type="number" className={`mt-1.5 ${inputCls}`} value={f.half_day_minutes}
+                    onChange={(e) => set("half_day_minutes", e.target.value)} />
+                  <p className="mt-1 text-xs text-slate-400">Below this = half day.</p>
+                </div>
+                <div />
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Annual leave quota</p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Casual (CL)</label>
+                  <input type="number" step="0.5" className={`mt-1.5 ${inputCls}`} value={f.casual_leave_annual}
+                    onChange={(e) => set("casual_leave_annual", e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Sick (SL)</label>
+                  <input type="number" step="0.5" className={`mt-1.5 ${inputCls}`} value={f.sick_leave_annual}
+                    onChange={(e) => set("sick_leave_annual", e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Earned (PL)</label>
+                  <input type="number" step="0.5" className={`mt-1.5 ${inputCls}`} value={f.earned_leave_annual}
+                    onChange={(e) => set("earned_leave_annual", e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Short leave</p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Allowed per month</label>
+                  <input type="number" className={`mt-1.5 ${inputCls}`} value={f.short_leave_per_month}
+                    onChange={(e) => set("short_leave_per_month", e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Max hours each</label>
+                  <input type="number" step="0.5" className={`mt-1.5 ${inputCls}`} value={f.short_leave_hours}
+                    onChange={(e) => set("short_leave_hours", e.target.value)} />
+                </div>
+                <div />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
+              <button onClick={save} disabled={saving}
+                className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+                {saving ? "Saving…" : "Save policy"}
               </button>
               {saved && (
                 <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
