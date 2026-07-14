@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
-import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera, Eye } from "lucide-react";
+import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera, Eye, Navigation } from "lucide-react";
 
 export default function SettingsForm({
   company,
@@ -47,6 +47,11 @@ export default function SettingsForm({
     directory_show_email: company?.directory_show_email !== false,
     today_scope: company?.today_scope || "company",
     tickets_enabled: company?.tickets_enabled !== false,
+    geofence_enabled: !!company?.geofence_enabled,
+    office_lat: company?.office_lat != null ? String(company.office_lat) : "",
+    office_lng: company?.office_lng != null ? String(company.office_lng) : "",
+    office_radius_m: String(company?.office_radius_m ?? 200),
+    office_label: company?.office_label || "",
   });
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
@@ -106,6 +111,11 @@ export default function SettingsForm({
       directory_show_email: f.directory_show_email,
       today_scope: f.today_scope,
       tickets_enabled: f.tickets_enabled,
+      geofence_enabled: f.geofence_enabled,
+      office_lat: f.office_lat ? parseFloat(f.office_lat) : null,
+      office_lng: f.office_lng ? parseFloat(f.office_lng) : null,
+      office_radius_m: parseInt(f.office_radius_m) || 200,
+      office_label: f.office_label,
     };
     const { error } = await supabase
       .from("companies")
@@ -511,6 +521,95 @@ export default function SettingsForm({
               <button onClick={save} disabled={saving}
                 className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
                 {saving ? "Saving…" : "Save visibility settings"}
+              </button>
+              {saved && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                  <Check className="h-4 w-4" /> Saved
+                </span>
+              )}
+            </div>
+          </div>
+        </Card>
+
+
+        {/* Office location */}
+        <Card>
+          <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5">
+            <Navigation className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-900">Office location</h2>
+          </div>
+
+          <div className="space-y-5 p-5">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" checked={f.geofence_enabled}
+                onChange={(e) => setF((p) => ({ ...p, geofence_enabled: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+              <span>
+                <span className="block text-sm font-medium text-slate-900">
+                  Flag attendance marked away from the office
+                </span>
+                <span className="block text-xs text-slate-500">
+                  Check-ins beyond the allowed radius are shown as &quot;Out of office&quot;,
+                  along with how far away they were.
+                </span>
+              </span>
+            </label>
+
+            {f.geofence_enabled && (
+              <div className="space-y-4 border-t border-slate-100 pt-5">
+                <div className="rounded-xl border border-brand-200 bg-brand-50 p-3.5">
+                  <p className="text-xs font-medium text-brand-800">How to find your coordinates</p>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                    Open Google Maps, right-click on your office building, and click the
+                    numbers at the top of the menu. Paste the first number into Latitude
+                    and the second into Longitude.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Office name</label>
+                  <input className={`mt-1.5 ${inputCls}`} placeholder="Head Office"
+                    value={f.office_label} onChange={(e) => set("office_label", e.target.value)} />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Latitude</label>
+                    <input className={`mt-1.5 ${inputCls}`} placeholder="28.6139"
+                      value={f.office_lat} onChange={(e) => set("office_lat", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Longitude</label>
+                    <input className={`mt-1.5 ${inputCls}`} placeholder="77.2090"
+                      value={f.office_lng} onChange={(e) => set("office_lng", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Allowed radius (m)</label>
+                    <input type="number" className={`mt-1.5 ${inputCls}`}
+                      value={f.office_radius_m} onChange={(e) => set("office_radius_m", e.target.value)} />
+                  </div>
+                </div>
+
+                <button type="button"
+                  onClick={() => {
+                    navigator.geolocation?.getCurrentPosition((pos) => {
+                      setF((p) => ({
+                        ...p,
+                        office_lat: pos.coords.latitude.toFixed(6),
+                        office_lng: pos.coords.longitude.toFixed(6),
+                      }));
+                    });
+                  }}
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50">
+                  <Navigation className="h-4 w-4" /> Use my current location
+                </button>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
+              <button onClick={save} disabled={saving}
+                className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+                {saving ? "Saving…" : "Save office location"}
               </button>
               {saved && (
                 <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">

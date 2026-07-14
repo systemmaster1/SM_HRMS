@@ -2,38 +2,44 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader, Card, Badge, EmptyState, Modal } from "@/components/ui";
+import { PageHeader, Card, Badge, EmptyState, Modal, inputCls } from "@/components/ui";
 import CameraCapture from "@/components/CameraCapture";
+import { exportCsv, printReport } from "@/lib/export";
 import {
   getPosition, reverseGeocode, getPublicIp,
-  fmtTime, fmtDuration, todayISO, MONTHS,
+  fmtTime, fmtDuration, todayISO,
 } from "@/lib/geo";
 import { type Profile, isAdminRole } from "@/lib/types";
 import {
   LogIn, LogOut, MapPin, CalendarCheck, Clock, AlertTriangle,
-  Camera, Globe, User, Loader2,
+  Camera, Globe, Loader2, Download, Printer, ExternalLink, Navigation,
 } from "lucide-react";
 
 type Mode = "in" | "out";
+
+const firstOfMonth = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+};
 
 export default function AttendancePage() {
   const supabase = createClient();
 
   const [me, setMe] = useState<Profile | null>(null);
   const [company, setCompany] = useState<any>(null);
+  const [members, setMembers] = useState<Profile[]>([]);
   const [today, setToday] = useState<any>(null);
   const [rows, setRows] = useState<any[]>([]);
-  const [teamRows, setTeamRows] = useState<any[]>([]);
   const [needPhoto, setNeedPhoto] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"me" | "team">("me");
 
-  // filter
-  const now = new Date();
-  const [month, setMonth] = useState(now.getMonth());
-  const [year, setYear] = useState(now.getFullYear());
+  // filters
+  const [from, setFrom] = useState(firstOfMonth());
+  const [to, setTo] = useState(todayISO());
+  const [emp, setEmp] = useState("");
 
-  // check-in modal
+  // check in/out form
   const [mode, setMode] = useState<Mode | null>(null);
   const [clock, setClock] = useState(new Date());
   const [coords, setCoords] = useState<{ lat: number | null; lng: number | null }>({ lat: null, lng: null });
@@ -44,17 +50,18 @@ export default function AttendancePage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
+  // detail
+  const [detail, setDetail] = useState<any>(null);
+
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const { data: p } = await supabase
       .from("profiles").select("*").eq("id", auth.user!.id).single();
     setMe(p as Profile);
 
-    if (p?.company_id) {
-      const { data: c } = await supabase
-        .from("companies").select("*").eq("id", p.company_id).single();
-      setCompany(c);
-    }
+    const { data: c } = await supabase
+      .from("companies").select("*").eq("id", p!.company_id).single();
+    setCompany(c);
 
     const { data: req } = await supabase.rpc("photo_required_for_me");
     setNeedPhoto(!!req);
@@ -66,39 +73,39 @@ export default function AttendancePage() {
       .maybeSingle();
     setToday(t);
 
+    if (isAdminRole((p as Profile)?.role)) {
+      const { data: m } = await supabase
+        .from("profiles").select("*").eq("status", "active").order("full_name");
+      setMembers((m as Profile[]) || []);
+    }
     setLoading(false);
   }, [supabase]);
 
   const loadRows = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
-    const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
-    const last = new Date(year, month + 1, 0).getDate();
-    const to = `${year}-${String(month + 1).padStart(2, "0")}-${last}`;
-
-    const { data: mine } = await supabase
-      .from("attendance").select("*")
-      .eq("employee_id", auth.user!.id)
-      .gte("work_date", from).lte("work_date", to)
-      .order("work_date", { ascending: false });
-    setRows(mine || []);
-
     const { data: p } = await supabase
       .from("profiles").select("role").eq("id", auth.user!.id).single();
+    const admin = isAdminRole(p?.role);
 
-    if (isAdminRole(p?.role)) {
-      const { data: all } = await supabase
-        .from("attendance")
-        .select("*, profiles:employee_id(full_name, designation)")
-        .gte("work_date", from).lte("work_date", to)
-        .order("work_date", { ascending: false });
-      setTeamRows(all || []);
+    let q = supabase
+      .from("attendance")
+      .select("*, profiles:employee_id(full_name, designation, department, employee_code)")
+      .gte("work_date", from).lte("work_date", to)
+      .order("work_date", { ascending: false });
+
+    if (!admin || tab === "me") {
+      q = q.eq("employee_id", auth.user!.id);
+    } else if (emp) {
+      q = q.eq("employee_id", emp);
     }
-  }, [supabase, month, year]);
+
+    const { data } = await q;
+    setRows(data || []);
+  }, [supabase, from, to, emp, tab]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { loadRows(); }, [loadRows]);
 
-  // live clock while the modal is open
   useEffect(() => {
     if (!mode) return;
     const t = setInterval(() => setClock(new Date()), 1000);
@@ -117,7 +124,6 @@ export default function AttendancePage() {
     setLocating(true);
     const pos = await getPosition();
     setCoords(pos);
-
     const [addr, myIp] = await Promise.all([
       company?.capture_location !== false ? reverseGeocode(pos.lat, pos.lng) : Promise.resolve(null),
       company?.capture_ip !== false ? getPublicIp() : Promise.resolve(null),
@@ -129,9 +135,7 @@ export default function AttendancePage() {
 
   const submit = async () => {
     setError("");
-    if (needPhoto && !photoBlob) {
-      return setError("A photo is required. Please take a picture.");
-    }
+    if (needPhoto && !photoBlob) return setError("A photo is required. Please take a picture.");
 
     setSubmitting(true);
     let photoUrl: string | null = null;
@@ -140,7 +144,7 @@ export default function AttendancePage() {
       const path = `${me!.company_id}/${me!.id}/${Date.now()}-${mode}.jpg`;
       const { error: upErr } = await supabase.storage
         .from("attendance-photos")
-        .upload(path, photoBlob, { contentType: "image/jpeg" });
+        .upload(path, photoBlob, { contentType: "image/jpeg", upsert: false });
 
       if (upErr) {
         setSubmitting(false);
@@ -149,14 +153,10 @@ export default function AttendancePage() {
       photoUrl = supabase.storage.from("attendance-photos").getPublicUrl(path).data.publicUrl;
     }
 
-    const args = {
+    const { error: rpcErr } = await supabase.rpc(mode === "in" ? "check_in" : "check_out", {
       p_lat: coords.lat, p_lng: coords.lng,
       p_photo: photoUrl, p_address: address, p_ip: ip,
-    };
-
-    const { error: rpcErr } = await supabase.rpc(
-      mode === "in" ? "check_in" : "check_out", args
-    );
+    });
 
     setSubmitting(false);
     if (rpcErr) return setError(rpcErr.message);
@@ -173,52 +173,125 @@ export default function AttendancePage() {
     ? Math.max(0, Math.round((Date.now() - new Date(today.check_in).getTime()) / 60000))
     : today?.work_minutes || 0;
 
-  const list = admin && tab === "team" ? teamRows : rows;
-  const years = Array.from({ length: 5 }, (_, i) => now.getFullYear() - i);
+  const mapUrl = (lat: number, lng: number) => `https://www.google.com/maps?q=${lat},${lng}`;
+
+  /* ---------- Exports ---------- */
+  const doCsv = () => {
+    exportCsv(
+      `attendance-${from}-to-${to}`,
+      ["Employee", "Code", "Date", "Check in", "Check out", "Hours", "Status", "Late (min)", "Location", "Distance (m)", "Office"],
+      rows.map((r) => [
+        r.profiles?.full_name || "",
+        r.profiles?.employee_code || "",
+        r.work_date,
+        fmtTime(r.check_in),
+        fmtTime(r.check_out),
+        fmtDuration(r.work_minutes),
+        r.status,
+        r.late_minutes || 0,
+        r.check_in_address || "",
+        r.check_in_distance_m ?? "",
+        r.check_in_outside ? "Out of office" : "In office",
+      ])
+    );
+  };
+
+  const doPdf = () => {
+    // group by employee, one page each
+    const byEmp: Record<string, any[]> = {};
+    rows.forEach((r) => {
+      const k = r.profiles?.full_name || "Me";
+      (byEmp[k] ||= []).push(r);
+    });
+
+    const html = Object.entries(byEmp).map(([name, list]) => {
+      const present = list.filter((r) => r.status === "present").length;
+      const late = list.filter((r) => r.is_late).length;
+      const outside = list.filter((r) => r.check_in_outside).length;
+      const p0 = list[0]?.profiles;
+
+      const trs = list
+        .slice()
+        .sort((a, b) => a.work_date.localeCompare(b.work_date))
+        .map((r) => `<tr>
+          <td>${new Date(r.work_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</td>
+          <td class="${r.is_late ? "late" : ""}">${fmtTime(r.check_in)}${r.is_late ? " (late)" : ""}</td>
+          <td>${fmtTime(r.check_out)}</td>
+          <td>${fmtDuration(r.work_minutes)}</td>
+          <td>${(r.check_in_address || "—").replace(/</g, "")}</td>
+          <td class="${r.check_in_outside ? "out" : "in"}">
+            ${r.check_in_outside
+              ? `Out of office${r.check_in_distance_m ? ` (${r.check_in_distance_m} m)` : ""}`
+              : "In office"}
+          </td>
+          <td>${r.status.replace("_", " ")}</td>
+        </tr>`).join("");
+
+      return `<div class="emp">
+        <h1>${name}</h1>
+        <div class="sub">${p0?.designation || ""}${p0?.department ? ` · ${p0.department}` : ""}${p0?.employee_code ? ` · ${p0.employee_code}` : ""}</div>
+        <div class="card"><div class="grid">
+          <div><span>Period</span><strong>${from} → ${to}</strong></div>
+          <div><span>Present</span><strong>${present}</strong></div>
+          <div><span>Late</span><strong>${late}</strong></div>
+          <div><span>Out of office</span><strong>${outside}</strong></div>
+        </div></div>
+        <table>
+          <thead><tr><th>Date</th><th>In</th><th>Out</th><th>Hours</th><th>Location</th><th>Office</th><th>Status</th></tr></thead>
+          <tbody>${trs}</tbody>
+        </table>
+      </div>`;
+    }).join("");
+
+    printReport(`Attendance ${from} to ${to}`, html || "<p>No records.</p>");
+  };
 
   const present = rows.filter((r) => r.status === "present").length;
-  const late = rows.filter((r) => r.is_late).length;
+  const lateN = rows.filter((r) => r.is_late).length;
+  const outN = rows.filter((r) => r.check_in_outside).length;
 
   return (
     <div>
-      <PageHeader title="Attendance" subtitle="Mark your attendance and review your history." />
+      <PageHeader title="Attendance" subtitle="Mark your attendance and review records." />
 
       {/* Today */}
       <Card className="mb-6">
         <div className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
-              Today · {now.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
+              Today · {new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" })}
             </p>
             <div className="mt-2.5 flex items-center gap-5">
-              <div>
-                <p className="text-xs text-slate-500">Check in</p>
-                <p className="text-lg font-semibold tabular-nums text-slate-900">{fmtTime(today?.check_in)}</p>
-              </div>
+              <Stat label="Check in" value={fmtTime(today?.check_in)} />
               <div className="h-8 w-px bg-slate-200" />
-              <div>
-                <p className="text-xs text-slate-500">Check out</p>
-                <p className="text-lg font-semibold tabular-nums text-slate-900">{fmtTime(today?.check_out)}</p>
-              </div>
+              <Stat label="Check out" value={fmtTime(today?.check_out)} />
               <div className="h-8 w-px bg-slate-200" />
-              <div>
-                <p className="text-xs text-slate-500">Worked</p>
-                <p className="text-lg font-semibold tabular-nums text-slate-900">{fmtDuration(liveMins)}</p>
-              </div>
+              <Stat label="Worked" value={fmtDuration(liveMins)} />
             </div>
             {today?.is_late && (
               <p className="mt-2.5 flex items-center gap-1.5 text-xs font-medium text-amber-600">
                 <AlertTriangle className="h-3.5 w-3.5" /> Late by {today.late_minutes} min
               </p>
             )}
+            {today?.check_in_outside && (
+              <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-rose-600">
+                <Navigation className="h-3.5 w-3.5" />
+                Out of office · {today.check_in_distance_m} m away
+              </p>
+            )}
             {today?.check_in_address && (
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-slate-400">
+              <p className="mt-1 flex items-center gap-1.5 text-xs text-slate-400">
                 <MapPin className="h-3 w-3" /> {today.check_in_address}
               </p>
             )}
           </div>
 
-          <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-3">
+            {today?.check_in_photo && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={today.check_in_photo} alt="Check-in"
+                className="h-14 w-14 rounded-lg border border-slate-200 object-cover" />
+            )}
             {!checkedIn && (
               <button onClick={() => openForm("in")}
                 className="flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 font-medium text-white transition hover:bg-emerald-700">
@@ -236,32 +309,46 @@ export default function AttendancePage() {
                 <Clock className="h-4 w-4" /> Day complete
               </span>
             )}
-            {today?.check_in_photo && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={today.check_in_photo} alt="Check-in"
-                className="h-10 w-10 rounded-lg border border-slate-200 object-cover" />
-            )}
           </div>
         </div>
       </Card>
 
-      {/* Filter */}
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <select value={month} onChange={(e) => setMonth(Number(e.target.value))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600">
-          {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-        </select>
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600">
-          {years.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
+      {/* Filters */}
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div>
+          <label className="text-xs font-medium text-slate-500">From</label>
+          <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+            className="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600" />
+        </div>
+        <div>
+          <label className="text-xs font-medium text-slate-500">To</label>
+          <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+            className="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600" />
+        </div>
 
-        {tab === "me" && (
-          <div className="flex gap-4 text-xs text-slate-500">
-            <span><strong className="text-slate-900">{present}</strong> present</span>
-            <span><strong className="text-amber-600">{late}</strong> late</span>
+        {admin && tab === "team" && (
+          <div>
+            <label className="text-xs font-medium text-slate-500">Employee</label>
+            <select value={emp} onChange={(e) => setEmp(e.target.value)}
+              className="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600">
+              <option value="">All employees</option>
+              {members.map((m) => (
+                <option key={m.id} value={m.id}>{m.full_name}</option>
+              ))}
+            </select>
           </div>
         )}
+
+        <div className="flex gap-2">
+          <button onClick={doCsv}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
+            <Download className="h-4 w-4" /> Excel
+          </button>
+          <button onClick={doPdf}
+            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
+            <Printer className="h-4 w-4" /> PDF
+          </button>
+        </div>
 
         {admin && (
           <div className="ml-auto flex gap-1 rounded-lg bg-slate-100 p-1">
@@ -277,14 +364,24 @@ export default function AttendancePage() {
         )}
       </div>
 
+      {/* Summary */}
+      <div className="mb-3 flex gap-5 text-xs text-slate-500">
+        <span><strong className="text-slate-900">{rows.length}</strong> records</span>
+        <span><strong className="text-emerald-600">{present}</strong> present</span>
+        <span><strong className="text-amber-600">{lateN}</strong> late</span>
+        {company?.geofence_enabled && (
+          <span><strong className="text-rose-600">{outN}</strong> out of office</span>
+        )}
+      </div>
+
       {/* Records */}
       {loading ? (
         <p className="text-sm text-slate-400">Loading…</p>
       ) : (
         <Card>
-          {list.length === 0 ? (
-            <EmptyState icon={CalendarCheck} title="No records this month"
-              hint="Check in to create your first attendance record." />
+          {rows.length === 0 ? (
+            <EmptyState icon={CalendarCheck} title="No records in this range"
+              hint="Adjust the dates, or check in to create a record." />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -296,8 +393,9 @@ export default function AttendancePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {list.map((r: any) => (
-                    <tr key={r.id} className="transition hover:bg-slate-50">
+                  {rows.map((r: any) => (
+                    <tr key={r.id} onClick={() => setDetail(r)}
+                      className="cursor-pointer transition hover:bg-slate-50">
                       {admin && tab === "team" && (
                         <td className="px-4 py-3">
                           <p className="font-medium text-slate-900">{r.profiles?.full_name || "—"}</p>
@@ -319,8 +417,12 @@ export default function AttendancePage() {
                       </td>
                       <td className="px-4 py-3 tabular-nums text-slate-600">{fmtTime(r.check_out)}</td>
                       <td className="px-4 py-3 tabular-nums text-slate-600">{fmtDuration(r.work_minutes)}</td>
-                      <td className="max-w-[180px] px-4 py-3">
-                        {r.check_in_address ? (
+                      <td className="max-w-[190px] px-4 py-3">
+                        {r.check_in_outside ? (
+                          <span className="text-xs font-medium text-rose-600">
+                            Out of office · {r.check_in_distance_m} m
+                          </span>
+                        ) : r.check_in_address ? (
                           <span className="block truncate text-xs text-slate-500" title={r.check_in_address}>
                             {r.check_in_address}
                           </span>
@@ -336,11 +438,50 @@ export default function AttendancePage() {
         </Card>
       )}
 
+      {/* ---------- Log activity detail ---------- */}
+      <Modal open={!!detail} onClose={() => setDetail(null)} title="Activity log">
+        {detail && (
+          <div className="space-y-4">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+              <p className="text-sm font-semibold text-slate-900">
+                {detail.profiles?.full_name || me?.full_name}
+              </p>
+              <p className="text-xs text-slate-500">
+                {detail.profiles?.designation || me?.designation}
+                {" · "}
+                {new Date(detail.work_date).toLocaleDateString("en-IN",
+                  { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <Badge value={detail.status} />
+                {detail.is_late && <Badge value="late" />}
+              </div>
+            </div>
+
+            <Leg title="Check in" time={detail.check_in} photo={detail.check_in_photo}
+              address={detail.check_in_address} lat={detail.check_in_lat} lng={detail.check_in_lng}
+              ip={detail.check_in_ip} outside={detail.check_in_outside}
+              distance={detail.check_in_distance_m} mapUrl={mapUrl} tone="emerald" />
+
+            <Leg title="Check out" time={detail.check_out} photo={detail.check_out_photo}
+              address={detail.check_out_address} lat={detail.check_out_lat} lng={detail.check_out_lng}
+              ip={detail.check_out_ip} outside={detail.check_out_outside}
+              distance={detail.check_out_distance_m} mapUrl={mapUrl} tone="rose" />
+
+            <div className="flex justify-between rounded-xl border border-slate-200 p-3.5 text-sm">
+              <span className="text-slate-500">Total worked</span>
+              <span className="font-semibold tabular-nums text-slate-900">
+                {fmtDuration(detail.work_minutes)}
+              </span>
+            </div>
+          </div>
+        )}
+      </Modal>
+
       {/* ---------- Check in / out form ---------- */}
       <Modal open={!!mode} onClose={() => !submitting && setMode(null)}
         title={mode === "in" ? "Check in" : "Check out"}>
         <div className="space-y-4">
-          {/* Employee */}
           <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
             <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-700 text-sm font-semibold text-white">
               {(me?.full_name || "U").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
@@ -348,29 +489,16 @@ export default function AttendancePage() {
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-slate-900">{me?.full_name}</p>
               <p className="truncate text-xs text-slate-500">
-                {me?.designation || me?.role}
-                {me?.department && ` · ${me.department}`}
+                {me?.designation || me?.role}{me?.department && ` · ${me.department}`}
               </p>
             </div>
           </div>
 
-          {/* Date & live time */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-slate-200 p-3">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Date</p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                {clock.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-              </p>
-            </div>
-            <div className="rounded-xl border border-slate-200 p-3">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Time</p>
-              <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">
-                {clock.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}
-              </p>
-            </div>
+            <Box label="Date" value={clock.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} />
+            <Box label="Time" value={clock.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })} />
           </div>
 
-          {/* Location + IP */}
           <div className="space-y-2 rounded-xl border border-slate-200 p-3.5">
             <div className="flex items-start gap-2.5">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-slate-400" />
@@ -398,14 +526,13 @@ export default function AttendancePage() {
             )}
           </div>
 
-          {/* Camera */}
           {needPhoto && (
             <div>
               <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700">
                 <Camera className="h-4 w-4" /> Photo <span className="text-rose-500">*</span>
               </p>
               <CameraCapture
-                onCapture={(blob) => setPhotoBlob(blob)}
+                onCapture={(blob) => { setPhotoBlob(blob); if (blob) setError(""); }}
                 onError={(m) => setError(m)}
               />
             </div>
@@ -427,10 +554,90 @@ export default function AttendancePage() {
   );
 }
 
+/* ---------- small pieces ---------- */
+
 function Th({ children }: { children: React.ReactNode }) {
+  return <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-400">{children}</th>;
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-400">
-      {children}
-    </th>
+    <div>
+      <p className="text-xs text-slate-500">{label}</p>
+      <p className="text-lg font-semibold tabular-nums text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function Box({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-xl border border-slate-200 p-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold tabular-nums text-slate-900">{value}</p>
+    </div>
+  );
+}
+
+function Leg({
+  title, time, photo, address, lat, lng, ip, outside, distance, mapUrl, tone,
+}: any) {
+  if (!time) {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-200 p-3.5 text-center">
+        <p className="text-xs text-slate-400">{title} — not recorded</p>
+      </div>
+    );
+  }
+  const ring = tone === "emerald" ? "bg-emerald-500" : "bg-rose-500";
+  return (
+    <div className="rounded-xl border border-slate-200 p-3.5">
+      <div className="flex items-center justify-between">
+        <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+          <span className={`h-2 w-2 rounded-full ${ring}`} /> {title}
+        </p>
+        <p className="text-sm font-semibold tabular-nums text-slate-900">{fmtTime(time)}</p>
+      </div>
+
+      <div className="mt-3 flex gap-3">
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photo} alt=""
+            className="h-24 w-24 shrink-0 rounded-lg border border-slate-200 object-cover" />
+        ) : (
+          <div className="grid h-24 w-24 shrink-0 place-items-center rounded-lg bg-slate-50 text-[10px] text-slate-300">
+            No photo
+          </div>
+        )}
+
+        <div className="min-w-0 flex-1 space-y-1.5 text-xs">
+          {address && (
+            <p className="flex items-start gap-1.5 text-slate-600">
+              <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-slate-400" />
+              <span>{address}</span>
+            </p>
+          )}
+          {outside ? (
+            <p className="flex items-center gap-1.5 font-medium text-rose-600">
+              <Navigation className="h-3 w-3" /> Out of office · {distance} m away
+            </p>
+          ) : distance != null ? (
+            <p className="flex items-center gap-1.5 font-medium text-emerald-600">
+              <Navigation className="h-3 w-3" /> In office · {distance} m
+            </p>
+          ) : null}
+          {ip && (
+            <p className="flex items-center gap-1.5 tabular-nums text-slate-400">
+              <Globe className="h-3 w-3" /> {ip}
+            </p>
+          )}
+          {lat && (
+            <a href={mapUrl(lat, lng)} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-brand-700 hover:text-brand-800">
+              Open in Maps <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
