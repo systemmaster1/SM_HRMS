@@ -10,7 +10,7 @@ import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types"
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
   ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
-  Contact, LifeBuoy, UserCircle,
+  Contact, LifeBuoy, UserCircle, Wallet,
 } from "lucide-react";
 
 interface NavItem {
@@ -27,6 +27,7 @@ const nav: NavItem[] = [
   { href: "/attendance",   label: "Attendance",  icon: <CalendarCheck className="h-[18px] w-[18px]" /> },
   { href: "/leave",        label: "Leave",       icon: <Plane className="h-[18px] w-[18px]" /> },
   { href: "/tasks",        label: "Tasks",       icon: <ListChecks className="h-[18px] w-[18px]" /> },
+  { href: "/payroll",      label: "Payroll",     icon: <Wallet className="h-[18px] w-[18px]" /> },
   { href: "/directory",    label: "Directory",   icon: <Contact className="h-[18px] w-[18px]" /> },
   { href: "/helpdesk",     label: "Help desk",   icon: <LifeBuoy className="h-[18px] w-[18px]" /> },
   { href: "/holidays",     label: "Holidays",    icon: <CalendarDays className="h-[18px] w-[18px]" /> },

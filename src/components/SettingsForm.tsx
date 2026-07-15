@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
-import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera, Eye, Navigation } from "lucide-react";
+import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera, Eye, Navigation, IndianRupee } from "lucide-react";
 
 export default function SettingsForm({
   company,
@@ -47,6 +47,14 @@ export default function SettingsForm({
     directory_show_email: company?.directory_show_email !== false,
     today_scope: company?.today_scope || "company",
     tickets_enabled: company?.tickets_enabled !== false,
+    payroll_late_free_limit: String(company?.payroll_late_free_limit ?? 2),
+    payroll_late_step: String(company?.payroll_late_step ?? 2),
+    payroll_late_deduction: String(company?.payroll_late_deduction ?? 0.5),
+    payroll_leave_free_limit: String(company?.payroll_leave_free_limit ?? 999),
+    payroll_leave_deduction: String(company?.payroll_leave_deduction ?? 1.0),
+    payroll_short_free_limit: String(company?.payroll_short_free_limit ?? 2),
+    payroll_short_deduction: String(company?.payroll_short_deduction ?? 0.5),
+    payroll_absent_deduction: String(company?.payroll_absent_deduction ?? 1.0),
     geofence_enabled: !!company?.geofence_enabled,
     office_lat: company?.office_lat != null ? String(company.office_lat) : "",
     office_lng: company?.office_lng != null ? String(company.office_lng) : "",
@@ -111,6 +119,14 @@ export default function SettingsForm({
       directory_show_email: f.directory_show_email,
       today_scope: f.today_scope,
       tickets_enabled: f.tickets_enabled,
+      payroll_late_free_limit: parseInt(f.payroll_late_free_limit) || 0,
+      payroll_late_step: parseInt(f.payroll_late_step) || 1,
+      payroll_late_deduction: parseFloat(f.payroll_late_deduction) || 0,
+      payroll_leave_free_limit: parseInt(f.payroll_leave_free_limit) || 0,
+      payroll_leave_deduction: parseFloat(f.payroll_leave_deduction) || 0,
+      payroll_short_free_limit: parseInt(f.payroll_short_free_limit) || 0,
+      payroll_short_deduction: parseFloat(f.payroll_short_deduction) || 0,
+      payroll_absent_deduction: parseFloat(f.payroll_absent_deduction) || 0,
       geofence_enabled: f.geofence_enabled,
       office_lat: f.office_lat ? parseFloat(f.office_lat) : null,
       office_lng: f.office_lng ? parseFloat(f.office_lng) : null,
@@ -610,6 +626,96 @@ export default function SettingsForm({
               <button onClick={save} disabled={saving}
                 className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
                 {saving ? "Saving…" : "Save office location"}
+              </button>
+              {saved && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                  <Check className="h-4 w-4" /> Saved
+                </span>
+              )}
+            </div>
+          </div>
+        </Card>
+
+
+        {/* Payroll policy */}
+        <Card>
+          <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5">
+            <IndianRupee className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-900">Payroll policy</h2>
+          </div>
+
+          <div className="space-y-5 p-5">
+            <p className="text-xs text-slate-500">
+              These rules decide how many days are deducted from salary. Set a free limit high
+              (e.g. 999) to switch a rule off.
+            </p>
+
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Late arrivals</p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Free per month</label>
+                  <input type="number" className={`mt-1.5 ${inputCls}`} value={f.payroll_late_free_limit}
+                    onChange={(e) => set("payroll_late_free_limit", e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Every extra</label>
+                  <input type="number" className={`mt-1.5 ${inputCls}`} value={f.payroll_late_step}
+                    onChange={(e) => set("payroll_late_step", e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">= days deducted</label>
+                  <input type="number" step="0.5" className={`mt-1.5 ${inputCls}`} value={f.payroll_late_deduction}
+                    onChange={(e) => set("payroll_late_deduction", e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Full-day leave</p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Free per month</label>
+                  <input type="number" className={`mt-1.5 ${inputCls}`} value={f.payroll_leave_free_limit}
+                    onChange={(e) => set("payroll_leave_free_limit", e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Days deducted per excess</label>
+                  <input type="number" step="0.5" className={`mt-1.5 ${inputCls}`} value={f.payroll_leave_deduction}
+                    onChange={(e) => set("payroll_leave_deduction", e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Short leave</p>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Free per month</label>
+                  <input type="number" className={`mt-1.5 ${inputCls}`} value={f.payroll_short_free_limit}
+                    onChange={(e) => set("payroll_short_free_limit", e.target.value)} />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Days deducted per excess</label>
+                  <input type="number" step="0.5" className={`mt-1.5 ${inputCls}`} value={f.payroll_short_deduction}
+                    onChange={(e) => set("payroll_short_deduction", e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-100 pt-5">
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Absent</p>
+              <div className="mt-3 max-w-[calc(50%-8px)]">
+                <label className="text-sm font-medium text-slate-700">Days deducted per absence</label>
+                <input type="number" step="0.5" className={`mt-1.5 ${inputCls}`} value={f.payroll_absent_deduction}
+                  onChange={(e) => set("payroll_absent_deduction", e.target.value)} />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
+              <button onClick={save} disabled={saving}
+                className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+                {saving ? "Saving…" : "Save payroll policy"}
               </button>
               {saved && (
                 <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
