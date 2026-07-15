@@ -205,21 +205,29 @@ export default function LeavePage() {
 
       {/* Balances */}
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {balances.map((b) => (
-          <div key={b.type_id} className="rounded-xl border border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-slate-500">{b.name}</p>
-              <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
-                {b.code}
-              </span>
+        {balances.map((b) => {
+          const pending = leaves.filter(
+            (l) => l.employee_id === me?.id && l.status === "pending" && l.leave_type_id === b.type_id
+          ).reduce((s, l) => s + Number(l.days || 0), 0);
+          return (
+            <div key={b.type_id} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-slate-500 dark:text-slate-400">{b.name}</p>
+                <span className="rounded bg-brand-50 dark:bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 dark:text-brand-300">
+                  {b.code}
+                </span>
+              </div>
+              <p className="mt-1.5 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                {Number(b.balance)}
+                <span className="ml-1 text-xs font-normal text-slate-400">/ {Number(b.quota)}</span>
+              </p>
+              <p className="mt-0.5 text-[11px] text-slate-400">
+                {Number(b.used)} used
+                {pending > 0 && <span className="ml-1.5 text-amber-500">· {pending} pending</span>}
+              </p>
             </div>
-            <p className="mt-1.5 text-xl font-semibold tabular-nums text-slate-900">
-              {Number(b.balance)}
-              <span className="ml-1 text-xs font-normal text-slate-400">/ {Number(b.quota)}</span>
-            </p>
-            <p className="mt-0.5 text-[11px] text-slate-400">{Number(b.used)} used</p>
-          </div>
-        ))}
+          );
+        })}
         {balances.length === 0 && (
           <p className="col-span-full text-sm text-slate-400">
             No leave types configured. Set them up in Organization.

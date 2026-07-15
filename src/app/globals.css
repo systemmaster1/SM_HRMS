@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root { color-scheme: light; }
+:root.dark { color-scheme: dark; }
 
 html, body {
   background: #F8FAFC;
@@ -12,6 +13,12 @@ body {
   color: #0F172A;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+html.dark, html.dark body {
+  background: #0B1220;
+  color: #E2E8F0;
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }

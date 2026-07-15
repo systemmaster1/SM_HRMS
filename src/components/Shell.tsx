@@ -6,6 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
 import NotificationBell from "@/components/NotificationBell";
+import ThemeToggle from "@/components/ThemeToggle";
+import LiveClock from "@/components/LiveClock";
 import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types";
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
@@ -282,7 +284,7 @@ export default function Shell({
   );
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <aside className="fixed inset-y-0 left-0 hidden w-64 lg:block">{Sidebar}</aside>
 
       {open && (
@@ -304,16 +306,22 @@ export default function Shell({
       )}
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-slate-200 bg-white/80 px-4 backdrop-blur lg:hidden">
-          <button onClick={() => setOpen(true)} className="text-slate-600">
-            <Menu className="h-6 w-6" />
-          </button>
-          <span className="text-sm font-semibold text-slate-900">
-            {company?.name || "SM HRMS"}
-          </span>
-          <span className="w-6" />
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 sm:px-6">
+          <div className="flex items-center gap-3 lg:hidden">
+            <button onClick={() => setOpen(true)} className="text-slate-600 dark:text-slate-300">
+              <Menu className="h-6 w-6" />
+            </button>
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              {company?.name || "SM HRMS"}
+            </span>
+          </div>
+          <span className="hidden lg:block" />
+          <div className="flex items-center gap-2">
+            <LiveClock className="hidden text-slate-500 dark:text-slate-400 sm:flex" />
+            <ThemeToggle className="text-slate-400 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" />
+          </div>
         </header>
-        <main className="mx-auto max-w-6xl p-5 sm:p-7 lg:p-9">{children}</main>
+        <main className="mx-auto max-w-6xl bg-slate-50 p-5 dark:bg-slate-950 sm:p-7 lg:p-9">{children}</main>
       </div>
     </div>
   );
