@@ -31,6 +31,7 @@ export interface Profile {
   department: string;
   designation: string;
   employee_code: string;
+  branch_id: string | null;
   status: "invited" | "active" | "inactive";
   joined_on: string;
   avatar_url: string | null;

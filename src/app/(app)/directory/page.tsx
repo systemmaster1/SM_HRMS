@@ -85,9 +85,10 @@ export default function DirectoryPage() {
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-slate-900">{p.full_name}</p>
                   <p className="truncate text-sm text-slate-500">{p.designation || "—"}</p>
-                  {p.department && (
+                  {(p.department || p.branch) && (
                     <p className="mt-1 flex items-center gap-1 text-xs text-slate-400">
-                      <Building2 className="h-3 w-3" /> {p.department}
+                      <Building2 className="h-3 w-3" />
+                      {[p.department, p.branch].filter(Boolean).join(" · ")}
                     </p>
                   )}
                 </div>

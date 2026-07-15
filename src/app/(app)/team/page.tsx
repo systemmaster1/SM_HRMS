@@ -19,6 +19,7 @@ export default function TeamPage() {
   const [members, setMembers] = useState<Profile[]>([]);
   const [depts, setDepts] = useState<any[]>([]);
   const [desigs, setDesigs] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [addOpen, setAddOpen] = useState(false);
@@ -31,7 +32,7 @@ export default function TeamPage() {
   // add form
   const [f, setF] = useState({
     full_name: "", email: "", phone: "", password: randomPassword(),
-    role: "employee", department: "", designation: "", employee_code: "", manager_id: "",
+    role: "employee", department: "", designation: "", employee_code: "", manager_id: "", branch_id: "",
   });
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
@@ -76,16 +77,18 @@ export default function TeamPage() {
 
     const { data: list } = await supabase
       .from("profiles")
-      .select("*, manager:manager_id(full_name)")
+      .select("*, manager:manager_id(full_name), branch:branch_id(name)")
       .order("created_at");
     setMembers((list as any[]) || []);
 
-    const [d, g] = await Promise.all([
+    const [d, g, br] = await Promise.all([
       supabase.from("departments").select("*").order("name"),
       supabase.from("designations").select("*").order("name"),
+      supabase.from("branches").select("*").order("name"),
     ]);
     setDepts(d.data || []);
     setDesigs(g.data || []);
+    setBranches(br.data || []);
     setLoading(false);
   }, [supabase]);
 
@@ -108,7 +111,7 @@ export default function TeamPage() {
     setAddOpen(false);
     setF({
       full_name: "", email: "", phone: "", password: randomPassword(),
-      role: "employee", department: "", designation: "", employee_code: "", manager_id: "",
+      role: "employee", department: "", designation: "", employee_code: "", manager_id: "", branch_id: "",
     });
     load();
   };
@@ -182,6 +185,7 @@ export default function TeamPage() {
                     <p className="mt-0.5 truncate text-xs text-slate-500">
                       {m.designation || "—"}
                       {m.department && ` · ${m.department}`}
+                      {m.branch?.name && ` · ${m.branch.name}`}
                       {m.email && ` · ${m.email}`}
                     </p>
                     {m.manager?.full_name && (
@@ -301,6 +305,17 @@ export default function TeamPage() {
               </select>
             </div>
           </div>
+
+          {branches.length > 0 && (
+            <div>
+              <label className="text-sm font-medium text-slate-700">Branch</label>
+              <select className={`mt-1.5 ${inputCls}`} value={f.branch_id}
+                onChange={(e) => set("branch_id", e.target.value)}>
+                <option value="">No branch</option>
+                {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
+          )}
 
           {error && (
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>

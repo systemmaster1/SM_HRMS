@@ -93,6 +93,7 @@ export async function POST(req: Request) {
       phone,
       role,
       department: body.department || "",
+      branch_id: body.branch_id || null,
       designation: body.designation || "",
       employee_code: body.employee_code || "",
       manager_id: body.manager_id || null,
