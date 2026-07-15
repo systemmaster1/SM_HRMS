@@ -10,31 +10,77 @@ import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types"
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
   ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
-  Contact, LifeBuoy, UserCircle, Wallet,
+  Contact, LifeBuoy, Wallet, ChevronDown,
 } from "lucide-react";
 
-interface NavItem {
+interface Leaf {
   href: string;
   label: string;
   icon: React.ReactNode;
   adminOnly?: boolean;
 }
+interface Group {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  items: Leaf[];
+  adminOnly?: boolean;
+}
+type NavEntry = Leaf | Group;
 
-const nav: NavItem[] = [
-  { href: "/dashboard",    label: "Dashboard",   icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
-  { href: "/team",         label: "Team",        icon: <Users className="h-[18px] w-[18px]" /> },
-  { href: "/field-visits", label: "Field visits",icon: <MapPin className="h-[18px] w-[18px]" /> },
-  { href: "/attendance",   label: "Attendance",  icon: <CalendarCheck className="h-[18px] w-[18px]" /> },
-  { href: "/leave",        label: "Leave",       icon: <Plane className="h-[18px] w-[18px]" /> },
-  { href: "/tasks",        label: "Tasks",       icon: <ListChecks className="h-[18px] w-[18px]" /> },
-  { href: "/payroll",      label: "Payroll",     icon: <Wallet className="h-[18px] w-[18px]" /> },
-  { href: "/directory",    label: "Directory",   icon: <Contact className="h-[18px] w-[18px]" /> },
-  { href: "/helpdesk",     label: "Help desk",   icon: <LifeBuoy className="h-[18px] w-[18px]" /> },
-  { href: "/holidays",     label: "Holidays",    icon: <CalendarDays className="h-[18px] w-[18px]" /> },
-  { href: "/policies",     label: "Policies",    icon: <FileText className="h-[18px] w-[18px]" /> },
-  { href: "/organization", label: "Organization",icon: <Building2 className="h-[18px] w-[18px]" />, adminOnly: true },
-  { href: "/profile",      label: "My profile",  icon: <UserCircle className="h-[18px] w-[18px]" /> },
-  { href: "/settings",     label: "Settings",    icon: <Settings className="h-[18px] w-[18px]" />, adminOnly: true },
+const isGroup = (e: NavEntry): e is Group => "items" in e;
+
+const nav: NavEntry[] = [
+  { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
+
+  {
+    key: "attendance",
+    label: "Attendance & Leave",
+    icon: <CalendarCheck className="h-[18px] w-[18px]" />,
+    items: [
+      { href: "/attendance", label: "Attendance",  icon: <CalendarCheck className="h-4 w-4" /> },
+      { href: "/leave",      label: "Leave",        icon: <Plane className="h-4 w-4" /> },
+      { href: "/holidays",   label: "Holidays",     icon: <CalendarDays className="h-4 w-4" /> },
+    ],
+  },
+  {
+    key: "work",
+    label: "Work",
+    icon: <ListChecks className="h-[18px] w-[18px]" />,
+    items: [
+      { href: "/field-visits", label: "Field visits", icon: <MapPin className="h-4 w-4" /> },
+      { href: "/tasks",        label: "Tasks",         icon: <ListChecks className="h-4 w-4" /> },
+    ],
+  },
+  { href: "/payroll", label: "Payroll", icon: <Wallet className="h-[18px] w-[18px]" /> },
+  {
+    key: "people",
+    label: "People",
+    icon: <Users className="h-[18px] w-[18px]" />,
+    items: [
+      { href: "/team",      label: "Team",      icon: <Users className="h-4 w-4" /> },
+      { href: "/directory", label: "Directory", icon: <Contact className="h-4 w-4" /> },
+    ],
+  },
+  {
+    key: "support",
+    label: "Support",
+    icon: <LifeBuoy className="h-[18px] w-[18px]" />,
+    items: [
+      { href: "/helpdesk", label: "Help desk", icon: <LifeBuoy className="h-4 w-4" /> },
+      { href: "/policies", label: "Policies",  icon: <FileText className="h-4 w-4" /> },
+    ],
+  },
+  {
+    key: "admin",
+    label: "Admin",
+    icon: <Settings className="h-[18px] w-[18px]" />,
+    adminOnly: true,
+    items: [
+      { href: "/organization", label: "Organization", icon: <Building2 className="h-4 w-4" /> },
+      { href: "/settings",     label: "Settings",      icon: <Settings className="h-4 w-4" /> },
+    ],
+  },
 ];
 
 const roleLabel: Record<Role, string> = {
@@ -59,7 +105,21 @@ export default function Shell({
   const [open, setOpen] = useState(false);
 
   const admin = isAdminRole(profile.role);
-  const items = nav.filter((n) => !n.adminOnly || admin);
+
+  // Auto-expand whichever group contains the current page.
+  const initialExpanded = new Set<string>();
+  nav.forEach((e) => {
+    if (isGroup(e) && e.items.some((i) => i.href === pathname)) initialExpanded.add(e.key);
+  });
+  const [expanded, setExpanded] = useState<Set<string>>(initialExpanded);
+
+  const toggle = (key: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
+  };
 
   const doLogout = async () => {
     await supabase.auth.signOut();
@@ -83,6 +143,13 @@ export default function Shell({
       )
     : null;
 
+  const leafCls = (active: boolean) =>
+    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] transition ${
+      active
+        ? "bg-white/[0.08] font-medium text-white"
+        : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+    }`;
+
   const Sidebar = (
     <div className="flex h-full flex-col bg-brand-900">
       {/* Company */}
@@ -105,22 +172,62 @@ export default function Shell({
 
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
-        {items.map((item) => {
-          const active = pathname === item.href;
+        {nav.map((entry) => {
+          if (entry.adminOnly && !admin) return null;
+
+          if (!isGroup(entry)) {
+            const active = pathname === entry.href;
+            return (
+              <Link key={entry.href} href={entry.href} onClick={() => setOpen(false)} className={leafCls(active)}>
+                {entry.icon}
+                {entry.label}
+              </Link>
+            );
+          }
+
+          const items = entry.items.filter((i) => !i.adminOnly || admin);
+          if (items.length === 0) return null;
+          const groupActive = items.some((i) => i.href === pathname);
+          const isOpen = expanded.has(entry.key) || groupActive;
+
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setOpen(false)}
-              className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] transition ${
-                active
-                  ? "bg-white/[0.08] font-medium text-white"
-                  : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
-              }`}
-            >
-              {item.icon}
-              {item.label}
-            </Link>
+            <div key={entry.key}>
+              <button
+                onClick={() => toggle(entry.key)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] transition ${
+                  groupActive
+                    ? "text-white"
+                    : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+                }`}
+              >
+                {entry.icon}
+                <span className="flex-1 text-left">{entry.label}</span>
+                <ChevronDown className={`h-3.5 w-3.5 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {isOpen && (
+                <div className="mt-0.5 space-y-0.5 border-l border-white/[0.08] pl-4">
+                  {items.map((item) => {
+                    const active = pathname === item.href;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setOpen(false)}
+                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition ${
+                          active
+                            ? "bg-white/[0.08] font-medium text-white"
+                            : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+                        }`}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
@@ -135,25 +242,32 @@ export default function Shell({
         </div>
       )}
 
-      {/* User */}
+      {/* User — click to open profile */}
       <div className="border-t border-white/[0.08] p-3">
         <div className="flex items-center gap-3 px-1.5 py-1.5">
-          <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-500/20 text-xs font-semibold text-white">
-            {profile.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
-            ) : (
-              initials
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-white">
-              {profile.full_name || "User"}
-            </p>
-            <p className="truncate text-[11px] text-slate-500">
-              {roleLabel[profile.role]}
-            </p>
-          </div>
+          <Link
+            href="/profile"
+            onClick={() => setOpen(false)}
+            className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 transition hover:bg-white/5"
+            title="My profile"
+          >
+            <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-500/20 text-xs font-semibold text-white">
+              {profile.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                initials
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13px] font-medium text-white">
+                {profile.full_name || "User"}
+              </p>
+              <p className="truncate text-[11px] text-slate-500">
+                {roleLabel[profile.role]}
+              </p>
+            </div>
+          </Link>
           <NotificationBell />
           <button
             onClick={doLogout}

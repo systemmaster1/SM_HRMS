@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
-import { exportCsv, printSalarySlip } from "@/lib/export";
+import { exportCsv, printSalarySlip, printPayrollReport } from "@/lib/export";
 import { MONTHS } from "@/lib/geo";
 import { type Profile, isAdminRole } from "@/lib/types";
 import {
   Wallet, Download, Printer, Plus, Check, X, Users2, IndianRupee,
+  FileStack, TrendingDown, UserCheck2,
 } from "lucide-react";
 
 export default function PayrollPage() {
@@ -166,6 +167,11 @@ export default function PayrollPage() {
     printSalarySlip({ company, row, monthName: MONTHS[month - 1], year });
   };
 
+  const doReport = () => {
+    if (rows.length === 0) return;
+    printPayrollReport({ company, rows, monthName: MONTHS[month - 1], year });
+  };
+
   const pendingActions = actions.filter((a) => a.status === "pending").length;
   const totalNet = rows.reduce((s, r) => s + Number(r.net_salary || 0), 0);
 
@@ -203,12 +209,26 @@ export default function PayrollPage() {
                   className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
                   <Download className="h-4 w-4" /> Excel
                 </button>
-                <span className="ml-auto text-sm text-slate-500">
-                  Total net: <strong className="text-slate-900">₹{totalNet.toLocaleString("en-IN")}</strong>
-                </span>
+                <button onClick={doReport}
+                  className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
+                  <FileStack className="h-4 w-4" /> Full report (PDF)
+                </button>
               </>
             )}
           </div>
+
+          {admin && rows.length > 0 && (
+            <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <KpiCard icon={Users2} label="Employees" value={String(rows.length)} tone="slate" />
+              <KpiCard icon={UserCheck2} label="Avg present" value={
+                (rows.reduce((s, r) => s + Number(r.present_days || 0), 0) / rows.length).toFixed(1)
+              } tone="emerald" />
+              <KpiCard icon={TrendingDown} label="Total deducted (days)" value={
+                rows.reduce((s, r) => s + Number(r.total_deduction || 0), 0).toFixed(1)
+              } tone="rose" />
+              <KpiCard icon={IndianRupee} label="Total net salary" value={`₹${totalNet.toLocaleString("en-IN")}`} tone="brand" />
+            </div>
+          )}
 
           <Card>
             {rows.length === 0 ? (
@@ -259,31 +279,45 @@ export default function PayrollPage() {
       {/* ============ SALARY MASTER ============ */}
       {tab === "salary" && admin && (
         <Card>
-          <ul className="divide-y divide-slate-100">
-            {members.map((m) => {
-              const s = salaries.find((x) => x.employee_id === m.id);
-              return (
-                <li key={m.id} className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">
-                    {(m.full_name || "U").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-slate-900">{m.full_name}</p>
-                    <p className="text-xs text-slate-500">
-                      {m.designation}{m.department && ` · ${m.department}`}
-                    </p>
-                  </div>
-                  <p className="text-sm font-medium tabular-nums text-slate-900">
-                    ₹{Number(s?.monthly_salary ?? 0).toLocaleString("en-IN")}/mo
-                  </p>
-                  <button onClick={() => openSalary(m)}
-                    className="ml-2 flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700">
-                    <IndianRupee className="h-3.5 w-3.5" /> Edit
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-left">
+                  <Th>Employee</Th><Th>Code</Th><Th>Dept</Th><Th>Monthly</Th>
+                  <Th>Basic</Th><Th>HRA</Th><Th>Allow.</Th><Th>PF</Th><Th>Other Ded.</Th><Th>&nbsp;</Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {members.map((m) => {
+                  const s = salaries.find((x) => x.employee_id === m.id);
+                  return (
+                    <tr key={m.id} className="transition hover:bg-slate-50">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900">{m.full_name}</p>
+                        <p className="text-xs text-slate-400">{m.designation}</p>
+                      </td>
+                      <td className="px-4 py-3 text-slate-600">{m.employee_code || "—"}</td>
+                      <td className="px-4 py-3 text-slate-600">{m.department || "—"}</td>
+                      <td className="px-4 py-3 tabular-nums font-medium text-slate-900">
+                        ₹{Number(s?.monthly_salary ?? 0).toLocaleString("en-IN")}
+                      </td>
+                      <td className="px-4 py-3 tabular-nums text-slate-600">₹{Number(s?.basic ?? 0).toLocaleString("en-IN")}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-600">₹{Number(s?.hra ?? 0).toLocaleString("en-IN")}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-600">₹{Number(s?.other_allowance ?? 0).toLocaleString("en-IN")}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-600">₹{Number(s?.pf ?? 0).toLocaleString("en-IN")}</td>
+                      <td className="px-4 py-3 tabular-nums text-slate-600">₹{Number(s?.other_deduction ?? 0).toLocaleString("en-IN")}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => openSalary(m)}
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700">
+                          <IndianRupee className="h-3.5 w-3.5" /> Edit
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </Card>
       )}
 
@@ -427,6 +461,26 @@ export default function PayrollPage() {
 
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-400">{children}</th>;
+}
+
+function KpiCard({ icon: Icon, label, value, tone }: { icon: any; label: string; value: string; tone: "slate" | "emerald" | "rose" | "brand" }) {
+  const tones: Record<string, string> = {
+    slate: "text-slate-600 bg-slate-50",
+    emerald: "text-emerald-700 bg-emerald-50",
+    rose: "text-rose-700 bg-rose-50",
+    brand: "text-brand-700 bg-brand-50",
+  };
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4">
+      <div className="flex items-center gap-2">
+        <span className={`grid h-7 w-7 place-items-center rounded-lg ${tones[tone]}`}>
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <p className="text-xs text-slate-500">{label}</p>
+      </div>
+      <p className="mt-2 text-xl font-semibold tabular-nums text-slate-900">{value}</p>
+    </div>
+  );
 }
 
 function TabBtn({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
