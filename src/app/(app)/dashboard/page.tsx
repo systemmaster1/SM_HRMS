@@ -39,7 +39,9 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false })
     .limit(6);
 
-  const hour = new Date().getHours();
+  const hour = parseInt(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata", hour: "2-digit", hour12: false })
+  );
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const firstName = profile?.full_name?.split(" ")[0] || "there";
 

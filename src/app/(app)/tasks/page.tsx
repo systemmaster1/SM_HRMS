@@ -2,205 +2,534 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
+import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
-import { Plus, ListChecks } from "lucide-react";
+import {
+  Plus, ListChecks, ClipboardList, Check, Clock, AlertTriangle,
+  RotateCcw, Pause, Play, Trash2, Repeat,
+} from "lucide-react";
+
+const FREQ_LABELS: Record<string, string> = {
+  daily: "Daily", weekly: "Weekly", monthly: "Monthly",
+  quarterly: "Quarterly", half_yearly: "Half-yearly", yearly: "Yearly",
+};
+
+function computeStatus(dueDate: string, dueTime: string | null, completedAt: string | null) {
+  const now = new Date();
+  const due = dueTime ? new Date(`${dueDate}T${dueTime}`) : new Date(`${dueDate}T23:59:59`);
+
+  if (completedAt) {
+    const done = new Date(completedAt);
+    return done > due ? "done_late" : "done_on_time";
+  }
+  return now > due ? "overdue" : "pending";
+}
+
+const STATUS_UI: Record<string, { label: string; cls: string; icon: any }> = {
+  pending:      { label: "Pending",       cls: "bg-slate-100 text-slate-600",    icon: Clock },
+  overdue:      { label: "Overdue",       cls: "bg-rose-50 text-rose-600",       icon: AlertTriangle },
+  done_on_time: { label: "Done on time",  cls: "bg-emerald-50 text-emerald-700", icon: Check },
+  done_late:    { label: "Done late",     cls: "bg-amber-50 text-amber-700",     icon: Check },
+};
+
+function StatusChip({ status }: { status: string }) {
+  const s = STATUS_UI[status] || STATUS_UI.pending;
+  const Icon = s.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${s.cls}`}>
+      <Icon className="h-3 w-3" /> {s.label}
+    </span>
+  );
+}
 
 export default function TasksPage() {
   const supabase = createClient();
   const [me, setMe] = useState<Profile | null>(null);
-  const [tasks, setTasks] = useState<any[]>([]);
   const [members, setMembers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [open, setOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [tab, setTab] = useState<"delegation" | "checklist">("delegation");
 
-  const [title, setTitle] = useState("");
-  const [desc, setDesc] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [priority, setPriority] = useState("medium");
-  const [due, setDue] = useState("");
+  /* ---------------- Delegation state ---------------- */
+  const [delegations, setDelegations] = useState<any[]>([]);
+  const [dOpen, setDOpen] = useState(false);
+  const [dSaving, setDSaving] = useState(false);
+  const [dError, setDError] = useState("");
+  const [dScope, setDScope] = useState<"mine" | "byMe" | "all">("mine");
+  const [df, setDf] = useState({
+    title: "", description: "", assigned_to: "", priority: "medium",
+    due_date: "", due_time: "",
+  });
+  const setD = (k: string, v: string) => setDf((p) => ({ ...p, [k]: v }));
+
+  /* ---------------- Checklist state ---------------- */
+  const [templates, setTemplates] = useState<any[]>([]);
+  const [instances, setInstances] = useState<any[]>([]);
+  const [cOpen, setCOpen] = useState(false);
+  const [cSaving, setCSaving] = useState(false);
+  const [cError, setCError] = useState("");
+  const [cScope, setCScope] = useState<"mine" | "all">("mine");
+  const [cf, setCf] = useState({
+    title: "", description: "", assigned_to: "", frequency: "weekly",
+    start_date: new Date().toISOString().slice(0, 10), end_date: "",
+  });
+  const setC = (k: string, v: string) => setCf((p) => ({ ...p, [k]: v }));
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
-    const { data: mine } = await supabase
+    const { data: p } = await supabase
       .from("profiles").select("*").eq("id", auth.user!.id).single();
-    setMe(mine as Profile);
+    setMe(p as Profile);
 
-    const { data: t } = await supabase
-      .from("tasks")
-      .select("*, profiles:assignee_id(full_name)")
-      .order("created_at", { ascending: false });
-    setTasks(t || []);
+    if (isAdminRole((p as Profile)?.role)) {
+      const { data: m } = await supabase
+        .from("profiles").select("*").eq("status", "active").order("full_name");
+      setMembers((m as Profile[]) || []);
+    }
 
-    const { data: m } = await supabase
-      .from("profiles").select("*").eq("status", "active").order("full_name");
-    setMembers((m as Profile[]) || []);
+    // Catch up any due checklist occurrences (safe to call every visit)
+    await supabase.rpc("generate_checklist_instances");
 
+    const [d, t, i] = await Promise.all([
+      supabase.from("delegations")
+        .select("*, assignee:assigned_to(full_name), assigner:assigned_by(full_name)")
+        .order("due_date", { ascending: true }),
+      supabase.from("checklist_templates")
+        .select("*, assignee:assigned_to(full_name)")
+        .order("created_at", { ascending: false }),
+      supabase.from("checklist_instances")
+        .select("*, template:template_id(title, description, frequency), assignee:assigned_to(full_name)")
+        .order("due_date", { ascending: true }),
+    ]);
+
+    setDelegations(d.data || []);
+    setTemplates(t.data || []);
+    setInstances(i.data || []);
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => { load(); }, [load]);
 
-  const addTask = async () => {
-    if (!title.trim() || !me?.company_id) return;
-    setSaving(true);
-    await supabase.from("tasks").insert({
-      company_id: me.company_id,
-      title: title.trim(),
-      description: desc,
-      assignee_id: assignee || null,
-      created_by: me.id,
-      priority,
-      due_date: due || null,
+  /* ---------------- Delegation actions ---------------- */
+  const createDelegation = async () => {
+    setDError("");
+    if (!df.title.trim()) return setDError("Please enter a title.");
+    if (!df.assigned_to) return setDError("Please choose who this is for.");
+    if (!df.due_date) return setDError("Please set a due date.");
+
+    setDSaving(true);
+    const { data: created, error } = await supabase.from("delegations").insert({
+      company_id: me!.company_id,
+      title: df.title.trim(),
+      description: df.description,
+      assigned_to: df.assigned_to,
+      assigned_by: me!.id,
+      priority: df.priority,
+      due_date: df.due_date,
+      due_time: df.due_time || null,
+    }).select().single();
+    setDSaving(false);
+
+    if (error) return setDError(error.message);
+
+    await supabase.from("notifications").insert({
+      company_id: me!.company_id,
+      user_id: df.assigned_to,
+      title: "New task delegated to you",
+      body: `${df.title} · due ${df.due_date}${df.due_time ? ` ${df.due_time}` : ""}`,
+      kind: "task",
+      link: "/tasks",
     });
-    setSaving(false);
-    setOpen(false);
-    setTitle(""); setDesc(""); setAssignee(""); setPriority("medium"); setDue("");
+
+    setDOpen(false);
+    setDf({ title: "", description: "", assigned_to: "", priority: "medium", due_date: "", due_time: "" });
     load();
   };
 
-  const cycle = async (t: any) => {
-    const next =
-      t.status === "todo" ? "in_progress" : t.status === "in_progress" ? "done" : "todo";
-    await supabase
-      .from("tasks")
-      .update({ status: next, completed_at: next === "done" ? new Date().toISOString() : null })
-      .eq("id", t.id);
+  const toggleDelegationDone = async (d: any) => {
+    const willComplete = !d.completed_at;
+    await supabase.from("delegations")
+      .update({ completed_at: willComplete ? new Date().toISOString() : null })
+      .eq("id", d.id);
+    load();
+  };
+
+  /* ---------------- Checklist actions ---------------- */
+  const createTemplate = async () => {
+    setCError("");
+    if (!cf.title.trim()) return setCError("Please enter a title.");
+    if (!cf.assigned_to) return setCError("Please choose who this is for.");
+
+    setCSaving(true);
+    const { error } = await supabase.from("checklist_templates").insert({
+      company_id: me!.company_id,
+      title: cf.title.trim(),
+      description: cf.description,
+      assigned_to: cf.assigned_to,
+      assigned_by: me!.id,
+      frequency: cf.frequency,
+      start_date: cf.start_date,
+      end_date: cf.end_date || null,
+      next_due_date: cf.start_date,
+    });
+    setCSaving(false);
+
+    if (error) return setCError(error.message);
+
+    setCOpen(false);
+    setCf({ title: "", description: "", assigned_to: "", frequency: "weekly",
+            start_date: new Date().toISOString().slice(0, 10), end_date: "" });
+    load();
+  };
+
+  const toggleInstanceDone = async (inst: any) => {
+    await supabase.rpc("set_checklist_done", {
+      p_instance: inst.id, p_done: !inst.completed_at,
+    });
+    load();
+  };
+
+  const toggleTemplateActive = async (t: any) => {
+    await supabase.from("checklist_templates").update({ active: !t.active }).eq("id", t.id);
+    load();
+  };
+
+  const deleteTemplate = async (id: string) => {
+    await supabase.from("checklist_templates").delete().eq("id", id);
     load();
   };
 
   const admin = isAdminRole(me?.role);
-  const openCount = tasks.filter((t) => t.status !== "done").length;
+
+  /* ---------------- Derived lists ---------------- */
+  const dList = delegations.filter((d) => {
+    if (dScope === "mine") return d.assigned_to === me?.id;
+    if (dScope === "byMe") return d.assigned_by === me?.id;
+    return true; // all
+  });
+
+  const iList = instances.filter((i) => {
+    if (cScope === "mine") return i.assigned_to === me?.id;
+    return true;
+  });
+
+  const dPendingCount = delegations.filter(
+    (d) => d.assigned_to === me?.id && !d.completed_at
+  ).length;
+  const iPendingCount = instances.filter(
+    (i) => i.assigned_to === me?.id && !i.completed_at
+  ).length;
+
+  if (loading) return <p className="text-sm text-slate-400">Loading…</p>;
 
   return (
     <div>
       <PageHeader
         title="Tasks"
-        subtitle={`${openCount} open · ${tasks.length} total`}
+        subtitle="Delegation and recurring checklists."
         action={
           admin && (
             <button
-              onClick={() => setOpen(true)}
+              onClick={() => (tab === "delegation" ? setDOpen(true) : setCOpen(true))}
               className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800"
             >
-              <Plus className="h-4 w-4" /> New task
+              <Plus className="h-4 w-4" />
+              {tab === "delegation" ? "New delegation" : "New checklist"}
             </button>
           )
         }
       />
 
-      {loading ? (
-        <p className="text-sm text-slate-400">Loading…</p>
-      ) : (
-        <Card>
-          {tasks.length > 0 ? (
-            <ul className="divide-y divide-slate-100">
-              {tasks.map((t) => (
-                <li key={t.id} className="flex items-center gap-3 px-4 py-3.5">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p
-                        className={`text-sm font-medium ${
-                          t.status === "done"
-                            ? "text-slate-400 line-through"
-                            : "text-slate-900"
-                        }`}
+      <div className="mb-5 flex gap-1 rounded-lg bg-slate-100 p-1">
+        <button onClick={() => setTab("delegation")}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${
+            tab === "delegation" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          }`}>
+          Delegation {dPendingCount > 0 && `(${dPendingCount})`}
+        </button>
+        <button onClick={() => setTab("checklist")}
+          className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${
+            tab === "checklist" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          }`}>
+          Checklist {iPendingCount > 0 && `(${iPendingCount})`}
+        </button>
+      </div>
+
+      {/* ================= DELEGATION ================= */}
+      {tab === "delegation" && (
+        <div>
+          <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 p-1">
+            <ScopeBtn on={dScope === "mine"} onClick={() => setDScope("mine")}>Assigned to me</ScopeBtn>
+            {admin && <ScopeBtn on={dScope === "byMe"} onClick={() => setDScope("byMe")}>Assigned by me</ScopeBtn>}
+            {admin && <ScopeBtn on={dScope === "all"} onClick={() => setDScope("all")}>All</ScopeBtn>}
+          </div>
+
+          <Card>
+            {dList.length === 0 ? (
+              <EmptyState icon={ClipboardList} title="No delegated tasks"
+                hint={admin ? "Assign a task with a due date to track it." : "Tasks assigned to you will appear here."} />
+            ) : (
+              <ul className="divide-y divide-slate-100">
+                {dList.map((d) => {
+                  const status = computeStatus(d.due_date, d.due_time, d.completed_at);
+                  const canToggle = d.assigned_to === me?.id || admin;
+                  return (
+                    <li key={d.id} className="flex items-start gap-3 px-4 py-3.5">
+                      <button
+                        onClick={() => canToggle && toggleDelegationDone(d)}
+                        disabled={!canToggle}
+                        className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
+                          d.completed_at
+                            ? "border-emerald-600 bg-emerald-600 text-white"
+                            : "border-slate-300 hover:border-brand-600"
+                        } ${!canToggle ? "cursor-not-allowed opacity-50" : ""}`}
                       >
-                        {t.title}
-                      </p>
-                      <Badge value={t.priority} />
-                    </div>
-                    <p className="mt-0.5 text-xs text-slate-500">
-                      {t.profiles?.full_name ? `Assigned to ${t.profiles.full_name}` : "Unassigned"}
-                      {t.due_date && ` · Due ${t.due_date}`}
-                    </p>
-                  </div>
-                  <button onClick={() => cycle(t)} title="Change status">
-                    <Badge value={t.status} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <EmptyState
-              icon={ListChecks}
-              title="No tasks yet"
-              hint={admin ? "Create a task to assign work to your team." : "Tasks assigned to you will appear here."}
-            />
-          )}
-        </Card>
+                        {d.completed_at && <Check className="h-3 w-3" />}
+                      </button>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className={`text-sm font-medium ${d.completed_at ? "text-slate-400 line-through" : "text-slate-900"}`}>
+                            {d.title}
+                          </p>
+                          <StatusChip status={status} />
+                          {d.priority === "high" && (
+                            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-600">HIGH</span>
+                          )}
+                        </div>
+                        {d.description && (
+                          <p className="mt-0.5 text-xs text-slate-500">{d.description}</p>
+                        )}
+                        <p className="mt-1 text-xs text-slate-400">
+                          {d.assignee?.full_name && `${d.assignee.full_name} · `}
+                          Due {d.due_date}{d.due_time && ` at ${d.due_time.slice(0, 5)}`}
+                          {d.assigner?.full_name && ` · by ${d.assigner.full_name}`}
+                        </p>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+        </div>
       )}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="New task">
+      {/* ================= CHECKLIST ================= */}
+      {tab === "checklist" && (
+        <div className="space-y-6">
+          {admin && templates.length > 0 && (
+            <div>
+              <h2 className="mb-2 text-sm font-semibold text-slate-900">Recurring templates</h2>
+              <Card>
+                <ul className="divide-y divide-slate-100">
+                  {templates.map((t) => (
+                    <li key={t.id} className="flex items-center gap-3 px-4 py-3">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700">
+                        <Repeat className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-slate-900">{t.title}</p>
+                        <p className="truncate text-xs text-slate-500">
+                          {FREQ_LABELS[t.frequency]} · {t.assignee?.full_name}
+                          {!t.active && " · Paused"}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-1.5">
+                        <button onClick={() => toggleTemplateActive(t)}
+                          title={t.active ? "Pause" : "Resume"}
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-brand-600 hover:text-brand-700">
+                          {t.active ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                        </button>
+                        <button onClick={() => deleteTemplate(t.id)} title="Delete"
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:text-rose-600">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </div>
+          )}
+
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-slate-900">Occurrences</h2>
+              {admin && (
+                <div className="flex gap-1 rounded-lg bg-slate-100 p-1">
+                  <ScopeBtn on={cScope === "mine"} onClick={() => setCScope("mine")}>Mine</ScopeBtn>
+                  <ScopeBtn on={cScope === "all"} onClick={() => setCScope("all")}>Team</ScopeBtn>
+                </div>
+              )}
+            </div>
+
+            <Card>
+              {iList.length === 0 ? (
+                <EmptyState icon={ListChecks} title="No checklist items"
+                  hint={admin ? "Create a recurring checklist to get started." : "Recurring tasks assigned to you will appear here."} />
+              ) : (
+                <ul className="divide-y divide-slate-100">
+                  {iList.map((i) => {
+                    const status = computeStatus(i.due_date, null, i.completed_at);
+                    const canToggle = i.assigned_to === me?.id || admin;
+                    return (
+                      <li key={i.id} className="flex items-start gap-3 px-4 py-3.5">
+                        <button
+                          onClick={() => canToggle && toggleInstanceDone(i)}
+                          disabled={!canToggle}
+                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
+                            i.completed_at
+                              ? "border-emerald-600 bg-emerald-600 text-white"
+                              : "border-slate-300 hover:border-brand-600"
+                          } ${!canToggle ? "cursor-not-allowed opacity-50" : ""}`}
+                        >
+                          {i.completed_at && <Check className="h-3 w-3" />}
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className={`text-sm font-medium ${i.completed_at ? "text-slate-400 line-through" : "text-slate-900"}`}>
+                              {i.template?.title}
+                            </p>
+                            <StatusChip status={status} />
+                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                              {FREQ_LABELS[i.template?.frequency]}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-400">
+                            {i.assignee?.full_name && `${i.assignee.full_name} · `}
+                            Due {i.due_date}
+                          </p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* ---------- New delegation ---------- */}
+      <Modal open={dOpen} onClose={() => setDOpen(false)} title="New delegation">
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-700">
-              Title <span className="text-rose-500">*</span>
-            </label>
-            <input
-              className={`mt-1.5 ${inputCls}`}
-              placeholder="Follow up with client"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              autoFocus
-            />
+            <label className="text-sm font-medium text-slate-700">Title *</label>
+            <input className={`mt-1.5 ${inputCls}`} placeholder="Submit vendor invoice"
+              value={df.title} onChange={(e) => setD("title", e.target.value)} autoFocus />
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700">Description</label>
-            <textarea
-              className={`mt-1.5 ${inputCls}`}
-              rows={3}
-              placeholder="Optional details"
-              value={desc}
-              onChange={(e) => setDesc(e.target.value)}
-            />
+            <textarea className={`mt-1.5 ${inputCls}`} rows={2}
+              value={df.description} onChange={(e) => setD("description", e.target.value)} />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700">Assign to</label>
-            <select
-              className={`mt-1.5 ${inputCls}`}
-              value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
-            >
-              <option value="">Unassigned</option>
-              {members.map((m) => (
-                <option key={m.id} value={m.id}>{m.full_name}</option>
-              ))}
+            <label className="text-sm font-medium text-slate-700">Assign to *</label>
+            <select className={`mt-1.5 ${inputCls}`} value={df.assigned_to}
+              onChange={(e) => setD("assigned_to", e.target.value)}>
+              <option value="">Select…</option>
+              {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-700">Due date *</label>
+              <input type="date" className={`mt-1.5 ${inputCls}`} value={df.due_date}
+                onChange={(e) => setD("due_date", e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700">Due time</label>
+              <input type="time" className={`mt-1.5 ${inputCls}`} value={df.due_time}
+                onChange={(e) => setD("due_time", e.target.value)} />
+            </div>
             <div>
               <label className="text-sm font-medium text-slate-700">Priority</label>
-              <select
-                className={`mt-1.5 ${inputCls}`}
-                value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-              >
+              <select className={`mt-1.5 ${inputCls}`} value={df.priority}
+                onChange={(e) => setD("priority", e.target.value)}>
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
               </select>
             </div>
+          </div>
+
+          {dError && (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{dError}</p>
+          )}
+
+          <button onClick={createDelegation} disabled={dSaving}
+            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+            {dSaving ? "Assigning…" : "Assign task"}
+          </button>
+        </div>
+      </Modal>
+
+      {/* ---------- New checklist ---------- */}
+      <Modal open={cOpen} onClose={() => setCOpen(false)} title="New recurring checklist">
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-slate-700">Title *</label>
+            <input className={`mt-1.5 ${inputCls}`} placeholder="Weekly stock count"
+              value={cf.title} onChange={(e) => setC("title", e.target.value)} autoFocus />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Description</label>
+            <textarea className={`mt-1.5 ${inputCls}`} rows={2}
+              value={cf.description} onChange={(e) => setC("description", e.target.value)} />
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Assign to *</label>
+            <select className={`mt-1.5 ${inputCls}`} value={cf.assigned_to}
+              onChange={(e) => setC("assigned_to", e.target.value)}>
+              <option value="">Select…</option>
+              {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Frequency</label>
+            <select className={`mt-1.5 ${inputCls}`} value={cf.frequency}
+              onChange={(e) => setC("frequency", e.target.value)}>
+              {Object.entries(FREQ_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <p className="mt-1.5 text-xs text-slate-500">
+              If an occurrence falls on a holiday or weekly off, it shifts to the next working day.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-slate-700">Due date</label>
-              <input
-                type="date"
-                className={`mt-1.5 ${inputCls}`}
-                value={due}
-                onChange={(e) => setDue(e.target.value)}
-              />
+              <label className="text-sm font-medium text-slate-700">Starts on</label>
+              <input type="date" className={`mt-1.5 ${inputCls}`} value={cf.start_date}
+                onChange={(e) => setC("start_date", e.target.value)} />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700">Ends on (optional)</label>
+              <input type="date" className={`mt-1.5 ${inputCls}`} value={cf.end_date}
+                onChange={(e) => setC("end_date", e.target.value)} />
             </div>
           </div>
-          <button
-            onClick={addTask}
-            disabled={saving}
-            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60"
-          >
-            {saving ? "Creating…" : "Create task"}
+
+          {cError && (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{cError}</p>
+          )}
+
+          <button onClick={createTemplate} disabled={cSaving}
+            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+            {cSaving ? "Creating…" : "Create checklist"}
           </button>
         </div>
       </Modal>
     </div>
+  );
+}
+
+function ScopeBtn({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button onClick={onClick}
+      className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+        on ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+      }`}>
+      {children}
+    </button>
   );
 }

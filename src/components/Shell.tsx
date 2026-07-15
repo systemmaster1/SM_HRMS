@@ -124,8 +124,8 @@ export default function Shell({
         })}
       </nav>
 
-      {/* Trial banner */}
-      {company?.plan === "trial" && trialDaysLeft !== null && (
+      {/* Trial banner — visible to the owner/admin only */}
+      {admin && company?.plan === "trial" && trialDaysLeft !== null && (
         <div className="mx-3 mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2.5">
           <p className="text-xs font-medium text-amber-300">
             Trial · {trialDaysLeft} days left
@@ -137,8 +137,13 @@ export default function Shell({
       {/* User */}
       <div className="border-t border-white/[0.08] p-3">
         <div className="flex items-center gap-3 px-1.5 py-1.5">
-          <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-500/20 text-xs font-semibold text-white">
-            {initials}
+          <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-500/20 text-xs font-semibold text-white">
+            {profile.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
+            ) : (
+              initials
+            )}
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-[13px] font-medium text-white">
