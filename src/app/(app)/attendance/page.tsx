@@ -339,16 +339,18 @@ export default function AttendancePage() {
           </div>
         )}
 
-        <div className="flex gap-2">
-          <button onClick={doCsv}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
-            <Download className="h-4 w-4" /> Excel
-          </button>
-          <button onClick={doPdf}
-            className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
-            <Printer className="h-4 w-4" /> PDF
-          </button>
-        </div>
+        {admin && (
+          <div className="flex gap-2">
+            <button onClick={doCsv}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
+              <Download className="h-4 w-4" /> Excel
+            </button>
+            <button onClick={doPdf}
+              className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
+              <Printer className="h-4 w-4" /> PDF
+            </button>
+          </div>
+        )}
 
         {admin && (
           <div className="ml-auto flex gap-1 rounded-lg bg-slate-100 p-1">

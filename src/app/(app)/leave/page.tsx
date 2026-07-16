@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { MONTHS } from "@/lib/geo";
-import { Plane, Plus, Check, X, Users2, Clock } from "lucide-react";
+import { Plane, Plus, Check, X, Users2, Clock, SlidersHorizontal } from "lucide-react";
 
 const DAY_LABELS: Record<string, string> = {
   full_day: "Full day",
@@ -28,6 +28,7 @@ export default function LeavePage() {
   const [company, setCompany] = useState<any>(null);
   const [balances, setBalances] = useState<any[]>([]);
   const [types, setTypes] = useState<any[]>([]);
+  const [members, setMembers] = useState<Profile[]>([]);
   const [leaves, setLeaves] = useState<any[]>([]);
   const [colleagues, setColleagues] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,11 @@ export default function LeavePage() {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const [adjOpen, setAdjOpen] = useState(false);
+  const [adjSaving, setAdjSaving] = useState(false);
+  const [adjError, setAdjError] = useState("");
+  const [af, setAf] = useState({ employee_id: "", leave_type_id: "", delta_days: "1", reason: "" });
 
   const [f, setF] = useState({
     day_type: "full_day",
@@ -64,7 +70,16 @@ export default function LeavePage() {
     const { data: t } = await supabase
       .from("leave_types").select("*").eq("active", true).order("sort_order");
     setTypes(t || []);
-    if (t?.length) setF((prev) => ({ ...prev, leave_type_id: prev.leave_type_id || t[0].id }));
+    if (t?.length) {
+      setF((prev) => ({ ...prev, leave_type_id: prev.leave_type_id || t[0].id }));
+      setAf((prev) => ({ ...prev, leave_type_id: prev.leave_type_id || t[0].id }));
+    }
+
+    if (isAdminRole((p as Profile)?.role)) {
+      const { data: mem } = await supabase
+        .from("profiles").select("*").eq("status", "active").order("full_name");
+      setMembers((mem as Profile[]) || []);
+    }
 
     const { data: bal } = await supabase.rpc("leave_balance");
     setBalances(bal || []);
@@ -130,6 +145,28 @@ export default function LeavePage() {
 
     if (err) { setSaving(false); return setError(err.message); }
 
+    // Notify the reporting manager, or admins if none is set
+    const notifyTargets: string[] = [];
+    if (me!.manager_id) {
+      notifyTargets.push(me!.manager_id);
+    } else {
+      const { data: admins } = await supabase
+        .from("profiles").select("id").in("role", ["owner", "admin"]);
+      admins?.forEach((a: any) => notifyTargets.push(a.id));
+    }
+    if (notifyTargets.length) {
+      await supabase.from("notifications").insert(
+        notifyTargets.map((uidTarget) => ({
+          company_id: me!.company_id,
+          user_id: uidTarget,
+          title: "New leave request",
+          body: `${me!.full_name} applied for ${DAY_LABELS[f.day_type].toLowerCase()} leave from ${f.from_date}${isFullDay ? ` to ${to}` : ""}.`,
+          kind: "leave_status",
+          link: "/leave",
+        }))
+      );
+    }
+
     // Notify the buddy
     if (f.buddy_id) {
       await supabase.from("notifications").insert({
@@ -161,6 +198,28 @@ export default function LeavePage() {
       kind: "leave_status",
       link: "/leave",
     });
+    load();
+  };
+
+  const adjustBalance = async () => {
+    setAdjError("");
+    if (!af.employee_id) return setAdjError("Choose an employee.");
+    if (!af.leave_type_id) return setAdjError("Choose a leave type.");
+    const delta = parseFloat(af.delta_days);
+    if (!delta) return setAdjError("Enter a non-zero number of days.");
+
+    setAdjSaving(true);
+    const { error } = await supabase.rpc("adjust_leave_balance", {
+      p_employee: af.employee_id,
+      p_leave_type: af.leave_type_id,
+      p_delta_days: delta,
+      p_reason: af.reason,
+    });
+    setAdjSaving(false);
+    if (error) return setAdjError(error.message);
+
+    setAdjOpen(false);
+    setAf({ employee_id: "", leave_type_id: types[0]?.id || "", delta_days: "1", reason: "" });
     load();
   };
 
@@ -196,10 +255,18 @@ export default function LeavePage() {
         title="Leave"
         subtitle="Apply for leave and track your balance."
         action={
-          <button onClick={() => setOpen(true)}
-            className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800">
-            <Plus className="h-4 w-4" /> Apply for leave
-          </button>
+          <div className="flex shrink-0 gap-2">
+            {admin && (
+              <button onClick={() => setAdjOpen(true)}
+                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
+                <SlidersHorizontal className="h-4 w-4" /> Adjust balance
+              </button>
+            )}
+            <button onClick={() => setOpen(true)}
+              className="flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800">
+              <Plus className="h-4 w-4" /> Apply for leave
+            </button>
+          </div>
         }
       />
 
@@ -451,6 +518,49 @@ export default function LeavePage() {
           <button onClick={apply} disabled={saving}
             className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
             {saving ? "Submitting…" : "Submit request"}
+          </button>
+        </div>
+      </Modal>
+
+      {/* Adjust balance (admin) */}
+      <Modal open={adjOpen} onClose={() => setAdjOpen(false)} title="Adjust leave balance">
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-medium text-slate-700">Employee *</label>
+            <select className={`mt-1.5 ${inputCls}`} value={af.employee_id}
+              onChange={(e) => setAf((p) => ({ ...p, employee_id: e.target.value }))}>
+              <option value="">Select…</option>
+              {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Leave type *</label>
+            <select className={`mt-1.5 ${inputCls}`} value={af.leave_type_id}
+              onChange={(e) => setAf((p) => ({ ...p, leave_type_id: e.target.value }))}>
+              {types.map((t) => <option key={t.id} value={t.id}>{t.name} ({t.code})</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Days</label>
+            <input type="number" step="0.5" className={`mt-1.5 ${inputCls}`} value={af.delta_days}
+              onChange={(e) => setAf((p) => ({ ...p, delta_days: e.target.value }))} />
+            <p className="mt-1.5 text-xs text-slate-500">
+              Positive deducts (e.g. <code>1</code>), negative credits back (e.g. <code>-1</code>).
+            </p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-slate-700">Reason</label>
+            <input className={`mt-1.5 ${inputCls}`} placeholder="e.g. Correction, goodwill credit"
+              value={af.reason} onChange={(e) => setAf((p) => ({ ...p, reason: e.target.value }))} />
+          </div>
+
+          {adjError && (
+            <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{adjError}</p>
+          )}
+
+          <button onClick={adjustBalance} disabled={adjSaving}
+            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+            {adjSaving ? "Saving…" : "Apply adjustment"}
           </button>
         </div>
       </Modal>

@@ -261,10 +261,12 @@ export default function PayrollPage() {
                           ₹{Number(r.net_salary).toLocaleString("en-IN")}
                         </td>
                         <td className="px-4 py-3">
-                          <button onClick={() => doSlip(r)} title="Print salary slip"
-                            className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700">
-                            <Printer className="h-3.5 w-3.5" /> Slip
-                          </button>
+                          {admin && (
+                            <button onClick={() => doSlip(r)} title="Print salary slip"
+                              className="flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700">
+                              <Printer className="h-3.5 w-3.5" /> Slip
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}

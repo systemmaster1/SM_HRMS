@@ -55,6 +55,7 @@ export default function SettingsForm({
     payroll_short_free_limit: String(company?.payroll_short_free_limit ?? 2),
     payroll_short_deduction: String(company?.payroll_short_deduction ?? 0.5),
     payroll_absent_deduction: String(company?.payroll_absent_deduction ?? 1.0),
+    auto_leave_deduction_enabled: company?.auto_leave_deduction_enabled !== false,
     geofence_enabled: !!company?.geofence_enabled,
     office_lat: company?.office_lat != null ? String(company.office_lat) : "",
     office_lng: company?.office_lng != null ? String(company.office_lng) : "",
@@ -127,6 +128,7 @@ export default function SettingsForm({
       payroll_short_free_limit: parseInt(f.payroll_short_free_limit) || 0,
       payroll_short_deduction: parseFloat(f.payroll_short_deduction) || 0,
       payroll_absent_deduction: parseFloat(f.payroll_absent_deduction) || 0,
+      auto_leave_deduction_enabled: f.auto_leave_deduction_enabled,
       geofence_enabled: f.geofence_enabled,
       office_lat: f.office_lat ? parseFloat(f.office_lat) : null,
       office_lng: f.office_lng ? parseFloat(f.office_lng) : null,
@@ -649,6 +651,22 @@ export default function SettingsForm({
               These rules decide how many days are deducted from salary. Set a free limit high
               (e.g. 999) to switch a rule off.
             </p>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 p-3.5">
+              <input type="checkbox" checked={f.auto_leave_deduction_enabled}
+                onChange={(e) => setF((p) => ({ ...p, auto_leave_deduction_enabled: e.target.checked }))}
+                className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+              <span>
+                <span className="block text-sm font-medium text-slate-900">
+                  Also deduct from leave balance
+                </span>
+                <span className="block text-xs text-slate-500">
+                  When on, excess late arrivals and short leaves (beyond the free limits below)
+                  automatically deduct days from PL, then CL, then EL — visible immediately on
+                  the Leave page. Turn off to apply these rules to payroll only.
+                </span>
+              </span>
+            </label>
 
             <div>
               <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Late arrivals</p>
