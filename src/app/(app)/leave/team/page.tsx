@@ -4,9 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
-import { FadeIn, StaggerGroup, StaggerItem, HoverLift, MotionButton, SkeletonRows } from "@/components/motion";
+import { FadeIn, StaggerGroup, StaggerItem, HoverLift, MotionButton, SkeletonRows, motion } from "@/components/motion";
 import { type Profile, isAdminRole } from "@/lib/types";
-import { Users2, SlidersHorizontal, History, Search } from "lucide-react";
+import { Users2, SlidersHorizontal, History, Search, Check, X, Clock, Plane } from "lucide-react";
 
 const DAY_LABELS: Record<string, string> = {
   full_day: "Full day", first_half: "First half", second_half: "Second half",
@@ -24,6 +24,7 @@ export default function TeamLeaveBalancePage() {
   const [q, setQ] = useState("");
 
   const [detail, setDetail] = useState<any>(null);
+  const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
@@ -63,8 +64,9 @@ export default function TeamLeaveBalancePage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const openHistory = async (member: any) => {
+  const openHistory = async (member: any, filterType: string | null = null) => {
     setDetail(member);
+    setTypeFilter(filterType);
     setHistoryLoading(true);
     const { data } = await supabase
       .from("leaves")
@@ -100,12 +102,19 @@ export default function TeamLeaveBalancePage() {
 
     setAdjOpen(false);
     load();
-    if (history.length) openHistory(detail);
   };
 
   const filtered = rows.filter((r) =>
     !q || r.member.full_name?.toLowerCase().includes(q.toLowerCase())
   );
+
+  const detailRow = rows.find((r) => r.member.id === detail?.id);
+  const visibleHistory = typeFilter
+    ? history.filter((l) => l.leave_type_id === typeFilter)
+    : history;
+
+  const initials = (n: string) =>
+    (n || "U").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
   if (loading) return <Card><SkeletonRows rows={6} /></Card>;
 
@@ -119,7 +128,7 @@ export default function TeamLeaveBalancePage() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
         <input value={q} onChange={(e) => setQ(e.target.value)}
           placeholder="Search employee…"
-          className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10" />
+          className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 py-2.5 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10" />
       </div>
 
       <Card>
@@ -129,7 +138,7 @@ export default function TeamLeaveBalancePage() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-100 text-left">
+                <tr className="border-b border-slate-100 dark:border-slate-700 text-left">
                   <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-400">Employee</th>
                   {types.map((t) => (
                     <th key={t.id} className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-400">
@@ -139,35 +148,50 @@ export default function TeamLeaveBalancePage() {
                   <th className="px-4 py-3 text-xs font-medium uppercase tracking-wide text-slate-400">&nbsp;</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {filtered.map((r) => (
-                  <tr key={r.member.id} className="transition hover:bg-slate-50">
+                  <tr key={r.member.id} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/40">
                     <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{r.member.full_name}</p>
-                      <p className="text-xs text-slate-400">
-                        {r.member.designation}{r.member.department && ` · ${r.member.department}`}
-                      </p>
+                      <div className="flex items-center gap-2.5">
+                        <div className="grid h-8 w-8 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-50 dark:bg-brand-500/10 text-[11px] font-semibold text-brand-700 dark:text-brand-300">
+                          {r.member.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={r.member.avatar_url} alt="" className="h-full w-full object-cover" />
+                          ) : initials(r.member.full_name)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-slate-900 dark:text-slate-100">{r.member.full_name}</p>
+                          <p className="truncate text-xs text-slate-400">
+                            {r.member.designation}{r.member.department && ` · ${r.member.department}`}
+                          </p>
+                        </div>
+                      </div>
                     </td>
                     {types.map((t) => {
                       const b = r.balances.find((x: any) => x.type_id === t.id);
                       const bal = b ? Number(b.balance) : 0;
+                      const low = b && Number(b.quota) > 0 && bal <= Number(b.quota) * 0.2;
                       return (
                         <td key={t.id} className="px-4 py-3 tabular-nums">
-                          <span className={bal < 0 ? "font-semibold text-rose-600" : "text-slate-700"}>
-                            {b ? bal : "—"}
-                          </span>
-                          {b && <span className="text-xs text-slate-400"> / {Number(b.quota)}</span>}
+                          <button onClick={() => openHistory(r.member, t.id)}
+                            title={`View ${t.code} history`}
+                            className="rounded-md px-1.5 py-1 transition hover:bg-brand-50 dark:hover:bg-brand-500/10">
+                            <span className={`font-semibold ${low ? "text-rose-600" : "text-slate-900 dark:text-slate-100"}`}>
+                              {b ? bal : "—"}
+                            </span>
+                            {b && <span className="text-xs text-slate-400"> / {Number(b.quota)}</span>}
+                          </button>
                         </td>
                       );
                     })}
                     <td className="px-4 py-3">
                       <div className="flex justify-end gap-1.5">
                         <button onClick={() => openHistory(r.member)} title="View history"
-                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700">
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:border-brand-600 hover:text-brand-700">
                           <History className="h-3.5 w-3.5" /> History
                         </button>
                         <button onClick={() => openAdjust(r.member)} title="Adjust balance"
-                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700">
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 px-2.5 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:border-brand-600 hover:text-brand-700">
                           <SlidersHorizontal className="h-3.5 w-3.5" /> Adjust
                         </button>
                       </div>
@@ -181,37 +205,93 @@ export default function TeamLeaveBalancePage() {
       </Card>
 
       {/* History modal */}
-      <Modal open={!!detail && !adjOpen} onClose={() => setDetail(null)} title={detail ? `${detail.full_name} — leave history` : ""}>
-        <div className="space-y-3">
+      <Modal open={!!detail && !adjOpen} onClose={() => setDetail(null)} title="Leave history">
+        <div className="space-y-4">
+          {/* Employee summary header */}
+          <div className="flex items-center gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/40 p-3.5">
+            <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-700 text-sm font-semibold text-white">
+              {detail?.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={detail.avatar_url} alt="" className="h-full w-full object-cover" />
+              ) : initials(detail?.full_name || "")}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{detail?.full_name}</p>
+              <p className="truncate text-xs text-slate-500">
+                {detail?.designation}{detail?.department && ` · ${detail.department}`}
+              </p>
+            </div>
+          </div>
+
+          {/* Balance summary chips */}
+          <div className="grid grid-cols-3 gap-2">
+            {types.map((t) => {
+              const b = detailRow?.balances.find((x: any) => x.type_id === t.id);
+              const bal = b ? Number(b.balance) : 0;
+              const on = typeFilter === t.id;
+              return (
+                <button key={t.id} onClick={() => setTypeFilter(on ? null : t.id)}
+                  className={`rounded-lg border p-2.5 text-left transition ${
+                    on ? "border-brand-600 bg-brand-50 dark:bg-brand-500/10" : "border-slate-200 dark:border-slate-700 hover:border-slate-300"
+                  }`}>
+                  <p className="text-[10px] font-bold uppercase text-slate-400">{t.code}</p>
+                  <p className="text-sm font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                    {b ? bal : "—"}<span className="text-xs font-normal text-slate-400">/{b ? Number(b.quota) : 0}</span>
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+          {typeFilter && (
+            <button onClick={() => setTypeFilter(null)} className="text-xs font-medium text-brand-700 hover:text-brand-800">
+              Clear filter — show all types
+            </button>
+          )}
+
+          {/* Timeline */}
           {historyLoading ? (
             <SkeletonRows rows={3} />
-          ) : history.length === 0 ? (
+          ) : visibleHistory.length === 0 ? (
             <p className="py-6 text-center text-sm text-slate-400">No leave requests yet.</p>
           ) : (
-            <ul className="max-h-96 space-y-2 overflow-y-auto">
-              {history.map((l) => (
-                <li key={l.id} className="rounded-lg border border-slate-200 p-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
-                      {l.leave_types?.code || "—"}
+            <ul className="max-h-80 space-y-2 overflow-y-auto">
+              {visibleHistory.map((l) => {
+                const icon = l.status === "approved" ? Check : l.status === "rejected" ? X : Clock;
+                const tone = l.status === "approved" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400"
+                  : l.status === "rejected" ? "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400"
+                  : "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400";
+                const Icon = icon;
+                return (
+                  <li key={l.id} className="flex items-start gap-3 rounded-lg border border-slate-200 dark:border-slate-700 p-3">
+                    <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full ${tone}`}>
+                      <Icon className="h-4 w-4" />
                     </span>
-                    <span className="text-sm font-medium text-slate-900">
-                      {DAY_LABELS[l.day_type] || l.day_type}
-                    </span>
-                    <Badge value={l.status} />
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {l.from_date}{l.from_date !== l.to_date && ` → ${l.to_date}`}
-                    {l.days > 0 && ` · ${l.days} day(s)`}
-                    {l.reason && ` · ${l.reason}`}
-                  </p>
-                  {l.decider?.full_name && (
-                    <p className="mt-0.5 text-[11px] text-slate-400">
-                      {l.status === "approved" ? "Approved" : l.status === "rejected" ? "Rejected" : "Decided"} by {l.decider.full_name}
-                    </p>
-                  )}
-                </li>
-              ))}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {l.leave_types?.code && (
+                          <span className="rounded bg-brand-50 dark:bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 dark:text-brand-300">
+                            {l.leave_types.code}
+                          </span>
+                        )}
+                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {DAY_LABELS[l.day_type] || l.day_type}
+                        </span>
+                        <Badge value={l.status} />
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {l.from_date}{l.from_date !== l.to_date && ` → ${l.to_date}`}
+                        {l.days > 0 && ` · ${l.days} day(s)`}
+                        {l.reason && ` · ${l.reason}`}
+                      </p>
+                      {l.decider?.full_name && (
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          {l.status === "approved" ? "Approved" : l.status === "rejected" ? "Rejected" : "Decided"} by {l.decider.full_name}
+                        </p>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>

@@ -193,9 +193,14 @@ export default function LeavePage() {
   };
 
   const decide = async (l: any, status: "approved" | "rejected") => {
-    await supabase.from("leaves")
+    const { error: updErr } = await supabase.from("leaves")
       .update({ status, decided_by: me!.id, decided_at: new Date().toISOString() })
       .eq("id", l.id);
+
+    if (updErr) {
+      setLoadError(`Could not ${status === "approved" ? "approve" : "reject"}: ${updErr.message}`);
+      return;
+    }
 
     await supabase.from("notifications").insert({
       company_id: me!.company_id,
