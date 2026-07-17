@@ -13,13 +13,20 @@ const statusStyles: Record<string, string> = {
   cancelled: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
 };
 
+const iconMap: Record<string, any> = {
+  users: Users,
+  calendar: CalendarCheck,
+  map: MapPin,
+  plane: Plane,
+};
+
 export default function DashboardClient({
   greeting, firstName, admin, stats, visits,
 }: {
   greeting: string;
   firstName: string;
   admin: boolean;
-  stats: { label: string; value: number; icon: any; color: string }[];
+  stats: { label: string; value: number; icon: string; color: string }[];
   visits: any[];
 }) {
   const quickActions = [
@@ -43,19 +50,22 @@ export default function DashboardClient({
       </FadeIn>
 
       <StaggerGroup className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((s) => (
-          <StaggerItem key={s.label}>
-            <HoverLift className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
-              <div className="flex items-start justify-between">
-                <span className="text-[13px] text-slate-500 dark:text-slate-400">{s.label}</span>
-                <span className={`grid h-8 w-8 place-items-center rounded-lg ${s.color}`}>
-                  <s.icon className="h-4 w-4" />
-                </span>
-              </div>
-              <p className="mt-3 text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</p>
-            </HoverLift>
-          </StaggerItem>
-        ))}
+        {stats.map((s) => {
+          const Icon = iconMap[s.icon] || Users;
+          return (
+            <StaggerItem key={s.label}>
+              <HoverLift className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+                <div className="flex items-start justify-between">
+                  <span className="text-[13px] text-slate-500 dark:text-slate-400">{s.label}</span>
+                  <span className={`grid h-8 w-8 place-items-center rounded-lg ${s.color}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                </div>
+                <p className="mt-3 text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</p>
+              </HoverLift>
+            </StaggerItem>
+          );
+        })}
       </StaggerGroup>
 
       <FadeIn delay={0.1}>
