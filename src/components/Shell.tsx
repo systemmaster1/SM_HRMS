@@ -57,15 +57,7 @@ const nav: NavEntry[] = [
     ],
   },
   { href: "/payroll", label: "Payroll", icon: <Wallet className="h-[18px] w-[18px]" /> },
-  {
-    key: "people",
-    label: "People",
-    icon: <Users className="h-[18px] w-[18px]" />,
-    items: [
-      { href: "/team",      label: "Team",      icon: <Users className="h-4 w-4" /> },
-      { href: "/directory", label: "Directory", icon: <Contact className="h-4 w-4" /> },
-    ],
-  },
+  { href: "/team", label: "Team", icon: <Users className="h-[18px] w-[18px]" /> },
   {
     key: "support",
     label: "Support",

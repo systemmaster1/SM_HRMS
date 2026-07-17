@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Modal, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
-import { Building2, Briefcase, Plane, Plus, Trash2, Check, Users2, MapPinned, Navigation } from "lucide-react";
+import { Building2, Briefcase, Plane, Plus, Trash2, Check, Users2, MapPinned, Navigation, Pencil } from "lucide-react";
 
 const DAY_TYPES = [
   { v: "full_day",       l: "Full day" },
@@ -32,6 +32,21 @@ export default function OrganizationPage() {
   const [quota, setQuota] = useState("12");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  const [editing, setEditing] = useState<{ table: string; id: string } | null>(null);
+  const [editValue, setEditValue] = useState("");
+
+  const startEdit = (table: string, item: any) => {
+    setEditing({ table, id: item.id });
+    setEditValue(item.name);
+  };
+
+  const saveEdit = async () => {
+    if (!editing || !editValue.trim()) { setEditing(null); return; }
+    await supabase.from(editing.table).update({ name: editValue.trim() }).eq("id", editing.id);
+    setEditing(null);
+    load();
+  };
 
   const [branchEdit, setBranchEdit] = useState<any>(null);
   const [bf, setBf] = useState({ geofence_enabled: false, office_lat: "", office_lng: "", office_radius_m: "200" });
@@ -159,15 +174,34 @@ export default function OrganizationPage() {
 
   const dayTypes: string[] = company?.day_types || [];
 
-  const Chip = ({ item, table }: { item: any; table: string }) => (
-    <span className="group flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white py-1.5 pl-3 pr-2 text-sm text-slate-700">
-      {item.name}
-      <button onClick={() => del(table, item.id)}
-        className="text-slate-300 transition hover:text-rose-600">
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
-    </span>
-  );
+  const Chip = ({ item, table }: { item: any; table: string }) => {
+    const isEditing = editing?.table === table && editing?.id === item.id;
+    if (isEditing) {
+      return (
+        <span className="flex items-center gap-1 rounded-lg border border-brand-400 bg-white py-1 pl-2 pr-1">
+          <input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditing(null); }}
+            className="w-28 border-none bg-transparent text-sm text-slate-900 outline-none dark:text-slate-100" />
+          <button onClick={saveEdit} className="grid h-6 w-6 place-items-center rounded text-emerald-600 hover:bg-emerald-50">
+            <Check className="h-3.5 w-3.5" />
+          </button>
+        </span>
+      );
+    }
+    return (
+      <span className="group flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1.5 pl-3 pr-2 text-sm text-slate-700 dark:text-slate-200">
+        {item.name}
+        <button onClick={() => startEdit(table, item)}
+          className="text-slate-300 transition hover:text-brand-600">
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => del(table, item.id)}
+          className="text-slate-300 transition hover:text-rose-600">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      </span>
+    );
+  };
 
   return (
     <div>
@@ -287,7 +321,14 @@ export default function OrganizationPage() {
                   {t.code}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-slate-900">{t.name}</p>
+                  <input defaultValue={t.name}
+                    onBlur={async (e) => {
+                      if (e.target.value.trim() && e.target.value !== t.name) {
+                        await supabase.from("leave_types").update({ name: e.target.value.trim() }).eq("id", t.id);
+                        load();
+                      }
+                    }}
+                    className="w-full rounded border border-transparent bg-transparent px-1 -mx-1 text-sm font-medium text-slate-900 dark:text-slate-100 outline-none transition hover:border-slate-200 focus:border-brand-600 focus:bg-white dark:focus:bg-slate-700" />
                   <p className="text-xs text-slate-400">{t.is_paid ? "Paid" : "Unpaid"}</p>
                 </div>
                 <div className="flex items-center gap-2">

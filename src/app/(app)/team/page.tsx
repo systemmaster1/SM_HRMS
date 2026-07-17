@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
-import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2, IdCard } from "lucide-react";
+import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2, IdCard, Search } from "lucide-react";
 import EmployeeDetail from "@/components/EmployeeDetail";
 
 const randomPassword = () => {
@@ -40,6 +40,7 @@ export default function TeamPage() {
   const [newPw, setNewPw] = useState(randomPassword());
 
   const [tab, setTab] = useState<"active" | "left">("active");
+  const [q, setQ] = useState("");
   const [detailFor, setDetailFor] = useState<any>(null);
   const [attFor, setAttFor] = useState<any>(null);
   const [att, setAtt] = useState({
@@ -78,11 +79,25 @@ export default function TeamPage() {
       .from("profiles").select("*").eq("id", auth.user!.id).single();
     setMe(mine as Profile);
 
-    const { data: list } = await supabase
-      .from("profiles")
-      .select("*, manager:manager_id(full_name), branch:branch_id(name)")
-      .order("created_at");
-    setMembers((list as any[]) || []);
+    if (isAdminRole((mine as Profile)?.role)) {
+      const { data: list } = await supabase
+        .from("profiles")
+        .select("*, manager:manager_id(full_name), branch:branch_id(name)")
+        .order("created_at");
+      setMembers((list as any[]) || []);
+    } else {
+      // Regular employees see the privacy-respecting directory view
+      // (honours the company's visibility settings for email/phone/scope).
+      const { data: dir } = await supabase.rpc("directory");
+      setMembers(
+        ((dir as any[]) || []).map((r) => ({
+          ...r,
+          branch: r.branch ? { name: r.branch } : null,
+          manager: null,
+          status: "active",
+        }))
+      );
+    }
 
     const [d, g, br] = await Promise.all([
       supabase.from("departments").select("*").order("name"),
@@ -147,11 +162,21 @@ export default function TeamPage() {
   const managers = members.filter((m) => ["owner", "admin", "manager"].includes(m.role));
   const activeMembers = members.filter((m) => m.status !== "left");
   const leftMembers = members.filter((m) => m.status === "left");
-  const visibleMembers = tab === "active" ? activeMembers : leftMembers;
+  const visibleMembers = (tab === "active" ? activeMembers : leftMembers).filter((m) =>
+    !q ||
+    m.full_name?.toLowerCase().includes(q.toLowerCase()) ||
+    m.designation?.toLowerCase().includes(q.toLowerCase()) ||
+    m.department?.toLowerCase().includes(q.toLowerCase())
+  );
 
-  const Avatar = ({ n }: { n: string }) => (
-    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">
-      {(n || "U").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()}
+  const Avatar = ({ n, url }: { n: string; url?: string | null }) => (
+    <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-50 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+      {url ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={url} alt="" className="h-full w-full object-cover" />
+      ) : (
+        (n || "U").split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase()
+      )}
     </div>
   );
 
@@ -172,19 +197,30 @@ export default function TeamPage() {
         }
       />
 
-      <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
-        <button onClick={() => setTab("active")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-            tab === "active" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-700"
-          }`}>
-          Active ({activeMembers.length})
-        </button>
-        <button onClick={() => setTab("left")}
-          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-            tab === "left" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-700"
-          }`}>
-          Left ({leftMembers.length})
-        </button>
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative max-w-xs flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <input value={q} onChange={(e) => setQ(e.target.value)}
+            placeholder="Search by name, role or department"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 py-2.5 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10" />
+        </div>
+
+        {admin && (
+          <div className="flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
+            <button onClick={() => setTab("active")}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                tab === "active" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}>
+              Active ({activeMembers.length})
+            </button>
+            <button onClick={() => setTab("left")}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+                tab === "left" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              }`}>
+              Left ({leftMembers.length})
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -195,7 +231,7 @@ export default function TeamPage() {
             <ul className="divide-y divide-slate-100">
               {visibleMembers.map((m: any) => (
                 <li key={m.id} className="flex items-center gap-3 px-4 py-3.5">
-                  <Avatar n={m.full_name} />
+                  <Avatar n={m.full_name} url={m.avatar_url} />
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium text-slate-900">{m.full_name || "—"}</p>
