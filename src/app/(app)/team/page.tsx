@@ -41,6 +41,7 @@ export default function TeamPage() {
 
   const [tab, setTab] = useState<"active" | "left">("active");
   const [q, setQ] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [detailFor, setDetailFor] = useState<any>(null);
   const [attFor, setAttFor] = useState<any>(null);
   const [att, setAtt] = useState({
@@ -74,6 +75,7 @@ export default function TeamPage() {
   };
 
   const load = useCallback(async () => {
+    setLoadError("");
     const { data: auth } = await supabase.auth.getUser();
     const { data: mine } = await supabase
       .from("profiles").select("*").eq("id", auth.user!.id).single();
@@ -88,7 +90,8 @@ export default function TeamPage() {
     } else {
       // Regular employees see the privacy-respecting directory view
       // (honours the company's visibility settings for email/phone/scope).
-      const { data: dir } = await supabase.rpc("directory");
+      const { data: dir, error: dirErr } = await supabase.rpc("directory");
+      if (dirErr) setLoadError(dirErr.message);
       setMembers(
         ((dir as any[]) || []).map((r) => ({
           ...r,
@@ -196,6 +199,12 @@ export default function TeamPage() {
           )
         }
       />
+
+      {loadError && (
+        <p className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+          Could not load your colleagues: {loadError}
+        </p>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative max-w-xs flex-1">

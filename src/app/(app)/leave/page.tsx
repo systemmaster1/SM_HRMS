@@ -38,10 +38,12 @@ export default function LeavePage() {
 
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState<number | "all">(now.getMonth() + 1);
 
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
 
   const [adjOpen, setAdjOpen] = useState(false);
   const [adjSaving, setAdjSaving] = useState(false);
@@ -60,6 +62,7 @@ export default function LeavePage() {
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   const load = useCallback(async () => {
+    setLoadError("");
     const { data: auth } = await supabase.auth.getUser();
     const { data: p } = await supabase
       .from("profiles").select("*").eq("id", auth.user!.id).single();
@@ -69,9 +72,10 @@ export default function LeavePage() {
       .from("companies").select("*").eq("id", p!.company_id).single();
     setCompany(c);
 
-    const { data: t } = await supabase
+    const { data: t, error: tErr } = await supabase
       .from("leave_types").select("*").eq("active", true).order("sort_order");
     setTypes(t || []);
+    if (tErr) setLoadError((prev) => prev || `Leave types: ${tErr.message}`);
     if (t?.length) {
       setF((prev) => ({ ...prev, leave_type_id: prev.leave_type_id || t[0].id }));
       setAf((prev) => ({ ...prev, leave_type_id: prev.leave_type_id || t[0].id }));
@@ -83,8 +87,9 @@ export default function LeavePage() {
       setMembers((mem as Profile[]) || []);
     }
 
-    const { data: bal } = await supabase.rpc("leave_balance");
+    const { data: bal, error: balErr } = await supabase.rpc("leave_balance");
     setBalances(bal || []);
+    if (balErr) setLoadError((prev) => prev || `Leave balance: ${balErr.message}`);
 
     const { data: l } = await supabase
       .from("leaves")
@@ -245,7 +250,9 @@ export default function LeavePage() {
   const pending = teamReqs.filter((l) => l.status === "pending").length;
   const pendingBuddy = buddyReqs.filter((l) => l.buddy_status === "pending").length;
 
-  const list = tab === "team" ? teamReqs : tab === "buddy" ? buddyReqs : mine;
+  const byMonth = (arr: any[]) =>
+    month === "all" ? arr : arr.filter((l) => new Date(l.from_date).getMonth() + 1 === month);
+  const list = byMonth(tab === "team" ? teamReqs : tab === "buddy" ? buddyReqs : mine);
   const years = Array.from({ length: 4 }, (_, i) => now.getFullYear() - i);
   const allowed: string[] = company?.day_types || ["full_day"];
 
@@ -273,6 +280,12 @@ export default function LeavePage() {
         }
       />
       </FadeIn>
+
+      {loadError && (
+        <p className="mb-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+          Could not load: {loadError}
+        </p>
+      )}
 
       {/* Balances */}
       <FadeIn delay={0.03}>
@@ -330,6 +343,14 @@ export default function LeavePage() {
       {/* Tabs + year */}
       <FadeIn delay={0.06}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative">
+          <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <select value={month} onChange={(e) => setMonth(e.target.value === "all" ? "all" : Number(e.target.value))}
+            className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 py-2 pl-8 pr-3 text-sm text-slate-700 dark:text-slate-200 outline-none focus:border-brand-600">
+            <option value="all">All months</option>
+            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+        </div>
         <div className="relative">
           <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           <select value={year} onChange={(e) => setYear(Number(e.target.value))}

@@ -26,7 +26,7 @@ export default function DashboardClient({
   greeting: string;
   firstName: string;
   admin: boolean;
-  stats: { label: string; value: number; icon: string; color: string }[];
+  stats: { label: string; value: number; icon: string; color: string; href: string }[];
   visits: any[];
 }) {
   const quickActions = [
@@ -54,14 +54,17 @@ export default function DashboardClient({
           const Icon = iconMap[s.icon] || Users;
           return (
             <StaggerItem key={s.label}>
-              <HoverLift className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
-                <div className="flex items-start justify-between">
-                  <span className="text-[13px] text-slate-500 dark:text-slate-400">{s.label}</span>
-                  <span className={`grid h-8 w-8 place-items-center rounded-lg ${s.color}`}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                </div>
-                <p className="mt-3 text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</p>
+              <HoverLift>
+                <Link href={s.href}
+                  className="block rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 transition-colors hover:border-brand-400 dark:hover:border-brand-500">
+                  <div className="flex items-start justify-between">
+                    <span className="text-[13px] text-slate-500 dark:text-slate-400">{s.label}</span>
+                    <span className={`grid h-8 w-8 place-items-center rounded-lg ${s.color}`}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                  </div>
+                  <p className="mt-3 text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</p>
+                </Link>
               </HoverLift>
             </StaggerItem>
           );

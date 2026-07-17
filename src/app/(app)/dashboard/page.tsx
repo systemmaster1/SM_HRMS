@@ -37,10 +37,10 @@ export default async function DashboardPage() {
   const firstName = profile?.full_name?.split(" ")[0] || "there";
 
   const stats = [
-    { label: "Team members", value: team.count ?? 0, icon: "users", color: "text-brand-700 bg-brand-50 dark:bg-brand-500/10 dark:text-brand-300" },
-    { label: "Present today", value: present.count ?? 0, icon: "calendar", color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400" },
-    { label: "On field", value: onField.count ?? 0, icon: "map", color: "text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400" },
-    { label: "On leave", value: onLeave.count ?? 0, icon: "plane", color: "text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400" },
+    { label: "Team members", value: team.count ?? 0, icon: "users", color: "text-brand-700 bg-brand-50 dark:bg-brand-500/10 dark:text-brand-300", href: "/team" },
+    { label: "Present today", value: present.count ?? 0, icon: "calendar", color: "text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400", href: "/attendance" },
+    { label: "On field", value: onField.count ?? 0, icon: "map", color: "text-blue-600 bg-blue-50 dark:bg-blue-500/10 dark:text-blue-400", href: "/field-visits" },
+    { label: "On leave", value: onLeave.count ?? 0, icon: "plane", color: "text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400", href: "/leave" },
   ];
 
   return (
