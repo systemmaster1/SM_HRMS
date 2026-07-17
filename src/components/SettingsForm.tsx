@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
-import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera, Eye, Navigation, IndianRupee } from "lucide-react";
+import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera, Eye, Navigation, IndianRupee, ClipboardCheck } from "lucide-react";
 
 export default function SettingsForm({
   company,
@@ -56,6 +56,7 @@ export default function SettingsForm({
     payroll_short_deduction: String(company?.payroll_short_deduction ?? 0.5),
     payroll_absent_deduction: String(company?.payroll_absent_deduction ?? 1.0),
     auto_leave_deduction_enabled: company?.auto_leave_deduction_enabled !== false,
+    task_assignment_mode: company?.task_assignment_mode || "department",
     geofence_enabled: !!company?.geofence_enabled,
     office_lat: company?.office_lat != null ? String(company.office_lat) : "",
     office_lng: company?.office_lng != null ? String(company.office_lng) : "",
@@ -129,6 +130,7 @@ export default function SettingsForm({
       payroll_short_deduction: parseFloat(f.payroll_short_deduction) || 0,
       payroll_absent_deduction: parseFloat(f.payroll_absent_deduction) || 0,
       auto_leave_deduction_enabled: f.auto_leave_deduction_enabled,
+      task_assignment_mode: f.task_assignment_mode,
       geofence_enabled: f.geofence_enabled,
       office_lat: f.office_lat ? parseFloat(f.office_lat) : null,
       office_lng: f.office_lng ? parseFloat(f.office_lng) : null,
@@ -734,6 +736,51 @@ export default function SettingsForm({
               <button onClick={save} disabled={saving}
                 className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
                 {saving ? "Saving…" : "Save payroll policy"}
+              </button>
+              {saved && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                  <Check className="h-4 w-4" /> Saved
+                </span>
+              )}
+            </div>
+          </div>
+        </Card>
+
+
+        {/* Task assignment */}
+        <Card>
+          <div className="flex items-center gap-2 border-b border-slate-100 px-5 py-3.5">
+            <ClipboardCheck className="h-4 w-4 text-slate-400" />
+            <h2 className="text-sm font-semibold text-slate-900">Task assignment</h2>
+          </div>
+          <div className="space-y-4 p-5">
+            <p className="text-xs text-slate-500">
+              When someone creates a delegation or checklist task, should they pick a
+              department first (narrowing the employee list), or pick any employee directly?
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {[
+                { v: "department", t: "Department dependent", d: "Choose a department, then only that team's employees appear" },
+                { v: "direct", t: "Direct", d: "Pick any active employee straight away, no department filter" },
+              ].map((o) => (
+                <button key={o.v} type="button"
+                  onClick={() => set("task_assignment_mode", o.v)}
+                  className={`rounded-xl border p-3 text-left transition ${
+                    f.task_assignment_mode === o.v
+                      ? "border-brand-700 bg-brand-50"
+                      : "border-slate-200 hover:border-slate-300"
+                  }`}>
+                  <p className={`text-sm font-medium ${f.task_assignment_mode === o.v ? "text-brand-700" : "text-slate-900"}`}>
+                    {o.t}
+                  </p>
+                  <p className="mt-0.5 text-xs text-slate-500">{o.d}</p>
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
+              <button onClick={save} disabled={saving}
+                className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+                {saving ? "Saving…" : "Save"}
               </button>
               {saved && (
                 <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600">

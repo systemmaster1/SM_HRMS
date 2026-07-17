@@ -45,7 +45,9 @@ function StatusChip({ status }: { status: string }) {
 export default function TasksPage() {
   const supabase = createClient();
   const [me, setMe] = useState<Profile | null>(null);
+  const [company, setCompany] = useState<any>(null);
   const [members, setMembers] = useState<Profile[]>([]);
+  const [depts, setDepts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"delegation" | "checklist">("delegation");
 
@@ -56,7 +58,7 @@ export default function TasksPage() {
   const [dError, setDError] = useState("");
   const [dScope, setDScope] = useState<"mine" | "byMe" | "all">("mine");
   const [df, setDf] = useState({
-    title: "", description: "", assigned_to: "", priority: "medium",
+    title: "", kra_id: "", department: "", description: "", assigned_to: "", priority: "medium",
     due_date: "", due_time: "",
   });
   const setD = (k: string, v: string) => setDf((p) => ({ ...p, [k]: v }));
@@ -69,8 +71,9 @@ export default function TasksPage() {
   const [cError, setCError] = useState("");
   const [cScope, setCScope] = useState<"mine" | "all">("mine");
   const [cf, setCf] = useState({
-    title: "", description: "", assigned_to: "", frequency: "weekly",
-    start_date: new Date().toISOString().slice(0, 10), end_date: "",
+    title: "", kra_id: "", department: "", description: "", assigned_to: "",
+    priority: "medium", frequency: "weekly",
+    start_date: new Date().toISOString().slice(0, 10), start_time: "09:00", end_date: "",
   });
   const setC = (k: string, v: string) => setCf((p) => ({ ...p, [k]: v }));
 
@@ -81,9 +84,14 @@ export default function TasksPage() {
     setMe(p as Profile);
 
     if (isAdminRole((p as Profile)?.role)) {
-      const { data: m } = await supabase
-        .from("profiles").select("*").eq("status", "active").order("full_name");
+      const [{ data: c }, { data: m }, { data: dpts }] = await Promise.all([
+        supabase.from("companies").select("*").eq("id", (p as Profile)!.company_id).single(),
+        supabase.from("profiles").select("*").eq("status", "active").order("full_name"),
+        supabase.from("departments").select("*").order("name"),
+      ]);
+      setCompany(c);
       setMembers((m as Profile[]) || []);
+      setDepts(dpts || []);
     }
 
     // Catch up any due checklist occurrences (safe to call every visit)
@@ -120,6 +128,7 @@ export default function TasksPage() {
     const { data: created, error } = await supabase.from("delegations").insert({
       company_id: me!.company_id,
       title: df.title.trim(),
+      kra_id: df.kra_id,
       description: df.description,
       assigned_to: df.assigned_to,
       assigned_by: me!.id,
@@ -141,7 +150,7 @@ export default function TasksPage() {
     });
 
     setDOpen(false);
-    setDf({ title: "", description: "", assigned_to: "", priority: "medium", due_date: "", due_time: "" });
+    setDf({ title: "", kra_id: "", department: "", description: "", assigned_to: "", priority: "medium", due_date: "", due_time: "" });
     load();
   };
 
@@ -163,9 +172,12 @@ export default function TasksPage() {
     const { error } = await supabase.from("checklist_templates").insert({
       company_id: me!.company_id,
       title: cf.title.trim(),
+      kra_id: cf.kra_id,
       description: cf.description,
       assigned_to: cf.assigned_to,
       assigned_by: me!.id,
+      priority: cf.priority,
+      due_time: cf.start_time || "09:00",
       frequency: cf.frequency,
       start_date: cf.start_date,
       end_date: cf.end_date || null,
@@ -176,8 +188,9 @@ export default function TasksPage() {
     if (error) return setCError(error.message);
 
     setCOpen(false);
-    setCf({ title: "", description: "", assigned_to: "", frequency: "weekly",
-            start_date: new Date().toISOString().slice(0, 10), end_date: "" });
+    setCf({ title: "", kra_id: "", department: "", description: "", assigned_to: "",
+            priority: "medium", frequency: "weekly",
+            start_date: new Date().toISOString().slice(0, 10), start_time: "09:00", end_date: "" });
     load();
   };
 
@@ -370,7 +383,7 @@ export default function TasksPage() {
               ) : (
                 <ul className="divide-y divide-slate-100">
                   {iList.map((i) => {
-                    const status = computeStatus(i.due_date, null, i.completed_at);
+                    const status = computeStatus(i.due_date, i.due_time, i.completed_at);
                     const canToggle = i.assigned_to === me?.id || admin;
                     return (
                       <li key={i.id} className="flex items-start gap-3 px-4 py-3.5">
@@ -398,7 +411,7 @@ export default function TasksPage() {
                           </div>
                           <p className="mt-1 text-xs text-slate-400">
                             {i.assignee?.full_name && `${i.assignee.full_name} · `}
-                            Due {i.due_date}
+                            Due {i.due_date}{i.due_time && ` at ${i.due_time.slice(0, 5)}`}
                           </p>
                         </div>
                       </li>
@@ -420,16 +433,38 @@ export default function TasksPage() {
               value={df.title} onChange={(e) => setD("title", e.target.value)} autoFocus />
           </div>
           <div>
+            <label className="text-sm font-medium text-slate-700">KRA ID</label>
+            <input className={`mt-1.5 ${inputCls}`} placeholder="Optional reference code"
+              value={df.kra_id} onChange={(e) => setD("kra_id", e.target.value)} />
+          </div>
+          <div>
             <label className="text-sm font-medium text-slate-700">Description</label>
             <textarea className={`mt-1.5 ${inputCls}`} rows={2}
               value={df.description} onChange={(e) => setD("description", e.target.value)} />
           </div>
+
+          {company?.task_assignment_mode !== "direct" && (
+            <div>
+              <label className="text-sm font-medium text-slate-700">Department</label>
+              <select className={`mt-1.5 ${inputCls}`} value={df.department}
+                onChange={(e) => { setD("department", e.target.value); setD("assigned_to", ""); }}>
+                <option value="">All departments</option>
+                {depts.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+              </select>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Choose a department to narrow the list below.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="text-sm font-medium text-slate-700">Assign to *</label>
             <select className={`mt-1.5 ${inputCls}`} value={df.assigned_to}
               onChange={(e) => setD("assigned_to", e.target.value)}>
               <option value="">Select…</option>
-              {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+              {members
+                .filter((m) => !df.department || m.department === df.department)
+                .map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -474,38 +509,86 @@ export default function TasksPage() {
               value={cf.title} onChange={(e) => setC("title", e.target.value)} autoFocus />
           </div>
           <div>
+            <label className="text-sm font-medium text-slate-700">KRA ID</label>
+            <input className={`mt-1.5 ${inputCls}`} placeholder="Optional reference code"
+              value={cf.kra_id} onChange={(e) => setC("kra_id", e.target.value)} />
+          </div>
+          <div>
             <label className="text-sm font-medium text-slate-700">Description</label>
             <textarea className={`mt-1.5 ${inputCls}`} rows={2}
               value={cf.description} onChange={(e) => setC("description", e.target.value)} />
           </div>
+
+          {company?.task_assignment_mode !== "direct" && (
+            <div>
+              <label className="text-sm font-medium text-slate-700">Department</label>
+              <select className={`mt-1.5 ${inputCls}`} value={cf.department}
+                onChange={(e) => { setC("department", e.target.value); setC("assigned_to", ""); }}>
+                <option value="">All departments</option>
+                {depts.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+              </select>
+              <p className="mt-1.5 text-xs text-slate-500">
+                Choose a department to narrow the list below.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="text-sm font-medium text-slate-700">Assign to *</label>
             <select className={`mt-1.5 ${inputCls}`} value={cf.assigned_to}
               onChange={(e) => setC("assigned_to", e.target.value)}>
               <option value="">Select…</option>
-              {members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+              {members
+                .filter((m) => !cf.department || m.department === cf.department)
+                .map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
             </select>
           </div>
-          <div>
-            <label className="text-sm font-medium text-slate-700">Frequency</label>
-            <select className={`mt-1.5 ${inputCls}`} value={cf.frequency}
-              onChange={(e) => setC("frequency", e.target.value)}>
-              {Object.entries(FREQ_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-            </select>
-            <p className="mt-1.5 text-xs text-slate-500">
-              If an occurrence falls on a holiday or weekly off, it shifts to the next working day.
-            </p>
-          </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-slate-700">Starts on</label>
+              <label className="text-sm font-medium text-slate-700">Frequency</label>
+              <select className={`mt-1.5 ${inputCls}`} value={cf.frequency}
+                onChange={(e) => setC("frequency", e.target.value)}>
+                {Object.entries(FREQ_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700">Priority</label>
+              <select className={`mt-1.5 ${inputCls}`} value={cf.priority}
+                onChange={(e) => setC("priority", e.target.value)}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">
+            {cf.frequency === "daily" && "Repeats every working day, skipping holidays and weekly offs."}
+            {cf.frequency === "weekly" && "Repeats on the same weekday every week."}
+            {cf.frequency === "monthly" && "Repeats on the same date every month."}
+            {cf.frequency === "quarterly" && "Repeats every 90 days from the start date."}
+            {cf.frequency === "half_yearly" && "Repeats every 180 days from the start date."}
+            {cf.frequency === "yearly" && "Repeats on the same date every year."}
+            {" "}If an occurrence falls on a holiday or weekly off, it shifts to the next working day.
+          </p>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-sm font-medium text-slate-700">Start date</label>
               <input type="date" className={`mt-1.5 ${inputCls}`} value={cf.start_date}
                 onChange={(e) => setC("start_date", e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700">Ends on (optional)</label>
+              <label className="text-sm font-medium text-slate-700">Due time</label>
+              <input type="time" className={`mt-1.5 ${inputCls}`} value={cf.start_time}
+                onChange={(e) => setC("start_time", e.target.value)} />
+              <p className="mt-1 text-[11px] text-slate-400">Default 9:00 AM each due day.</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700">Ends on</label>
               <input type="date" className={`mt-1.5 ${inputCls}`} value={cf.end_date}
                 onChange={(e) => setC("end_date", e.target.value)} />
+              <p className="mt-1 text-[11px] text-slate-400">Optional</p>
             </div>
           </div>
 

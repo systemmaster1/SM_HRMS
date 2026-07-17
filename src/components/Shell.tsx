@@ -13,7 +13,7 @@ import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types"
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
   ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
-  Contact, LifeBuoy, Wallet, ChevronDown,
+  Contact, LifeBuoy, Wallet, ChevronDown, HelpCircle,
 } from "lucide-react";
 
 interface Leaf {
@@ -65,6 +65,7 @@ const nav: NavEntry[] = [
     items: [
       { href: "/helpdesk", label: "Help desk", icon: <LifeBuoy className="h-4 w-4" /> },
       { href: "/policies", label: "Policies",  icon: <FileText className="h-4 w-4" /> },
+      { href: "/help",     label: "User guide", icon: <HelpCircle className="h-4 w-4" /> },
     ],
   },
   {
@@ -312,6 +313,10 @@ export default function Shell({
           <span className="hidden lg:block" />
           <div className="flex items-center gap-2">
             <LiveClock className="hidden text-slate-500 dark:text-slate-400 sm:flex" />
+            <Link href="/help" title="Help & user guide"
+              className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
+              <HelpCircle className="h-[18px] w-[18px]" />
+            </Link>
             <ThemeToggle className="text-slate-400 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" />
           </div>
         </header>

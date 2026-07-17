@@ -176,7 +176,7 @@ export default function SignUpPage() {
         </p>
       </section>
 
-      <section className="flex items-center justify-center p-6 sm:p-12">
+      <section className="flex items-center justify-center bg-white p-6 sm:p-12">
         <div className="w-full max-w-sm">
           <div className="mb-8 flex justify-center lg:hidden">
             <LogoFull width={160} />
