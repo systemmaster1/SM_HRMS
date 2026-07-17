@@ -148,7 +148,7 @@ export default function SettingsForm({
     router.refresh();
   };
 
-  const monthly = activeUsers * (company?.price_per_user ?? 99);
+  const monthly = activeUsers * (company?.price_per_user ?? 19);
 
   return (
     <div>
@@ -772,7 +772,7 @@ export default function SettingsForm({
             </div>
             <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
               {activeUsers} active {activeUsers === 1 ? "user" : "users"} × ₹
-              {company?.price_per_user ?? 99} per user / month
+              {company?.price_per_user ?? 19} per user / month
             </p>
           </div>
         </Card>

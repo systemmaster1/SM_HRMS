@@ -185,7 +185,7 @@ export default function OnboardingPage() {
                   <Check className="h-4 w-4" /> 7-day free trial included
                 </p>
                 <p className="mt-1 text-xs text-emerald-700">
-                  Then ₹99 per active user per month. Cancel anytime.
+                  Then ₹19 per active user per month (launch offer). Cancel anytime.
                 </p>
               </div>
 

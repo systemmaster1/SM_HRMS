@@ -159,7 +159,7 @@ export default function SignUpPage() {
               "7-day free trial, no card required",
               "Attendance and GPS field visits",
               "Leave approvals and task management",
-              "₹99 per active user per month",
+              "₹19 per active user per month — launch offer",
             ].map((f) => (
               <li key={f} className="flex items-center gap-3 text-white/80">
                 <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-white/10">

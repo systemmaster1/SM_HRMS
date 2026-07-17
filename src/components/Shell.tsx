@@ -234,7 +234,7 @@ export default function Shell({
           <p className="text-xs font-medium text-amber-300">
             Trial · {trialDaysLeft} days left
           </p>
-          <p className="mt-0.5 text-[11px] text-amber-400/70">₹99 / user / month</p>
+          <p className="mt-0.5 text-[11px] text-amber-400/70">₹19 / user / month · launch offer</p>
         </div>
       )}
 
