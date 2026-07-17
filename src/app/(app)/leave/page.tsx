@@ -6,7 +6,7 @@ import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/componen
 import { FadeIn, StaggerGroup, StaggerItem, HoverLift, MotionButton, SkeletonRows, motion } from "@/components/motion";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { MONTHS } from "@/lib/geo";
-import { Plane, Plus, Check, X, Users2, Clock, SlidersHorizontal, Users } from "lucide-react";
+import { Plane, Plus, Check, X, Users2, Clock, SlidersHorizontal, Users, Wallet, CalendarDays } from "lucide-react";
 import Link from "next/link";
 
 const DAY_LABELS: Record<string, string> = {
@@ -261,61 +261,84 @@ export default function LeavePage() {
           <div className="flex shrink-0 gap-2">
             {admin && (
               <Link href="/leave/team"
-                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
+                className="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 transition-colors hover:border-brand-600 hover:text-brand-700">
                 <Users className="h-4 w-4" /> Team balances
               </Link>
             )}
-            <button onClick={() => setOpen(true)}
-              className="flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800">
+            <MotionButton onClick={() => setOpen(true)}
+              className="flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-brand-800">
               <Plus className="h-4 w-4" /> Apply for leave
-            </button>
+            </MotionButton>
           </div>
         }
       />
       </FadeIn>
 
       {/* Balances */}
-      <StaggerGroup className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <FadeIn delay={0.03}>
+        <p className="mb-3 flex items-center gap-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
+          <Wallet className="h-4 w-4 text-brand-700 dark:text-brand-300" /> Your leave balance
+        </p>
+      </FadeIn>
+      <StaggerGroup className="mb-7 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {balances.map((b) => {
           const pending = leaves.filter(
             (l) => l.employee_id === me?.id && l.status === "pending" && l.leave_type_id === b.type_id
           ).reduce((s, l) => s + Number(l.days || 0), 0);
+          const quota = Number(b.quota) || 0;
+          const bal = Number(b.balance);
+          const usedPct = quota > 0 ? Math.min(100, Math.max(0, ((quota - bal) / quota) * 100)) : 0;
+          const low = quota > 0 && bal <= quota * 0.2;
           return (
             <StaggerItem key={b.type_id}>
               <HoverLift className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">{b.name}</p>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{b.name}</p>
                   <span className="rounded bg-brand-50 dark:bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 dark:text-brand-300">
                     {b.code}
                   </span>
                 </div>
-                <p className="mt-1.5 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-                  {Number(b.balance)}
-                  <span className="ml-1 text-xs font-normal text-slate-400">/ {Number(b.quota)}</span>
+                <p className="mt-2 flex items-baseline gap-1">
+                  <span className={`text-2xl font-semibold tabular-nums ${low ? "text-rose-600" : "text-slate-900 dark:text-slate-100"}`}>
+                    {bal}
+                  </span>
+                  <span className="text-xs font-normal text-slate-400">/ {quota} days</span>
                 </p>
-                <p className="mt-0.5 text-[11px] text-slate-400">
+                <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${usedPct}%` }}
+                    transition={{ duration: 0.5, ease: "easeOut" }}
+                    className={`h-full rounded-full ${low ? "bg-rose-500" : "bg-brand-600"}`}
+                  />
+                </div>
+                <p className="mt-2 text-[11px] text-slate-400">
                   {Number(b.used)} used
-                  {pending > 0 && <span className="ml-1.5 text-amber-500">· {pending} pending</span>}
+                  {pending > 0 && <span className="ml-1.5 font-medium text-amber-500">· {pending} pending</span>}
                 </p>
               </HoverLift>
             </StaggerItem>
           );
         })}
         {balances.length === 0 && (
-          <p className="col-span-full text-sm text-slate-400">
-            No leave types configured. Set them up in Organization.
+          <p className="col-span-full rounded-xl border border-dashed border-slate-200 dark:border-slate-700 p-6 text-center text-sm text-slate-400">
+            No leave types configured yet.{admin ? " Set them up in Organization." : " Ask your admin to set this up."}
           </p>
         )}
       </StaggerGroup>
 
       {/* Tabs + year */}
+      <FadeIn delay={0.06}>
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-brand-600">
-          {years.map((y) => <option key={y} value={y}>{y}</option>)}
-        </select>
+        <div className="relative">
+          <CalendarDays className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))}
+            className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 py-2 pl-8 pr-3 text-sm text-slate-700 dark:text-slate-200 outline-none focus:border-brand-600">
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        </div>
 
-        <div className="ml-auto flex gap-1 rounded-lg bg-slate-100 p-1">
+        <div className="ml-auto flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
           <TabBtn on={tab === "me"} onClick={() => setTab("me")}>My leave</TabBtn>
           {company?.buddy_enabled && (
             <TabBtn on={tab === "buddy"} onClick={() => setTab("buddy")}>
@@ -329,99 +352,103 @@ export default function LeavePage() {
           )}
         </div>
       </div>
+      </FadeIn>
 
       {/* List */}
+      <FadeIn delay={0.09}>
       <Card>
         {list.length === 0 ? (
           <EmptyState icon={Plane} title="Nothing here yet"
             hint={tab === "buddy" ? "Buddy requests will appear here." : "Apply for leave and it will appear here."} />
         ) : (
-          <ul className="divide-y divide-slate-100">
+          <ul className="divide-y divide-slate-100 dark:divide-slate-700">
             {list.map((l: any, i: number) => (
               <motion.li key={l.id}
                 initial={{ opacity: 0, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.18, delay: Math.min(i * 0.03, 0.3) }}
-                className="px-4 py-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      {tab !== "me" && (
-                        <p className="text-sm font-medium text-slate-900">
-                          {l.profiles?.full_name}
-                        </p>
-                      )}
-                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-medium text-slate-600">
-                        {DAY_LABELS[l.day_type] || l.day_type}
+                className="flex items-start gap-3 px-4 py-4 transition-colors hover:bg-slate-50 dark:hover:bg-slate-700/40">
+                <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 dark:bg-brand-500/10 text-brand-700 dark:text-brand-300">
+                  <Plane className="h-4 w-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {tab !== "me" && (
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {l.profiles?.full_name}
+                      </p>
+                    )}
+                    <span className="rounded-full bg-slate-100 dark:bg-slate-700 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:text-slate-300">
+                      {DAY_LABELS[l.day_type] || l.day_type}
+                    </span>
+                    {l.leave_types?.code && (
+                      <span className="rounded bg-brand-50 dark:bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 dark:text-brand-300">
+                        {l.leave_types.code}
                       </span>
-                      {l.leave_types?.code && (
-                        <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">
-                          {l.leave_types.code}
-                        </span>
-                      )}
-                      <Badge value={l.status} />
-                    </div>
-
-                    <p className="mt-1 text-xs text-slate-500">
-                      {l.from_date}
-                      {l.from_date !== l.to_date && ` → ${l.to_date}`}
-                      {l.days > 0 && ` · ${l.days} day${l.days == 1 ? "" : "s"}`}
-                      {l.reason && ` · ${l.reason}`}
-                    </p>
-
-                    {l.buddy?.full_name && (
-                      <p className="mt-1.5 flex items-center gap-1.5 text-xs">
-                        <Users2 className="h-3.5 w-3.5 text-slate-400" />
-                        <span className="text-slate-500">Buddy: {l.buddy.full_name}</span>
-                        <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                          l.buddy_status === "accepted" ? "bg-emerald-50 text-emerald-700"
-                          : l.buddy_status === "declined" ? "bg-rose-50 text-rose-700"
-                          : "bg-amber-50 text-amber-700"
-                        }`}>
-                          {l.buddy_status}
-                        </span>
-                      </p>
                     )}
-                    {l.buddy_note && tab === "buddy" && (
-                      <p className="mt-1.5 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                        {l.buddy_note}
-                      </p>
-                    )}
+                    <Badge value={l.status} />
                   </div>
 
-                  {/* Buddy actions */}
-                  {tab === "buddy" && l.buddy_status === "pending" && (
-                    <div className="flex shrink-0 gap-2">
-                      <button onClick={() => buddyRespond(l, "accepted")}
-                        className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700">
-                        Accept
-                      </button>
-                      <button onClick={() => buddyRespond(l, "declined")}
-                        className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
-                        Decline
-                      </button>
-                    </div>
-                  )}
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    {l.from_date}
+                    {l.from_date !== l.to_date && ` → ${l.to_date}`}
+                    {l.days > 0 && ` · ${l.days} day${l.days == 1 ? "" : "s"}`}
+                    {l.reason && ` · ${l.reason}`}
+                  </p>
 
-                  {/* Admin actions */}
-                  {tab === "team" && admin && l.status === "pending" && (
-                    <div className="flex shrink-0 gap-2">
-                      <button onClick={() => decide(l, "approved")} title="Approve"
-                        className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100">
-                        <Check className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => decide(l, "rejected")} title="Reject"
-                        className="grid h-8 w-8 place-items-center rounded-lg bg-rose-50 text-rose-600 transition hover:bg-rose-100">
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
+                  {l.buddy?.full_name && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs">
+                      <Users2 className="h-3.5 w-3.5 text-slate-400" />
+                      <span className="text-slate-500 dark:text-slate-400">Buddy: {l.buddy.full_name}</span>
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                        l.buddy_status === "accepted" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
+                        : l.buddy_status === "declined" ? "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"
+                        : "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400"
+                      }`}>
+                        {l.buddy_status}
+                      </span>
+                    </p>
+                  )}
+                  {l.buddy_note && tab === "buddy" && (
+                    <p className="mt-1.5 rounded-lg bg-slate-50 dark:bg-slate-700/50 px-3 py-2 text-xs text-slate-600 dark:text-slate-300">
+                      {l.buddy_note}
+                    </p>
                   )}
                 </div>
+
+                {/* Buddy actions */}
+                {tab === "buddy" && l.buddy_status === "pending" && (
+                  <div className="flex shrink-0 gap-2">
+                    <button onClick={() => buddyRespond(l, "accepted")}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700">
+                      Accept
+                    </button>
+                    <button onClick={() => buddyRespond(l, "declined")}
+                      className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700">
+                      Decline
+                    </button>
+                  </div>
+                )}
+
+                {/* Admin actions */}
+                {tab === "team" && admin && l.status === "pending" && (
+                  <div className="flex shrink-0 gap-2">
+                    <button onClick={() => decide(l, "approved")} title="Approve"
+                      className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100">
+                      <Check className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => decide(l, "rejected")} title="Reject"
+                      className="grid h-8 w-8 place-items-center rounded-lg bg-rose-50 text-rose-600 transition hover:bg-rose-100">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
               </motion.li>
             ))}
           </ul>
         )}
       </Card>
+      </FadeIn>
 
       {/* Apply modal */}
       <Modal open={open} onClose={() => setOpen(false)} title="Apply for leave">
@@ -581,8 +608,8 @@ export default function LeavePage() {
 function TabBtn({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick}
-      className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-        on ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"
+      className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+        on ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
       }`}>
       {children}
     </button>
