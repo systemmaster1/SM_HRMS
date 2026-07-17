@@ -424,6 +424,7 @@ export default function AttendancePage() {
                           )}
                           <span className="tabular-nums text-slate-600">{fmtTime(r.check_in)}</span>
                           {r.is_late && <span className="text-[10px] font-semibold text-amber-600">LATE</span>}
+                          {r.is_auto && <span className="text-[10px] font-semibold text-slate-400" title="Marked automatically">AUTO</span>}
                         </div>
                       </td>
                       <td className="px-4 py-3 tabular-nums text-slate-600">{fmtTime(r.check_out)}</td>
