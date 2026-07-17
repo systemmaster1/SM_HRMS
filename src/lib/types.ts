@@ -32,7 +32,17 @@ export interface Profile {
   designation: string;
   employee_code: string;
   branch_id: string | null;
-  status: "invited" | "active" | "inactive";
+  status: "invited" | "active" | "disabled" | "left";
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  bank_account_name?: string;
+  bank_account_number?: string;
+  bank_ifsc?: string;
+  bank_name?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
   joined_on: string;
   avatar_url: string | null;
   manager_id: string | null;

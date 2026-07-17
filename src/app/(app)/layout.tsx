@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Shell from "@/components/Shell";
+import AccountLocked from "@/components/AccountLocked";
 import type { Profile, Company } from "@/lib/types";
 
 export default async function AppLayout({
@@ -23,6 +24,11 @@ export default async function AppLayout({
 
   // No profile row yet (trigger lag) — send to onboarding
   if (!profile) redirect("/onboarding");
+
+  // Account suspended or offboarded — block everything except this screen
+  if (profile.status === "disabled" || profile.status === "left") {
+    return <AccountLocked status={profile.status} />;
+  }
 
   // Profile exists but no company -> must create one
   if (!profile.company_id) redirect("/onboarding");

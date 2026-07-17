@@ -6,7 +6,8 @@ import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/componen
 import { FadeIn, StaggerGroup, StaggerItem, HoverLift, MotionButton, SkeletonRows, motion } from "@/components/motion";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { MONTHS } from "@/lib/geo";
-import { Plane, Plus, Check, X, Users2, Clock, SlidersHorizontal } from "lucide-react";
+import { Plane, Plus, Check, X, Users2, Clock, SlidersHorizontal, Users } from "lucide-react";
+import Link from "next/link";
 
 const DAY_LABELS: Record<string, string> = {
   full_day: "Full day",
@@ -259,10 +260,10 @@ export default function LeavePage() {
         action={
           <div className="flex shrink-0 gap-2">
             {admin && (
-              <button onClick={() => setAdjOpen(true)}
+              <Link href="/leave/team"
                 className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-brand-600 hover:text-brand-700">
-                <SlidersHorizontal className="h-4 w-4" /> Adjust balance
-              </button>
+                <Users className="h-4 w-4" /> Team balances
+              </Link>
             )}
             <button onClick={() => setOpen(true)}
               className="flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800">

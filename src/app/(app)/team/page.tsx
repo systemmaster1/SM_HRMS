@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
-import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2 } from "lucide-react";
+import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2, IdCard } from "lucide-react";
+import EmployeeDetail from "@/components/EmployeeDetail";
 
 const randomPassword = () => {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -38,6 +39,8 @@ export default function TeamPage() {
 
   const [newPw, setNewPw] = useState(randomPassword());
 
+  const [tab, setTab] = useState<"active" | "left">("active");
+  const [detailFor, setDetailFor] = useState<any>(null);
   const [attFor, setAttFor] = useState<any>(null);
   const [att, setAtt] = useState({
     photo_required: false,
@@ -142,6 +145,9 @@ export default function TeamPage() {
 
   const admin = isAdminRole(me?.role);
   const managers = members.filter((m) => ["owner", "admin", "manager"].includes(m.role));
+  const activeMembers = members.filter((m) => m.status !== "left");
+  const leftMembers = members.filter((m) => m.status === "left");
+  const visibleMembers = tab === "active" ? activeMembers : leftMembers;
 
   const Avatar = ({ n }: { n: string }) => (
     <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-brand-50 text-xs font-semibold text-brand-700">
@@ -153,7 +159,7 @@ export default function TeamPage() {
     <div>
       <PageHeader
         title="Team"
-        subtitle={`${members.length} ${members.length === 1 ? "member" : "members"}`}
+        subtitle={`${activeMembers.length} active${leftMembers.length ? ` · ${leftMembers.length} left` : ""}`}
         action={
           admin && (
             <button
@@ -166,13 +172,28 @@ export default function TeamPage() {
         }
       />
 
+      <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
+        <button onClick={() => setTab("active")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+            tab === "active" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          }`}>
+          Active ({activeMembers.length})
+        </button>
+        <button onClick={() => setTab("left")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+            tab === "left" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 hover:text-slate-700"
+          }`}>
+          Left ({leftMembers.length})
+        </button>
+      </div>
+
       {loading ? (
         <p className="text-sm text-slate-400">Loading…</p>
       ) : (
         <Card>
-          {members.length > 0 ? (
+          {visibleMembers.length > 0 ? (
             <ul className="divide-y divide-slate-100">
-              {members.map((m: any) => (
+              {visibleMembers.map((m: any) => (
                 <li key={m.id} className="flex items-center gap-3 px-4 py-3.5">
                   <Avatar n={m.full_name} />
                   <div className="min-w-0 flex-1">
@@ -181,6 +202,16 @@ export default function TeamPage() {
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
                         {m.role}
                       </span>
+                      {m.status === "disabled" && (
+                        <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-700">
+                          Disabled
+                        </span>
+                      )}
+                      {m.status === "left" && (
+                        <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-rose-700">
+                          Left
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 truncate text-xs text-slate-500">
                       {m.designation || "—"}
@@ -197,13 +228,22 @@ export default function TeamPage() {
                   {admin && (
                     <div className="flex shrink-0 gap-2">
                       <button
-                        onClick={() => openAtt(m)}
-                        title="Attendance settings"
+                        onClick={() => setDetailFor(m)}
+                        title="Profile"
                         className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
                       >
-                        <Settings2 className="h-3.5 w-3.5" /> Attendance
+                        <IdCard className="h-3.5 w-3.5" /> Profile
                       </button>
-                      {m.role !== "owner" && (
+                      {tab === "active" && (
+                        <button
+                          onClick={() => openAtt(m)}
+                          title="Attendance settings"
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
+                        >
+                          <Settings2 className="h-3.5 w-3.5" /> Attendance
+                        </button>
+                      )}
+                      {tab === "active" && m.role !== "owner" && (
                         <button
                           onClick={() => { setNewPw(randomPassword()); setResetFor(m); }}
                           title="Reset password"
@@ -443,6 +483,14 @@ export default function TeamPage() {
           </button>
         </div>
       </Modal>
+
+      {detailFor && (
+        <EmployeeDetail
+          employee={detailFor}
+          onClose={() => setDetailFor(null)}
+          onChanged={load}
+        />
+      )}
     </div>
   );
 }
