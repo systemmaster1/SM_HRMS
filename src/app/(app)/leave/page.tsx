@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
+import { FadeIn, StaggerGroup, StaggerItem, HoverLift, MotionButton, SkeletonRows, motion } from "@/components/motion";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { MONTHS } from "@/lib/geo";
 import { Plane, Plus, Check, X, Users2, Clock, SlidersHorizontal } from "lucide-react";
@@ -247,10 +248,11 @@ export default function LeavePage() {
   const years = Array.from({ length: 4 }, (_, i) => now.getFullYear() - i);
   const allowed: string[] = company?.day_types || ["full_day"];
 
-  if (loading) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (loading) return <Card><SkeletonRows rows={5} /></Card>;
 
   return (
     <div>
+      <FadeIn>
       <PageHeader
         title="Leave"
         subtitle="Apply for leave and track your balance."
@@ -269,30 +271,33 @@ export default function LeavePage() {
           </div>
         }
       />
+      </FadeIn>
 
       {/* Balances */}
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <StaggerGroup className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {balances.map((b) => {
           const pending = leaves.filter(
             (l) => l.employee_id === me?.id && l.status === "pending" && l.leave_type_id === b.type_id
           ).reduce((s, l) => s + Number(l.days || 0), 0);
           return (
-            <div key={b.type_id} className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-500 dark:text-slate-400">{b.name}</p>
-                <span className="rounded bg-brand-50 dark:bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 dark:text-brand-300">
-                  {b.code}
-                </span>
-              </div>
-              <p className="mt-1.5 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
-                {Number(b.balance)}
-                <span className="ml-1 text-xs font-normal text-slate-400">/ {Number(b.quota)}</span>
-              </p>
-              <p className="mt-0.5 text-[11px] text-slate-400">
-                {Number(b.used)} used
-                {pending > 0 && <span className="ml-1.5 text-amber-500">· {pending} pending</span>}
-              </p>
-            </div>
+            <StaggerItem key={b.type_id}>
+              <HoverLift className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">{b.name}</p>
+                  <span className="rounded bg-brand-50 dark:bg-brand-500/10 px-1.5 py-0.5 text-[10px] font-bold text-brand-700 dark:text-brand-300">
+                    {b.code}
+                  </span>
+                </div>
+                <p className="mt-1.5 text-xl font-semibold tabular-nums text-slate-900 dark:text-slate-100">
+                  {Number(b.balance)}
+                  <span className="ml-1 text-xs font-normal text-slate-400">/ {Number(b.quota)}</span>
+                </p>
+                <p className="mt-0.5 text-[11px] text-slate-400">
+                  {Number(b.used)} used
+                  {pending > 0 && <span className="ml-1.5 text-amber-500">· {pending} pending</span>}
+                </p>
+              </HoverLift>
+            </StaggerItem>
           );
         })}
         {balances.length === 0 && (
@@ -300,7 +305,7 @@ export default function LeavePage() {
             No leave types configured. Set them up in Organization.
           </p>
         )}
-      </div>
+      </StaggerGroup>
 
       {/* Tabs + year */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -331,8 +336,12 @@ export default function LeavePage() {
             hint={tab === "buddy" ? "Buddy requests will appear here." : "Apply for leave and it will appear here."} />
         ) : (
           <ul className="divide-y divide-slate-100">
-            {list.map((l: any) => (
-              <li key={l.id} className="px-4 py-4">
+            {list.map((l: any, i: number) => (
+              <motion.li key={l.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18, delay: Math.min(i * 0.03, 0.3) }}
+                className="px-4 py-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -407,7 +416,7 @@ export default function LeavePage() {
                     </div>
                   )}
                 </div>
-              </li>
+              </motion.li>
             ))}
           </ul>
         )}
@@ -515,10 +524,10 @@ export default function LeavePage() {
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>
           )}
 
-          <button onClick={apply} disabled={saving}
-            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+          <MotionButton onClick={apply} disabled={saving}
+            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition-colors hover:bg-brand-800 disabled:opacity-60">
             {saving ? "Submitting…" : "Submit request"}
-          </button>
+          </MotionButton>
         </div>
       </Modal>
 
@@ -558,10 +567,10 @@ export default function LeavePage() {
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{adjError}</p>
           )}
 
-          <button onClick={adjustBalance} disabled={adjSaving}
-            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
+          <MotionButton onClick={adjustBalance} disabled={adjSaving}
+            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition-colors hover:bg-brand-800 disabled:opacity-60">
             {adjSaving ? "Saving…" : "Apply adjustment"}
-          </button>
+          </MotionButton>
         </div>
       </Modal>
     </div>

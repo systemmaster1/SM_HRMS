@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, EmptyState, Modal, inputCls } from "@/components/ui";
+import { FadeIn, StaggerGroup, StaggerItem, MotionButton, SkeletonRows, motion } from "@/components/motion";
 import CameraCapture from "@/components/CameraCapture";
 import { exportCsv, printReport } from "@/lib/export";
 import {
@@ -252,9 +253,12 @@ export default function AttendancePage() {
 
   return (
     <div>
-      <PageHeader title="Attendance" subtitle="Mark your attendance and review records." />
+      <FadeIn>
+        <PageHeader title="Attendance" subtitle="Mark your attendance and review records." />
+      </FadeIn>
 
       {/* Today */}
+      <FadeIn delay={0.05}>
       <Card className="mb-6">
         <div className="flex flex-wrap items-center justify-between gap-4 p-5">
           <div>
@@ -293,16 +297,16 @@ export default function AttendancePage() {
                 className="h-14 w-14 rounded-lg border border-slate-200 object-cover" />
             )}
             {!checkedIn && (
-              <button onClick={() => openForm("in")}
-                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 font-medium text-white transition hover:bg-emerald-700">
+              <MotionButton onClick={() => openForm("in")}
+                className="flex items-center gap-2 rounded-lg bg-emerald-600 px-6 py-3 font-medium text-white shadow-sm transition-colors hover:bg-emerald-700">
                 <LogIn className="h-4 w-4" /> Check in
-              </button>
+              </MotionButton>
             )}
             {checkedIn && !checkedOut && (
-              <button onClick={() => openForm("out")}
-                className="flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-3 font-medium text-white transition hover:bg-rose-700">
+              <MotionButton onClick={() => openForm("out")}
+                className="flex items-center gap-2 rounded-lg bg-rose-600 px-6 py-3 font-medium text-white shadow-sm transition-colors hover:bg-rose-700">
                 <LogOut className="h-4 w-4" /> Check out
-              </button>
+              </MotionButton>
             )}
             {checkedOut && (
               <span className="flex items-center gap-2 rounded-lg bg-slate-100 px-6 py-3 text-sm font-medium text-slate-500">
@@ -312,6 +316,7 @@ export default function AttendancePage() {
           </div>
         </div>
       </Card>
+      </FadeIn>
 
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-end gap-3">
@@ -378,7 +383,7 @@ export default function AttendancePage() {
 
       {/* Records */}
       {loading ? (
-        <p className="text-sm text-slate-400">Loading…</p>
+        <Card><SkeletonRows rows={6} /></Card>
       ) : (
         <Card>
           {rows.length === 0 ? (
@@ -395,9 +400,13 @@ export default function AttendancePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {rows.map((r: any) => (
-                    <tr key={r.id} onClick={() => setDetail(r)}
-                      className="cursor-pointer transition hover:bg-slate-50">
+                  {rows.map((r: any, i: number) => (
+                    <motion.tr key={r.id} onClick={() => setDetail(r)}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.18, delay: Math.min(i * 0.02, 0.3) }}
+                      whileHover={{ backgroundColor: "rgba(148,163,184,0.08)" }}
+                      className="cursor-pointer">
                       {admin && tab === "team" && (
                         <td className="px-4 py-3">
                           <p className="font-medium text-slate-900">{r.profiles?.full_name || "—"}</p>
@@ -431,7 +440,7 @@ export default function AttendancePage() {
                         ) : <span className="text-xs text-slate-300">—</span>}
                       </td>
                       <td className="px-4 py-3"><Badge value={r.status} /></td>
-                    </tr>
+                    </motion.tr>
                   ))}
                 </tbody>
               </table>
@@ -544,12 +553,12 @@ export default function AttendancePage() {
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>
           )}
 
-          <button onClick={submit} disabled={submitting || locating}
-            className={`w-full rounded-lg py-3 font-medium text-white transition disabled:opacity-60 ${
+          <MotionButton onClick={submit} disabled={submitting || locating}
+            className={`w-full rounded-lg py-3 font-medium text-white transition-colors disabled:opacity-60 ${
               mode === "in" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
             }`}>
             {submitting ? "Submitting…" : mode === "in" ? "Confirm check in" : "Confirm check out"}
-          </button>
+          </MotionButton>
         </div>
       </Modal>
     </div>

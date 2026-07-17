@@ -8,6 +8,7 @@ import { LogoMark } from "@/components/Logo";
 import NotificationBell from "@/components/NotificationBell";
 import ThemeToggle from "@/components/ThemeToggle";
 import LiveClock from "@/components/LiveClock";
+import { RouteTransition } from "@/components/motion";
 import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types";
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
@@ -321,7 +322,9 @@ export default function Shell({
             <ThemeToggle className="text-slate-400 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" />
           </div>
         </header>
-        <main className="mx-auto max-w-6xl bg-slate-50 p-5 dark:bg-slate-950 sm:p-7 lg:p-9">{children}</main>
+        <main className="mx-auto max-w-6xl bg-slate-50 p-5 dark:bg-slate-950 sm:p-7 lg:p-9">
+          <RouteTransition routeKey={pathname}>{children}</RouteTransition>
+        </main>
       </div>
     </div>
   );
