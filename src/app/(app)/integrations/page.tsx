@@ -10,16 +10,14 @@ import {
   ShieldCheck, Clock, ExternalLink,
 } from "lucide-react";
 
-const APPS_SCRIPT = String.raw`/**
+const buildScript = (secret: string) => String.raw`/**
  * SM HRMS -> Google Sheets backup receiver
  * Built by SystemMaster Automations
  *
- * Paste this whole file into Apps Script, deploy it as a Web app,
- * then paste the deployment URL back into SM HRMS.
+ * Nothing in this file needs editing. Paste it in as-is.
  */
 
-// Keep this secret. Paste the SAME value into SM HRMS.
-const SHARED_SECRET = 'CHANGE-ME-TO-SOMETHING-LONG-AND-RANDOM';
+const SHARED_SECRET = '${secret}';
 
 function doPost(e) {
   try {
@@ -73,34 +71,43 @@ function reply(obj) {
     .setMimeType(ContentService.MimeType.JSON);
 }`;
 
+/** Creates a long, readable, random passphrase. */
+function makeSecret() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const block = () =>
+    Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return `SMHRMS-${block()}-${block()}-${block()}`;
+}
+
 const STEPS = [
   {
-    t: "Create the spreadsheet",
-    d: "In Google Drive, create a new blank Google Sheet and name it something like “SM HRMS Backup”. This is where your data will land.",
+    t: "Create a blank Google Sheet",
+    d: "Go to Google Drive, click New → Google Sheets → Blank spreadsheet. Give it a name such as “SM HRMS Backup”. This is the file your data will be written into.",
   },
   {
-    t: "Open Apps Script",
-    d: "In that sheet, go to Extensions → Apps Script. A code editor opens in a new tab.",
+    t: "Open the script editor",
+    d: "Staying inside that same spreadsheet, click Extensions in the top menu, then Apps Script. A code editor opens in a new browser tab.",
   },
   {
-    t: "Paste the code",
-    d: "Delete whatever is in the editor, paste the code below in its place, then change SHARED_SECRET to a long random phrase of your own. Press the save icon.",
+    t: "Delete the sample code, paste ours",
+    d: "The editor opens with a few sample lines already in it (usually “function myFunction() { }”). Select all of it and delete it so the editor is completely empty. Then click Copy code below and paste it into the empty editor. Press Ctrl+S (or ⌘+S on Mac) to save.",
+    note: "Nothing in the code needs to be edited. Your secret key is already filled in for you.",
   },
   {
-    t: "Deploy as a web app",
-    d: "Click Deploy → New deployment. For type choose Web app. Set “Execute as” to Me, and “Who has access” to Anyone. Click Deploy.",
+    t: "Deploy it as a web app",
+    d: "In the script editor, click the blue Deploy button (top right) → New deployment. Click the gear icon next to “Select type” and choose Web app. Set “Execute as” to Me, and “Who has access” to Anyone. Click Deploy.",
   },
   {
-    t: "Authorise it",
-    d: "Google will ask for permission the first time. Choose your account, click Advanced → Go to (project name), then Allow. This is Google asking whether your own script may edit your own sheet.",
+    t: "Give it permission",
+    d: "Google will ask you to authorise the script the first time. Click Review permissions, choose your Google account, then click Advanced → Go to (your project name) → Allow. This is simply Google asking whether your own script may edit your own spreadsheet.",
   },
   {
     t: "Copy the web app URL",
-    d: "After deploying, Google shows a URL ending in /exec. Copy it.",
+    d: "Once deployment finishes, Google shows a “Web app” URL ending in /exec. Click Copy.",
   },
   {
-    t: "Paste it below",
-    d: "Paste the URL and the same secret phrase into the form below, save, then run a test backup.",
+    t: "Paste it below and save",
+    d: "Paste that URL into the Web app URL box below, click Save settings, then click Run a backup now to confirm everything is working.",
   },
 ];
 
@@ -133,8 +140,10 @@ export default function IntegrationsPage() {
         .from("companies").select("*").eq("id", (p as Profile).company_id).single();
       setCompany(c);
       setUrl(c?.gsheet_webhook_url || "");
-      setSecret(c?.gsheet_secret || "");
       setEnabled(!!c?.gsheet_backup_enabled);
+
+      // A secret the customer never has to invent or type
+      setSecret(c?.gsheet_secret || makeSecret());
       setReady(true);
     })();
   }, [supabase]);
@@ -151,24 +160,39 @@ export default function IntegrationsPage() {
     setTimeout(() => setSaved(false), 3000);
   };
 
+  const copyCode = () => {
+    navigator.clipboard.writeText(buildScript(secret));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
   const runTest = async () => {
+    if (!url.trim()) {
+      setTestOk(false);
+      setTestMsg("Paste your web app URL first.");
+      return;
+    }
+
     setTesting(true);
     setTestMsg("");
+
+    // Always save first, so the secret in the database matches the one
+    // shown in the code block above.
+    await supabase.from("companies").update({
+      gsheet_webhook_url: url.trim(),
+      gsheet_secret: secret.trim(),
+      gsheet_backup_enabled: enabled,
+    }).eq("id", me!.company_id);
+
     const res = await fetch("/api/integrations/gsheet-backup", { method: "POST" });
     const json = await res.json().catch(() => ({}));
     setTesting(false);
     setTestOk(res.ok);
     setTestMsg(
       res.ok
-        ? `Backup sent — ${json.sheets ?? 0} tabs written to your spreadsheet.`
-        : json.error || "The backup could not be delivered. Check the URL and secret."
+        ? `Backup sent — ${json.sheets ?? 0} tabs written to your spreadsheet. Open it to check.`
+        : json.error || "The backup could not be delivered. Check the URL and try again."
     );
-  };
-
-  const copyCode = () => {
-    navigator.clipboard.writeText(APPS_SCRIPT);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2500);
   };
 
   const admin = isAdminRole(me?.role);
@@ -246,6 +270,12 @@ export default function IntegrationsPage() {
                 <div>
                   <p className="font-medium text-slate-900 dark:text-slate-100">{s.t}</p>
                   <p className="mt-1 text-sm leading-relaxed text-slate-500">{s.d}</p>
+                  {(s as any).note && (
+                    <p className="mt-2 flex items-start gap-1.5 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                      {(s as any).note}
+                    </p>
+                  )}
                 </div>
               </li>
             ))}
@@ -256,17 +286,47 @@ export default function IntegrationsPage() {
       {/* Code */}
       <FadeIn delay={0.06}>
         <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center justify-between bg-slate-900 px-5 py-3">
-            <p className="text-sm font-medium text-white">Apps Script code — copy all of this</p>
+          <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-5 py-3">
+            <div>
+              <p className="text-sm font-medium text-white">
+                Your Apps Script code — copy all of it
+              </p>
+              <p className="mt-0.5 text-xs text-white/50">
+                Ready to paste. Do not change anything inside it.
+              </p>
+            </div>
             <button onClick={copyCode}
-              className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/20">
+              className="flex items-center gap-1.5 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-medium text-white transition hover:bg-white/20">
               {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
               {copied ? "Copied" : "Copy code"}
             </button>
           </div>
-          <pre className="max-h-96 overflow-auto bg-slate-950 p-5 text-[11.5px] leading-relaxed text-slate-300">
-            <code>{APPS_SCRIPT}</code>
-          </pre>
+
+          <div className="max-h-96 overflow-auto bg-slate-950 p-5">
+            <pre className="text-[11.5px] leading-relaxed text-slate-300">
+              <code>
+                {buildScript(secret).split("\n").map((line, i) => {
+                  const isSecret = line.includes("SHARED_SECRET =");
+                  return (
+                    <div key={i}
+                      className={isSecret
+                        ? "-mx-2 rounded bg-emerald-500/15 px-2 font-semibold text-emerald-300"
+                        : undefined}>
+                      {line || "\u00A0"}
+                    </div>
+                  );
+                })}
+              </code>
+            </pre>
+          </div>
+
+          <div className="border-t border-slate-800 bg-slate-900 px-5 py-3">
+            <p className="flex items-start gap-2 text-xs text-emerald-300">
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              The highlighted line already contains your own unique secret key. Earlier
+              versions asked you to type one in yourself — that is no longer needed.
+            </p>
+          </div>
         </div>
       </FadeIn>
 
@@ -291,14 +351,24 @@ export default function IntegrationsPage() {
 
             <div>
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                Shared secret
+                Your secret key
               </label>
-              <input className={`mt-1.5 ${inputCls}`}
-                placeholder="The same phrase you put in SHARED_SECRET"
-                value={secret} onChange={(e) => setSecret(e.target.value)} />
+              <div className="mt-1.5 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-2.5 dark:border-slate-600 dark:bg-slate-700/40">
+                <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />
+                <code className="flex-1 truncate text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  {secret}
+                </code>
+                <button type="button"
+                  onClick={() => setSecret(makeSecret())}
+                  title="Generate a new key"
+                  className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-white hover:text-slate-900">
+                  New key
+                </button>
+              </div>
               <p className="mt-1.5 text-xs text-slate-500">
-                Must match the value at the top of your Apps Script exactly, so that
-                nobody else can write to your sheet.
+                Generated for you and already written into the code above — there is nothing
+                to type here. Only generate a new key if you want to re-paste the code into
+                Apps Script as well.
               </p>
             </div>
 

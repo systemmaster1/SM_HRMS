@@ -171,7 +171,7 @@ export async function backupCompany(companyId: string) {
 
   if (parsed && parsed.ok === false) {
     throw new Error(parsed.error === "Bad secret"
-      ? "The shared secret does not match the one in your Apps Script."
+      ? "The key in your Apps Script does not match this one. Copy the code again from the Integrations page, paste it over everything in the script editor, save, and re-deploy."
       : parsed.error || "The script reported a problem.");
   }
 
