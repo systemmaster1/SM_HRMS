@@ -95,20 +95,34 @@ export const DELEGATION_FIELDS: ImportField[] = [
   { key: "kra_id",      label: "KRA ID", hint: "Leave blank to auto-generate" },
 ];
 
-/** Builds the downloadable sample CSV for a given import type. */
-export function sampleCsv(kind: "checklist" | "delegation") {
+/**
+ * Builds the downloadable sample CSV.
+ * Pass real employee identifiers so a download-then-upload round trip
+ * works immediately instead of failing on invented names.
+ */
+export function sampleCsv(kind: "checklist" | "delegation", assignees: string[] = []) {
+  const who = (i: number) =>
+    assignees[i % Math.max(assignees.length, 1)] || "employee@yourcompany.com";
+
+  const d = (daysAhead: number) => {
+    const x = new Date();
+    x.setDate(x.getDate() + daysAhead);
+    return x.toISOString().slice(0, 10);
+  };
+
   if (kind === "checklist") {
     return [
       "Title,Assign to,Frequency,Start date,Due time,Priority,Description,End date,KRA ID",
-      "Daily sales report,rahul@company.com,daily,2026-08-01,09:00,high,Send the previous day's numbers,,",
-      "Weekly stock audit,Priya Sharma,weekly,2026-08-03,11:00,medium,Count and reconcile warehouse stock,,",
-      "Monthly GST filing,9876543210,monthly,2026-08-05,16:00,high,File GSTR-3B,,",
+      `Daily sales report,${who(0)},daily,${d(1)},09:00,high,Send the previous day's numbers,,`,
+      `Weekly stock audit,${who(1)},weekly,${d(2)},11:00,medium,Count and reconcile warehouse stock,,`,
+      `Monthly GST filing,${who(2)},monthly,${d(3)},16:00,high,File GSTR-3B,,`,
     ].join("\r\n");
   }
+
   return [
     "Title,Assign to,Due date,Due time,Priority,Description,KRA ID",
-    "Submit vendor invoice,rahul@company.com,2026-08-12,17:00,high,Invoice for the July order,",
-    "Renew office insurance,Priya Sharma,2026-08-20,,medium,Policy expires end of August,",
+    `Submit vendor invoice,${who(0)},${d(7)},17:00,high,Invoice for last month's order,`,
+    `Renew office insurance,${who(1)},${d(14)},,medium,Policy expires soon,`,
   ].join("\r\n");
 }
 

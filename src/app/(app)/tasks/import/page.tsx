@@ -34,8 +34,11 @@ export default function TaskImportPage() {
 
   /* Google Sheet */
   const [sheetUrl, setSheetUrl] = useState("");
-  const [tabs, setTabs] = useState<string[]>([]);
+  const [tabs, setTabs] = useState<{ name: string; gid: string }[]>([]);
   const [tab, setTab] = useState("");
+  const [manualTab, setManualTab] = useState("");
+  const [useManual, setUseManual] = useState(false);
+  const [opened, setOpened] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -43,6 +46,7 @@ export default function TaskImportPage() {
   const [headers, setHeaders] = useState<string[]>([]);
   const [records, setRecords] = useState<any[]>([]);
   const [map, setMap] = useState<Record<string, string>>({});
+  const [overrides, setOverrides] = useState<Record<number, string>>({});
 
   /* Result */
   const [importing, setImporting] = useState(false);
@@ -96,19 +100,44 @@ export default function TaskImportPage() {
     setBusy(false);
 
     if (!res.ok) return setError(json.error || "Could not open that spreadsheet.");
-    setTabs(json.tabs || []);
-    setTab((json.tabs || [])[0] || "");
+
+    const list = (json.tabs || []) as { name: string; gid: string }[];
+    setTabs(list);
+    setOpened(true);
+
+    if (list.length > 0) {
+      setUseManual(false);
+      // If the pasted link points at a specific tab, preselect it
+      const linkGid = (sheetUrl.match(/[#&?]gid=(\d+)/) || [])[1];
+      const match = linkGid && list.find((t) => t.gid === linkGid);
+      setTab(match ? match.gid || match.name : list[0].gid || list[0].name);
+    } else {
+      // Detection failed — let them type the name instead
+      setUseManual(true);
+      setManualTab("");
+    }
   };
 
   const loadRows = async () => {
     setError("");
     const id = sheetIdFromUrl(sheetUrl);
-    setBusy(true);
 
+    let body: any = { sheetId: id, action: "rows" };
+
+    if (useManual) {
+      if (!manualTab.trim()) return setError("Type the tab name exactly as it appears in your sheet.");
+      body.tab = manualTab.trim();
+    } else {
+      const chosen = tabs.find((t) => (t.gid || t.name) === tab);
+      if (chosen?.gid) body.gid = chosen.gid;
+      else body.tab = chosen?.name || tab;
+    }
+
+    setBusy(true);
     const res = await fetch("/api/import/google-sheet", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sheetId: id, action: "rows", tab }),
+      body: JSON.stringify(body),
     });
     const json = await res.json();
     setBusy(false);
@@ -116,11 +145,16 @@ export default function TaskImportPage() {
     if (!res.ok) return setError(json.error || "Could not read that tab.");
 
     const { headers: hs, records: rs } = toRecords(parseCsv(json.csv));
-    if (!rs.length) return setError("That tab has no data rows.");
+    if (!rs.length) {
+      return setError(
+        "That tab has no data rows. Make sure the first row holds your column headings and there is at least one task below it."
+      );
+    }
 
     setHeaders(hs);
     setRecords(rs);
     autoMap(hs);
+    setOverrides({});
     setStep(3);
   };
 
@@ -137,6 +171,7 @@ export default function TaskImportPage() {
     setHeaders(hs);
     setRecords(rs);
     autoMap(hs);
+    setOverrides({});
     setStep(3);
   };
 
@@ -169,9 +204,14 @@ export default function TaskImportPage() {
     if (!title) problems.push("Title is missing");
 
     const who = val(rec, "assignee");
-    const member = findMember(who);
-    if (!who) problems.push("Assignee is missing");
-    else if (!member) problems.push(`No employee matches “${who}”`);
+    const member = overrides[idx]
+      ? members.find((m) => m.id === overrides[idx]) || null
+      : findMember(who);
+
+    if (!member) {
+      if (!who) problems.push("Assignee is missing — pick someone");
+      else problems.push(`No employee matches “${who}”`);
+    }
 
     let freq = "";
     if (kind === "checklist") {
@@ -445,7 +485,13 @@ export default function TaskImportPage() {
                   </label>
                   <div className="mt-1.5 flex gap-2">
                     <input className={inputCls} placeholder="https://docs.google.com/spreadsheets/d/…"
-                      value={sheetUrl} onChange={(e) => setSheetUrl(e.target.value)} />
+                      value={sheetUrl}
+                      onChange={(e) => {
+                        setSheetUrl(e.target.value);
+                        setOpened(false);
+                        setTabs([]);
+                        setError("");
+                      }} />
                     <button onClick={loadTabs} disabled={busy}
                       className="shrink-0 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
                       {busy ? "Opening…" : "Open"}
@@ -453,15 +499,49 @@ export default function TaskImportPage() {
                   </div>
                 </div>
 
-                {tabs.length > 0 && (
+                {opened && (
                   <div>
-                    <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Which tab holds the tasks?
-                    </label>
-                    <select className={`mt-1.5 ${inputCls}`} value={tab}
-                      onChange={(e) => setTab(e.target.value)}>
-                      {tabs.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Which tab holds the tasks?
+                      </label>
+                      {tabs.length > 0 && (
+                        <button
+                          onClick={() => setUseManual((v) => !v)}
+                          className="text-xs font-medium text-brand-700 hover:text-brand-800">
+                          {useManual ? "Choose from the list" : "Type the name instead"}
+                        </button>
+                      )}
+                    </div>
+
+                    {tabs.length > 0 && !useManual ? (
+                      <>
+                        <select className={`mt-1.5 ${inputCls}`} value={tab}
+                          onChange={(e) => setTab(e.target.value)}>
+                          {tabs.map((t) => (
+                            <option key={t.gid || t.name} value={t.gid || t.name}>
+                              {t.name}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="mt-1.5 text-xs text-slate-500">
+                          Found {tabs.length} tab{tabs.length === 1 ? "" : "s"} in this
+                          spreadsheet.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <input className={`mt-1.5 ${inputCls}`}
+                          placeholder="e.g. Tasks, Sheet2, Checklist Master"
+                          value={manualTab}
+                          onChange={(e) => setManualTab(e.target.value)} />
+                        <p className="mt-1.5 text-xs text-slate-500">
+                          {tabs.length === 0
+                            ? "We could not read the tab list from Google — this happens with some spreadsheets. Type the tab name exactly as it appears on the tab at the bottom of your sheet (capitals and spaces matter)."
+                            : "Type the tab name exactly as it appears at the bottom of your sheet."}
+                        </p>
+                      </>
+                    )}
 
                     <button onClick={loadRows} disabled={busy}
                       className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
@@ -484,10 +564,24 @@ export default function TaskImportPage() {
                     order does not matter — you will match them in the next step.
                   </p>
                   <button
-                    onClick={() => downloadText(`SM_HRMS_${kind}_sample.csv`, sampleCsv(kind))}
+                    onClick={() =>
+                      downloadText(
+                        `SM_HRMS_${kind}_sample.csv`,
+                        sampleCsv(
+                          kind,
+                          members.slice(0, 3).map(
+                            (m) => (m as any).email || m.full_name || ""
+                          )
+                        )
+                      )
+                    }
                     className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-300 px-3.5 py-2 text-sm font-medium text-slate-700 transition hover:bg-white dark:border-slate-600 dark:text-slate-300">
                     <Download className="h-4 w-4" /> Download sample file
                   </button>
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    The sample is filled in with your own employees, so you can upload it
+                    straight back to see how the import works.
+                  </p>
                 </div>
 
                 <label className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 border-dashed border-slate-300 p-8 text-center transition hover:border-brand-500 hover:bg-brand-50/40 dark:border-slate-600">
@@ -547,7 +641,7 @@ export default function TaskImportPage() {
 
           {/* Preview */}
           <Card>
-            <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-700">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 p-5 dark:border-slate-700">
               <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Preview</p>
               <div className="flex gap-2 text-xs">
                 <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
@@ -560,6 +654,30 @@ export default function TaskImportPage() {
                 )}
               </div>
             </div>
+
+            {bad.some((b) => !b.member) && (
+              <div className="flex flex-wrap items-center gap-3 border-b border-slate-100 bg-amber-50/60 px-5 py-3 dark:border-slate-700">
+                <p className="text-xs text-amber-800">
+                  Some names in your file do not match anyone in your team. Pick the right
+                  person on each row below, or set them all at once:
+                </p>
+                <select
+                  defaultValue=""
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (!id) return;
+                    const next = { ...overrides };
+                    validated.forEach((v) => { if (!v.member) next[v.idx] = id; });
+                    setOverrides(next);
+                  }}
+                  className="rounded-md border border-amber-300 bg-white px-2 py-1 text-xs outline-none">
+                  <option value="">Assign all unmatched to…</option>
+                  {members.map((m) => (
+                    <option key={m.id} value={m.id}>{m.full_name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="max-h-80 overflow-auto">
               <table className="w-full text-sm">
@@ -585,8 +703,31 @@ export default function TaskImportPage() {
                         {v.title || <span className="text-slate-300">—</span>}
                       </td>
                       <td className="p-3 text-slate-600 dark:text-slate-300">
-                        {v.member?.full_name || (
-                          <span className="text-rose-500">{val(v.rec, "assignee") || "—"}</span>
+                        {v.member ? (
+                          <span className="flex items-center gap-1.5">
+                            {v.member.full_name}
+                            {overrides[v.idx] && (
+                              <span className="rounded bg-brand-50 px-1.5 py-0.5 text-[10px] font-medium text-brand-700">
+                                set by you
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <select
+                            value={overrides[v.idx] || ""}
+                            onChange={(e) =>
+                              setOverrides((p) => ({ ...p, [v.idx]: e.target.value }))
+                            }
+                            className="w-full rounded-md border border-rose-300 bg-white px-2 py-1 text-xs outline-none focus:border-brand-600">
+                            <option value="">
+                              {val(v.rec, "assignee")
+                                ? `“${val(v.rec, "assignee")}” — pick the right person`
+                                : "Pick an employee"}
+                            </option>
+                            {members.map((m) => (
+                              <option key={m.id} value={m.id}>{m.full_name}</option>
+                            ))}
+                          </select>
                         )}
                       </td>
                       {kind === "checklist" && (
@@ -635,8 +776,9 @@ export default function TaskImportPage() {
 
           {bad.length > 0 && (
             <p className="text-center text-xs text-slate-500">
-              {bad.length} row{bad.length > 1 ? "s" : ""} will be skipped. Fix them in your
-              source and run the import again if you need them.
+              {bad.length} row{bad.length > 1 ? "s" : ""} will be skipped. Where the problem
+              is just an unrecognised name, fix it with the dropdown on that row — everything
+              else needs correcting in your source file.
             </p>
           )}
         </div>
@@ -684,6 +826,8 @@ export default function TaskImportPage() {
                 onClick={() => {
                   setStep(1); setResult(null); setRecords([]);
                   setHeaders([]); setMap({}); setTabs([]); setSheetUrl("");
+                  setOpened(false); setUseManual(false); setManualTab("");
+                  setOverrides({});
                 }}
                 className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300">
                 Import more
