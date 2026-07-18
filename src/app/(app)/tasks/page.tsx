@@ -1,12 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
+import { exportCsv } from "@/lib/export";
 import { type Profile, isAdminRole } from "@/lib/types";
 import {
   Plus, ListChecks, ClipboardList, Check, Clock, AlertTriangle,
   RotateCcw, Pause, Play, Trash2, Repeat, Lock,
+  Download, Upload, BarChart3, ChevronDown,
 } from "lucide-react";
 
 const FREQ_LABELS: Record<string, string> = {
@@ -356,6 +359,71 @@ export default function TasksPage() {
 
   const admin = isAdminRole(me?.role);
 
+  /* ---------------- Per-user task stats ---------------- */
+  const [stats, setStats] = useState<any[]>([]);
+  const [showStats, setShowStats] = useState(false);
+
+  useEffect(() => {
+    if (!admin || !showStats) return;
+    (async () => {
+      const y = new Date().getFullYear();
+      const { data } = await supabase.rpc("task_user_stats", {
+        p_from: `${y}-01-01`, p_to: `${y}-12-31`,
+      });
+      setStats((data as any[]) || []);
+    })();
+  }, [admin, showStats, supabase]);
+
+  /* ---------------- Export ---------------- */
+  const exportTasks = () => {
+    if (tab === "delegation") {
+      exportCsv("Delegation_tasks",
+        ["Due date", "Due time", "KRA ID", "Title", "Description", "Priority",
+         "Employee", "Assigned by", "Completed at", "Status"],
+        dList.map((d) => [
+          d.due_date, (d.due_time || "").slice(0, 5), d.kra_id || "",
+          d.title || "", d.description || "", d.priority || "",
+          d.assignee?.full_name || "", d.assigner?.full_name || "",
+          d.completed_at ? fmtStamp(d.completed_at) : "",
+          computeStatus(d.due_date, d.due_time, d.completed_at).replace(/_/g, " "),
+        ]));
+    } else {
+      exportCsv("Checklist_tasks",
+        ["Due date", "Due time", "KRA ID", "Title", "Frequency",
+         "Employee", "Completed at", "Status"],
+        iList.map((i) => [
+          i.due_date, (i.due_time || "").slice(0, 5), i.template?.kra_id || "",
+          i.template?.title || "", i.template?.frequency || "",
+          i.assignee?.full_name || "",
+          i.completed_at ? fmtStamp(i.completed_at) : "",
+          computeStatus(i.due_date, i.due_time, i.completed_at).replace(/_/g, " "),
+        ]));
+    }
+  };
+
+  /* ---------------- KRA ID auto-generation ---------------- */
+  const genKra = async (): Promise<string> => {
+    const { data, error } = await supabase.rpc("next_kra_id");
+    if (error || !data) return "";
+    return String(data);
+  };
+
+  const openDelegation = async () => {
+    setDOpen(true);
+    if (!df.kra_id) {
+      const id = await genKra();
+      if (id) setD("kra_id", id);
+    }
+  };
+
+  const openChecklist = async () => {
+    setCOpen(true);
+    if (!cf.kra_id) {
+      const id = await genKra();
+      if (id) setC("kra_id", id);
+    }
+  };
+
   /* ---------------- Derived lists ---------------- */
   const dList = delegations.filter((d) => {
     if (dScope === "mine") return d.assigned_to === me?.id;
@@ -392,13 +460,27 @@ export default function TasksPage() {
         subtitle="Delegation and recurring checklists."
         action={
           admin && (
-            <button
-              onClick={() => (tab === "delegation" ? setDOpen(true) : setCOpen(true))}
-              className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800"
-            >
+            <div className="flex shrink-0 flex-wrap gap-2">
+              <button
+                onClick={exportTasks}
+                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                <Download className="h-4 w-4" /> Export
+              </button>
+              <Link
+                href="/tasks/import"
+                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                <Upload className="h-4 w-4" /> Import
+              </Link>
+              <button
+                onClick={() => (tab === "delegation" ? openDelegation() : openChecklist())}
+                className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800"
+              >
               <Plus className="h-4 w-4" />
               {tab === "delegation" ? "New delegation" : "New checklist"}
-            </button>
+              </button>
+            </div>
           )
         }
       />
@@ -481,6 +563,74 @@ export default function TasksPage() {
       {/* ================= CHECKLIST ================= */}
       {tab === "checklist" && (
         <div className="space-y-6">
+          {admin && (
+            <div>
+              <button
+                onClick={() => setShowStats((s) => !s)}
+                className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900 transition hover:text-brand-700"
+              >
+                <BarChart3 className="h-4 w-4" />
+                Tasks per employee
+                <ChevronDown className={`h-4 w-4 transition ${showStats ? "rotate-180" : ""}`} />
+              </button>
+
+              {showStats && (
+                <Card>
+                  {stats.length === 0 ? (
+                    <p className="px-4 py-6 text-center text-xs text-slate-400">Loading…</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-100 text-left">
+                            <th className="p-3 font-medium text-slate-500">Employee</th>
+                            <th className="p-3 font-medium text-slate-500">Department</th>
+                            <th className="p-3 text-center font-medium text-slate-500">
+                              Unique checklists
+                            </th>
+                            <th className="p-3 text-center font-medium text-slate-500">Due</th>
+                            <th className="p-3 text-center font-medium text-slate-500">Done</th>
+                            <th className="p-3 text-center font-medium text-slate-500">Pending</th>
+                            <th className="p-3 text-center font-medium text-slate-500">
+                              Delegations
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {stats.map((s) => (
+                            <tr key={s.user_id}>
+                              <td className="p-3 font-medium text-slate-900">{s.full_name}</td>
+                              <td className="p-3 text-slate-500">{s.department}</td>
+                              <td className="p-3 text-center">
+                                <span className="rounded-full bg-brand-50 px-2.5 py-1 text-xs font-bold text-brand-700">
+                                  {s.unique_checklists}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center text-slate-600">{s.checklist_due}</td>
+                              <td className="p-3 text-center font-medium text-emerald-600">
+                                {s.checklist_done}
+                              </td>
+                              <td className="p-3 text-center font-medium text-amber-600">
+                                {s.checklist_pending}
+                              </td>
+                              <td className="p-3 text-center text-slate-600">
+                                {s.delegation_done} / {s.delegation_total}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p className="border-t border-slate-100 px-3 py-2.5 text-[11px] text-slate-400">
+                        Counts cover the current calendar year. “Unique checklists” is how many
+                        distinct recurring tasks that employee owns.
+                      </p>
+                    </div>
+                  )}
+                </Card>
+              )}
+            </div>
+          )}
+
           {admin && templates.length > 0 && (
             <div>
               <h2 className="mb-2 text-sm font-semibold text-slate-900">Recurring templates</h2>
@@ -526,7 +676,6 @@ export default function TasksPage() {
                 </div>
               )}
             </div>
-
             {iList.length === 0 ? (
               <Card>
                 <EmptyState icon={ListChecks} title="No checklist items"
@@ -571,8 +720,18 @@ export default function TasksPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700">KRA ID</label>
-            <input className={`mt-1.5 ${inputCls}`} placeholder="Optional reference code"
-              value={df.kra_id} onChange={(e) => setD("kra_id", e.target.value)} />
+            <div className="mt-1.5 flex gap-2">
+              <input className={inputCls} placeholder="Generating…"
+                value={df.kra_id} onChange={(e) => setD("kra_id", e.target.value)} />
+              <button type="button"
+                onClick={async () => { const id = await genKra(); if (id) setD("kra_id", id); }}
+                className="shrink-0 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500">
+              Generated automatically — you can overwrite it with your own code.
+            </p>
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700">Description</label>
@@ -647,8 +806,18 @@ export default function TasksPage() {
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700">KRA ID</label>
-            <input className={`mt-1.5 ${inputCls}`} placeholder="Optional reference code"
-              value={cf.kra_id} onChange={(e) => setC("kra_id", e.target.value)} />
+            <div className="mt-1.5 flex gap-2">
+              <input className={inputCls} placeholder="Generating…"
+                value={cf.kra_id} onChange={(e) => setC("kra_id", e.target.value)} />
+              <button type="button"
+                onClick={async () => { const id = await genKra(); if (id) setC("kra_id", id); }}
+                className="shrink-0 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50">
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-1.5 text-xs text-slate-500">
+              Generated automatically — you can overwrite it with your own code.
+            </p>
           </div>
           <div>
             <label className="text-sm font-medium text-slate-700">Description</label>
