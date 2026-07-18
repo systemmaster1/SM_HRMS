@@ -6,7 +6,7 @@ import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
 import {
   Plus, ListChecks, ClipboardList, Check, Clock, AlertTriangle,
-  RotateCcw, Pause, Play, Trash2, Repeat,
+  RotateCcw, Pause, Play, Trash2, Repeat, Lock,
 } from "lucide-react";
 
 const FREQ_LABELS: Record<string, string> = {
@@ -39,6 +39,140 @@ function StatusChip({ status }: { status: string }) {
     <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${s.cls}`}>
       <Icon className="h-3 w-3" /> {s.label}
     </span>
+  );
+}
+
+/* ---------- Planned vs completed timestamps ---------- */
+function fmtDateTime(dateStr: string, timeStr: string | null) {
+  const d = new Date(`${dateStr}T${timeStr || "09:00"}`);
+  return d.toLocaleString("en-IN", {
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true,
+  });
+}
+
+function fmtStamp(ts: string) {
+  return new Date(ts).toLocaleString("en-IN", {
+    day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true,
+  });
+}
+
+function delayText(dueDate: string, dueTime: string | null, completedAt: string) {
+  const due = new Date(`${dueDate}T${dueTime || "09:00"}`);
+  const done = new Date(completedAt);
+  const mins = Math.round((done.getTime() - due.getTime()) / 60000);
+  if (mins <= 0) return null;
+  if (mins < 60) return `${mins}m late`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ${mins % 60}m late`;
+  return `${Math.floor(hrs / 24)}d ${hrs % 24}h late`;
+}
+
+/* ---------- One task window (Today / Delayed / Upcoming / Completed) ---------- */
+const TONES: Record<string, { head: string; ring: string }> = {
+  today:    { head: "bg-brand-50 text-brand-700",       ring: "border-brand-200" },
+  delayed:  { head: "bg-rose-50 text-rose-700",         ring: "border-rose-200" },
+  upcoming: { head: "bg-slate-100 text-slate-500",      ring: "border-slate-200" },
+  done:     { head: "bg-emerald-50 text-emerald-700",   ring: "border-emerald-200" },
+};
+
+function InstanceWindow({
+  title, tone, icon: Icon, items, me, admin, onToggle, locked = false, empty,
+}: {
+  title: string; tone: string; icon: any; items: any[];
+  me: Profile | null; admin: boolean; onToggle: (i: any) => void;
+  locked?: boolean; empty: string;
+}) {
+  const t = TONES[tone] || TONES.today;
+
+  return (
+    <div className={`overflow-hidden rounded-2xl border ${t.ring} bg-white`}>
+      <div className={`flex items-center justify-between px-4 py-2.5 ${t.head}`}>
+        <div className="flex items-center gap-2">
+          <Icon className="h-4 w-4" />
+          <h3 className="text-sm font-semibold">{title}</h3>
+        </div>
+        <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold">
+          {items.length}
+        </span>
+      </div>
+
+      {items.length === 0 ? (
+        <p className="px-4 py-6 text-center text-xs text-slate-400">{empty}</p>
+      ) : (
+        <ul className="divide-y divide-slate-100">
+          {items.map((i) => {
+            const status = computeStatus(i.due_date, i.due_time, i.completed_at);
+            const canToggle = (i.assigned_to === me?.id || admin) && !locked;
+            const late = i.completed_at
+              ? delayText(i.due_date, i.due_time, i.completed_at)
+              : null;
+
+            return (
+              <li key={i.id} className="flex items-start gap-3 px-4 py-3.5">
+                <button
+                  onClick={() => canToggle && onToggle(i)}
+                  disabled={!canToggle}
+                  title={locked ? "This task unlocks on its due date" : undefined}
+                  className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
+                    i.completed_at
+                      ? "border-emerald-600 bg-emerald-600 text-white"
+                      : "border-slate-300 hover:border-brand-600"
+                  } ${!canToggle ? "cursor-not-allowed opacity-40" : ""}`}
+                >
+                  {i.completed_at ? (
+                    <Check className="h-3 w-3" />
+                  ) : locked ? (
+                    <Lock className="h-2.5 w-2.5 text-slate-400" />
+                  ) : null}
+                </button>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className={`text-sm font-medium ${i.completed_at ? "text-slate-400 line-through" : "text-slate-900"}`}>
+                      {i.template?.title}
+                    </p>
+                    {!locked && <StatusChip status={status} />}
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
+                      {FREQ_LABELS[i.template?.frequency]}
+                    </span>
+                    {late && (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                        {late}
+                      </span>
+                    )}
+                  </div>
+
+                  {i.assignee?.full_name && (
+                    <p className="mt-1 text-xs text-slate-400">{i.assignee.full_name}</p>
+                  )}
+
+                  {/* Planned vs completed timestamps */}
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-[11px]">
+                    <span className="flex items-center gap-1 text-slate-500">
+                      <Clock className="h-3 w-3" />
+                      Planned: {fmtDateTime(i.due_date, i.due_time)}
+                    </span>
+                    {i.completed_at && (
+                      <span className={`flex items-center gap-1 font-medium ${late ? "text-amber-600" : "text-emerald-600"}`}>
+                        <Check className="h-3 w-3" />
+                        Completed: {fmtStamp(i.completed_at)}
+                      </span>
+                    )}
+                  </div>
+
+                  {locked && (
+                    <p className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-400">
+                      <Lock className="h-3 w-3" />
+                      Unlocks on its due date — cannot be completed early.
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -195,9 +329,18 @@ export default function TasksPage() {
   };
 
   const toggleInstanceDone = async (inst: any) => {
-    await supabase.rpc("set_checklist_done", {
+    const todayLocal = new Date().toLocaleDateString("en-CA");
+    if (!inst.completed_at && inst.due_date > todayLocal) {
+      alert("This task is scheduled for a future date and cannot be completed early.");
+      return;
+    }
+    const { error } = await supabase.rpc("set_checklist_done", {
       p_instance: inst.id, p_done: !inst.completed_at,
     });
+    if (error) {
+      alert(error.message);
+      return;
+    }
     load();
   };
 
@@ -224,6 +367,14 @@ export default function TasksPage() {
     if (cScope === "mine") return i.assigned_to === me?.id;
     return true;
   });
+
+  /* ---- Today / Upcoming / Delayed windows ---- */
+  const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
+
+  const iToday     = iList.filter((i) => i.due_date === todayStr);
+  const iUpcoming  = iList.filter((i) => i.due_date > todayStr);
+  const iDelayed   = iList.filter((i) => i.due_date < todayStr && !i.completed_at);
+  const iCompleted = iList.filter((i) => i.due_date < todayStr && i.completed_at);
 
   const dPendingCount = delegations.filter(
     (d) => d.assigned_to === me?.id && !d.completed_at
@@ -376,50 +527,36 @@ export default function TasksPage() {
               )}
             </div>
 
-            <Card>
-              {iList.length === 0 ? (
+            {iList.length === 0 ? (
+              <Card>
                 <EmptyState icon={ListChecks} title="No checklist items"
                   hint={admin ? "Create a recurring checklist to get started." : "Recurring tasks assigned to you will appear here."} />
-              ) : (
-                <ul className="divide-y divide-slate-100">
-                  {iList.map((i) => {
-                    const status = computeStatus(i.due_date, i.due_time, i.completed_at);
-                    const canToggle = i.assigned_to === me?.id || admin;
-                    return (
-                      <li key={i.id} className="flex items-start gap-3 px-4 py-3.5">
-                        <button
-                          onClick={() => canToggle && toggleInstanceDone(i)}
-                          disabled={!canToggle}
-                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
-                            i.completed_at
-                              ? "border-emerald-600 bg-emerald-600 text-white"
-                              : "border-slate-300 hover:border-brand-600"
-                          } ${!canToggle ? "cursor-not-allowed opacity-50" : ""}`}
-                        >
-                          {i.completed_at && <Check className="h-3 w-3" />}
-                        </button>
-
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className={`text-sm font-medium ${i.completed_at ? "text-slate-400 line-through" : "text-slate-900"}`}>
-                              {i.template?.title}
-                            </p>
-                            <StatusChip status={status} />
-                            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500">
-                              {FREQ_LABELS[i.template?.frequency]}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs text-slate-400">
-                            {i.assignee?.full_name && `${i.assignee.full_name} · `}
-                            Due {i.due_date}{i.due_time && ` at ${i.due_time.slice(0, 5)}`}
-                          </p>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </Card>
+              </Card>
+            ) : (
+              <div className="space-y-5">
+                <InstanceWindow
+                  title="Today's tasks" tone="today" icon={Clock}
+                  items={iToday} me={me} admin={admin} onToggle={toggleInstanceDone}
+                  empty="Nothing scheduled for today."
+                />
+                <InstanceWindow
+                  title="Delayed" tone="delayed" icon={AlertTriangle}
+                  items={iDelayed} me={me} admin={admin} onToggle={toggleInstanceDone}
+                  empty="No delayed tasks — well done."
+                />
+                <InstanceWindow
+                  title="Upcoming" tone="upcoming" icon={Lock}
+                  items={iUpcoming} me={me} admin={admin} onToggle={toggleInstanceDone}
+                  locked
+                  empty="Nothing scheduled ahead."
+                />
+                <InstanceWindow
+                  title="Completed" tone="done" icon={Check}
+                  items={iCompleted} me={me} admin={admin} onToggle={toggleInstanceDone}
+                  empty="No completed tasks yet."
+                />
+              </div>
+            )}
           </div>
         </div>
       )}

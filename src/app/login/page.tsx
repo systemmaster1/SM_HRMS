@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark, LogoFull } from "@/components/Logo";
-import { LogIn } from "lucide-react";
+import { LogIn, BookOpen, Download } from "lucide-react";
 
 const inputCls =
   "w-full rounded-lg border border-slate-300 px-3.5 py-2.5 text-sm outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10";
@@ -147,6 +147,28 @@ export default function LoginPage() {
               Create an account
             </Link>
           </p>
+
+          {/* User guide — complete PDF walkthrough */}
+          <div className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-start gap-3">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700">
+                <BookOpen className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-slate-900">First time here?</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-slate-500">
+                  A complete PDF walkthrough — every feature, for employees and admins alike.
+                </p>
+                <a
+                  href="/SM_HRMS_User_Guide.pdf"
+                  download
+                  className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-brand-700 hover:text-brand-800"
+                >
+                  <Download className="h-4 w-4" /> Download the user guide
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>

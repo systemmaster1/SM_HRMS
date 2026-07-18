@@ -209,7 +209,7 @@ export default function HelpPage() {
       {/* Branding + contact */}
       <FadeIn delay={0.15}>
         <div className="mt-10 rounded-2xl border border-slate-200 dark:border-slate-700 bg-brand-900 p-7 text-white">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-amber-300">
                 Built by SystemMaster Automations
@@ -218,16 +218,26 @@ export default function HelpPage() {
                 SM HRMS — Empowering People. Optimizing Talent.
               </h3>
               <p className="mt-1.5 max-w-md text-sm text-white/60">
-                Still stuck on something? Reach out — we're happy to help you get set up.
+                Still stuck on something? Reach out and we'll help you get set up.
               </p>
-            </div>
-            <div className="flex flex-col gap-2 text-sm">
-              <a href="mailto:connect@systemmaster.in" className="flex items-center gap-2 text-white/80 hover:text-white">
-                <Mail className="h-4 w-4" /> connect@systemmaster.in
+              <a href="https://www.systemmaster.in" target="_blank" rel="noreferrer"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-white/10 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-white/15">
+                Explore our other products <ArrowRight className="h-3.5 w-3.5" />
               </a>
-              <a href="https://systemmaster.in" target="_blank" rel="noreferrer"
+            </div>
+            <div className="space-y-2.5 text-sm">
+              <p className="flex items-center gap-2 font-medium text-white">
+                <UserIcon className="h-4 w-4 text-white/60" /> Sunil Tiwari, Founder
+              </p>
+              <a href="mailto:Connect@systemmaster.in" className="flex items-center gap-2 text-white/80 hover:text-white">
+                <Mail className="h-4 w-4" /> Connect@systemmaster.in
+              </a>
+              <a href="tel:+919027965956" className="flex items-center gap-2 text-white/80 hover:text-white">
+                <Phone className="h-4 w-4" /> +91 90279 65956
+              </a>
+              <a href="https://www.systemmaster.in" target="_blank" rel="noreferrer"
                 className="flex items-center gap-2 text-white/80 hover:text-white">
-                <Globe className="h-4 w-4" /> systemmaster.in
+                <Globe className="h-4 w-4" /> www.systemmaster.in
               </a>
             </div>
           </div>

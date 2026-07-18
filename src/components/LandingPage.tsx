@@ -7,7 +7,7 @@ import { motion, FadeIn, StaggerGroup, StaggerItem, HoverLift, useReducedMotion 
 import {
   CalendarCheck, Plane, Wallet, ListChecks, Users, LifeBuoy, MapPin,
   Camera, Navigation, ShieldCheck, Check, ArrowRight, Download, Building2,
-  Moon, Bell, FileText, Clock,
+  Moon, Bell, FileText, Clock, User, Phone, Mail,
 } from "lucide-react";
 
 const employeeFeatures = [
@@ -220,16 +220,47 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Get in touch */}
+      <section className="border-t border-slate-100 py-16">
+        <div className="mx-auto max-w-4xl px-5 text-center">
+          <p className="text-sm font-semibold uppercase tracking-wide text-brand-700">Get in touch</p>
+          <h3 className="mt-2 text-2xl font-bold tracking-tight text-slate-900">
+            Questions before you start?
+          </h3>
+          <div className="mt-6 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-8">
+            <span className="flex items-center gap-2 text-sm text-slate-600">
+              <User className="h-4 w-4 text-slate-400" /> Sunil Tiwari, Founder
+            </span>
+            <a href="mailto:Connect@systemmaster.in" className="flex items-center gap-2 text-sm text-slate-600 hover:text-brand-700">
+              <Mail className="h-4 w-4 text-slate-400" /> Connect@systemmaster.in
+            </a>
+            <a href="tel:+919027965956" className="flex items-center gap-2 text-sm text-slate-600 hover:text-brand-700">
+              <Phone className="h-4 w-4 text-slate-400" /> +91 90279 65956
+            </a>
+          </div>
+          <p className="mt-6 text-sm text-slate-500">
+            Curious what else SystemMaster Automations builds?{" "}
+            <a href="https://www.systemmaster.in" target="_blank" rel="noreferrer"
+              className="font-medium text-brand-700 hover:text-brand-800">
+              Visit www.systemmaster.in →
+            </a>
+          </p>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-slate-100 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 text-sm text-slate-400 sm:flex-row">
           <div className="flex items-center gap-2">
             <LogoMark size={18} />
-            <span>© {new Date().getFullYear()} SystemMaster · SM HRMS</span>
+            <span>© {new Date().getFullYear()} SystemMaster Automations · SM HRMS</span>
           </div>
           <div className="flex items-center gap-6">
             <Link href="/login" className="hover:text-slate-600">Sign in</Link>
             <Link href="/signup" className="hover:text-slate-600">Create account</Link>
+            <a href="https://www.systemmaster.in" target="_blank" rel="noreferrer" className="hover:text-slate-600">
+              www.systemmaster.in
+            </a>
           </div>
         </div>
       </footer>
