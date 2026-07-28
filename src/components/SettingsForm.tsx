@@ -40,6 +40,7 @@ export default function SettingsForm({
     short_leave_hours: String(company?.short_leave_hours ?? 2),
     photo_policy: company?.photo_policy || "off",
     capture_location: company?.capture_location !== false,
+    location_mandatory: !!company?.location_mandatory,
     capture_ip: company?.capture_ip !== false,
     directory_enabled: company?.directory_enabled !== false,
     directory_scope: company?.directory_scope || "company",
@@ -114,6 +115,7 @@ export default function SettingsForm({
       short_leave_hours: parseFloat(f.short_leave_hours) || 0,
       photo_policy: f.photo_policy,
       capture_location: f.capture_location,
+      location_mandatory: f.location_mandatory,
       capture_ip: f.capture_ip,
       directory_enabled: f.directory_enabled,
       directory_scope: f.directory_scope,
@@ -411,6 +413,17 @@ export default function SettingsForm({
                 <span>
                   <span className="block text-sm font-medium text-slate-900">Capture location</span>
                   <span className="block text-xs text-slate-500">Record GPS coordinates and address.</span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-3">
+                <input type="checkbox" checked={f.location_mandatory}
+                  onChange={(e) => setF((p) => ({ ...p, location_mandatory: e.target.checked }))}
+                  className="h-4 w-4 rounded border-slate-300 text-brand-700 focus:ring-brand-600" />
+                <span>
+                  <span className="block text-sm font-medium text-slate-900">Location mandatory</span>
+                  <span className="block text-xs text-slate-500">
+                    Employees cannot check in/out without granting location permission. Enforced on the server as well.
+                  </span>
                 </span>
               </label>
               <label className="flex cursor-pointer items-center gap-3">
