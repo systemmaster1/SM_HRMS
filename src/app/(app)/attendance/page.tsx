@@ -7,7 +7,7 @@ import { FadeIn, StaggerGroup, StaggerItem, MotionButton, SkeletonRows, motion }
 import CameraCapture from "@/components/CameraCapture";
 import { exportCsv, printReport } from "@/lib/export";
 import {
-  getPosition, reverseGeocode, getPublicIp,
+  getPositionStrict, reverseGeocode, getPublicIp,
   fmtTime, fmtDuration, todayISO,
 } from "@/lib/geo";
 import { type Profile, isAdminRole } from "@/lib/types";
@@ -47,6 +47,7 @@ export default function AttendancePage() {
   const [address, setAddress] = useState<string | null>(null);
   const [ip, setIp] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const [locError, setLocError] = useState<"denied" | "unavailable" | "timeout" | null>(null);
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -123,8 +124,10 @@ export default function AttendancePage() {
     setClock(new Date());
 
     setLocating(true);
-    const pos = await getPosition();
-    setCoords(pos);
+    setLocError(null);
+    const pos = await getPositionStrict();
+    setCoords({ lat: pos.lat, lng: pos.lng });
+    if (pos.error) setLocError(pos.error);
     const [addr, myIp] = await Promise.all([
       company?.capture_location !== false ? reverseGeocode(pos.lat, pos.lng) : Promise.resolve(null),
       company?.capture_ip !== false ? getPublicIp() : Promise.resolve(null),
@@ -134,8 +137,27 @@ export default function AttendancePage() {
     setLocating(false);
   };
 
+  /** Re-attempts a GPS fix after the user grants the location permission. */
+  const retryLocation = async () => {
+    setLocating(true);
+    setLocError(null);
+    setError("");
+    const pos = await getPositionStrict();
+    setCoords({ lat: pos.lat, lng: pos.lng });
+    if (pos.error) setLocError(pos.error);
+    const addr =
+      company?.capture_location !== false
+        ? await reverseGeocode(pos.lat, pos.lng)
+        : null;
+    setAddress(addr);
+    setLocating(false);
+  };
+
   const submit = async () => {
     setError("");
+    if (company?.location_mandatory && (coords.lat == null || coords.lng == null)) {
+      return setError("Location is mandatory for attendance. Please enable location permission and tap Retry.");
+    }
     if (needPhoto && !photoBlob) return setError("A photo is required. Please take a picture.");
 
     setSubmitting(true);
@@ -538,6 +560,23 @@ export default function AttendancePage() {
             )}
           </div>
 
+          {company?.location_mandatory && !locating && (coords.lat == null || coords.lng == null) && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 p-3.5">
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-rose-700">
+                <AlertTriangle className="h-4 w-4" /> Location required
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-rose-600">
+                {locError === "denied"
+                  ? "Location permission is blocked for this site. Enable it in your browser / phone settings, then tap Retry."
+                  : "We could not detect your location. Turn on GPS or move to an open area, then tap Retry."}
+              </p>
+              <button onClick={retryLocation}
+                className="mt-2.5 flex items-center gap-1.5 rounded-lg bg-rose-600 px-3.5 py-2 text-xs font-medium text-white transition hover:bg-rose-700">
+                <Navigation className="h-3.5 w-3.5" /> Retry location
+              </button>
+            </div>
+          )}
+
           {needPhoto && (
             <div>
               <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-700">
@@ -554,7 +593,8 @@ export default function AttendancePage() {
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>
           )}
 
-          <MotionButton onClick={submit} disabled={submitting || locating}
+          <MotionButton onClick={submit}
+            disabled={submitting || locating || !!(company?.location_mandatory && (coords.lat == null || coords.lng == null))}
             className={`w-full rounded-lg py-3 font-medium text-white transition-colors disabled:opacity-60 ${
               mode === "in" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-rose-600 hover:bg-rose-700"
             }`}>
