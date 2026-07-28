@@ -17,6 +17,40 @@ export function getPosition(): Promise<Coords> {
   });
 }
 
+export type StrictPosition = Coords & {
+  error: "denied" | "unavailable" | "timeout" | null;
+};
+
+/**
+ * Asks the browser for the current position, reporting WHY it failed.
+ * "denied"      -> user blocked the location permission
+ * "unavailable" -> device could not determine a position
+ * "timeout"     -> took too long to get a GPS fix
+ */
+export function getPositionStrict(): Promise<StrictPosition> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      return resolve({ lat: null, lng: null, error: "unavailable" });
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude, error: null }),
+      (err) =>
+        resolve({
+          lat: null,
+          lng: null,
+          error:
+            err.code === err.PERMISSION_DENIED
+              ? "denied"
+              : err.code === err.TIMEOUT
+              ? "timeout"
+              : "unavailable",
+        }),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 }
+    );
+  });
+}
+
 /** Turns coordinates into a human-readable address. Returns null on failure. */
 export async function reverseGeocode(
   lat: number | null,
