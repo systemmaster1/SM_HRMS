@@ -10,6 +10,7 @@ export interface Company {
   email: string;
   logo_url: string | null;
   plan: "trial" | "active" | "past_due" | "cancelled";
+  location_mandatory?: boolean;
   trial_ends_on: string | null;
   price_per_user: number;
   website: string;
