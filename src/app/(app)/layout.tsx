@@ -16,13 +16,23 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase
+  // Fetch the signed-in user's profile. We look at the ERROR separately from
+  // the row: a NULL row means the profile genuinely doesn't exist (new user),
+  // but an ERROR usually means the token/session couldn't be validated
+  // (e.g. a slightly wrong device clock). In that case we must NOT treat the
+  // user as "no company" and dump them into onboarding — that's what was
+  // wrongly sending existing owners back to setup. We send them to /login so
+  // a fresh session is minted instead.
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
 
-  // No profile row yet (trigger lag) — send to onboarding
+  // A read error is a transient/auth problem, not "profile missing".
+  if (profileError) redirect("/login");
+
+  // No profile row yet (signup trigger lag) — send to onboarding
   if (!profile) redirect("/onboarding");
 
   // Account suspended or offboarded — block everything except this screen
@@ -37,7 +47,7 @@ export default async function AppLayout({
     .from("companies")
     .select("*")
     .eq("id", profile.company_id)
-    .single();
+    .maybeSingle();
 
   return (
     <Shell profile={profile as Profile} company={company as Company | null}>
