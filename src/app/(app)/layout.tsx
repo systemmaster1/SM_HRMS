@@ -16,21 +16,44 @@ export default async function AppLayout({
 
   if (!user) redirect("/login");
 
-  // Fetch the signed-in user's profile. We look at the ERROR separately from
-  // the row: a NULL row means the profile genuinely doesn't exist (new user),
-  // but an ERROR usually means the token/session couldn't be validated
-  // (e.g. a slightly wrong device clock). In that case we must NOT treat the
-  // user as "no company" and dump them into onboarding — that's what was
-  // wrongly sending existing owners back to setup. We send them to /login so
-  // a fresh session is minted instead.
+  // Fetch the signed-in user's profile.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
 
-  // A read error is a transient/auth problem, not "profile missing".
-  if (profileError) redirect("/login");
+  // If the profile read errors, DO NOT redirect — that can bounce the user
+  // between /login and /dashboard in a loop. Show a clear, self-contained
+  // message instead so they can retry.
+  if (profileError) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-slate-50 p-6 dark:bg-slate-950">
+        <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800">
+          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            We couldn&apos;t load your workspace
+          </h1>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+            Something went wrong reading your account. Please refresh the page,
+            or sign out and sign back in.
+          </p>
+          <p className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-left font-mono text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">
+            {profileError.message}
+          </p>
+          <div className="mt-5 flex justify-center gap-3">
+            <a href="/dashboard"
+              className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-700">
+              Refresh
+            </a>
+            <a href="/login"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200">
+              Sign in again
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // No profile row yet (signup trigger lag) — send to onboarding
   if (!profile) redirect("/onboarding");
