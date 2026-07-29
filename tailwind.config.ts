@@ -2,6 +2,7 @@ import type { Config } from "tailwindcss";
 
 const config: Config = {
   content: ["./src/**/*.{js,ts,jsx,tsx,mdx}"],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -30,6 +31,27 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto", "sans-serif"],
+      },
+      /* layered, soft shadows — cards feel lifted instead of flat */
+      boxShadow: {
+        card: "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.12)",
+        "card-hover": "0 2px 4px rgba(15,23,42,0.05), 0 18px 44px -16px rgba(5,58,110,0.28)",
+        glow: "0 0 0 1px rgba(232,121,42,0.25), 0 4px 20px -4px rgba(232,121,42,0.45)",
+      },
+      /* reusable brand gradients */
+      backgroundImage: {
+        "brand-gradient": "linear-gradient(135deg, #0E4478 0%, #053A6E 55%, #042C54 100%)",
+        "accent-gradient": "linear-gradient(135deg, #F08A3C 0%, #E8792A 60%, #CC621B 100%)",
+        "sidebar-gradient": "linear-gradient(180deg, #04294D 0%, #031E3A 58%, #021226 100%)",
+      },
+      keyframes: {
+        shimmer: {
+          "0%": { backgroundPosition: "-400px 0" },
+          "100%": { backgroundPosition: "400px 0" },
+        },
+      },
+      animation: {
+        shimmer: "shimmer 1.6s linear infinite",
       },
     },
   },
