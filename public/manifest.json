@@ -3,7 +3,7 @@
   "short_name": "SM HRMS",
   "description": "Attendance, leave, tasks and GPS-tracked field visits — your complete HR platform on web and mobile.",
   "id": "/",
-  "start_url": "/?source=pwa",
+  "start_url": "/login?source=app",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
