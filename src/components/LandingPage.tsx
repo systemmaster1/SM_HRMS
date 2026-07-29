@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LogoMark } from "@/components/Logo";
 import { motion, FadeIn, StaggerGroup, StaggerItem, HoverLift, useReducedMotion } from "@/components/motion";
 import {
   CalendarCheck, Plane, Wallet, ListChecks, Users, LifeBuoy, MapPin,
-  Camera, Navigation, ShieldCheck, Check, ArrowRight, Download, Building2,
+  Camera, Navigation, ShieldCheck, Check, ArrowRight, Building2,
   Moon, Bell, FileText, Clock, User, Phone, Mail,
   Repeat, MessageSquare, CalendarClock, BarChart3, Lock, Smartphone,
-  Sun, TrendingUp, LayoutDashboard, Sheet, ClipboardCheck, Globe,
+  TrendingUp, LayoutDashboard, Sheet, ClipboardCheck, Globe,
 } from "lucide-react";
 
 const employeeFeatures = [
@@ -78,7 +78,6 @@ export default function LandingPage() {
             <a href="#platform" className="transition hover:text-brand-600 dark:hover:text-brand-300">Platform</a>
             <a href="#apps" className="transition hover:text-brand-600 dark:hover:text-brand-300">App &amp; Web</a>
             <a href="#pricing" className="transition hover:text-brand-600 dark:hover:text-brand-300">Pricing</a>
-            <a href="/SM_HRMS_User_Guide.pdf" className="transition hover:text-brand-600 dark:hover:text-brand-300">User guide</a>
           </nav>
           <div className="flex items-center gap-3">
             <Link href="/login" className="hidden text-sm font-medium text-slate-600 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-300 sm:block">
@@ -248,14 +247,14 @@ export default function LandingPage() {
               ))}
             </ul>
             <div className="mt-8 flex flex-wrap gap-4">
-              <a href="https://hrms.systemmaster.in" target="_blank" rel="noreferrer"
+              <Link href="/signup"
                 className="flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-brand-700 shadow-sm transition hover:bg-slate-100">
                 <Globe className="h-4 w-4" /> Open web app
-              </a>
-              <a href="/SM_HRMS_User_Guide.pdf" download
+              </Link>
+              <Link href="/login"
                 className="flex items-center gap-2 rounded-lg border border-white/25 px-6 py-3 font-medium text-white transition hover:bg-white/10">
-                <Download className="h-4 w-4" /> Setup guide
-              </a>
+                Sign in <ArrowRight className="h-4 w-4" />
+              </Link>
             </div>
             <p className="mt-3 text-xs text-white/50">Play Store listing coming soon.</p>
           </FadeIn>
@@ -323,22 +322,6 @@ export default function LandingPage() {
         </FadeIn>
       </section>
 
-      {/* User guide */}
-      <section className="border-t border-slate-100 bg-slate-50 py-16 dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto flex max-w-4xl flex-col items-center gap-6 px-5 text-center sm:flex-row sm:justify-between sm:text-left">
-          <div>
-            <h3 className="text-xl font-bold tracking-tight text-slate-900 dark:text-slate-100">New to SM HRMS?</h3>
-            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
-              A complete PDF walkthrough — every feature, for employees and admins alike.
-            </p>
-          </div>
-          <a href="/SM_HRMS_User_Guide.pdf" download
-            className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-gradient px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90">
-            <Download className="h-4 w-4" /> Download the user guide
-          </a>
-        </div>
-      </section>
-
       {/* Get in touch */}
       <section className="border-t border-slate-100 py-16 dark:border-slate-800">
         <div className="mx-auto max-w-4xl px-5 text-center">
@@ -389,15 +372,59 @@ export default function LandingPage() {
 
 /** The hero's signature element: an animated GPS + selfie check-in card. */
 function CheckInMockup({ reduce }: { reduce: boolean }) {
+  // Cycle through the platform's core features so the hero shows everything,
+  // not just check-in. Each card auto-rotates every ~2.6s.
+  const cards = ["attendance", "tasks", "checklist", "delegation", "reports", "integration"] as const;
+  const [active, setActive] = useState<number>(0);
+
+  useEffect(() => {
+    if (reduce) return;
+    const id = setInterval(() => setActive((i) => (i + 1) % cards.length), 2600);
+    return () => clearInterval(id);
+  }, [reduce, cards.length]);
+
   return (
-    <motion.div
-      initial={reduce ? false : { opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="relative mx-auto w-full max-w-sm rounded-2xl border border-white/10 bg-white p-5 text-slate-900 shadow-2xl"
-    >
+    <div className="relative mx-auto w-full max-w-sm" style={{ perspective: "1400px" }}>
+      {/* soft glow behind the card stack */}
+      <div className="pointer-events-none absolute -inset-6 rounded-[2rem] bg-white/5 blur-2xl" />
+
+      <motion.div
+        key={active}
+        initial={reduce ? false : { opacity: 0, y: 18, rotateX: 8 }}
+        animate={{ opacity: 1, y: 0, rotateX: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        style={{ transformStyle: "preserve-3d" }}
+        className="relative rounded-2xl border border-white/10 bg-white p-5 text-slate-900 shadow-2xl"
+      >
+        {cards[active] === "attendance" && <AttendanceCard reduce={reduce} />}
+        {cards[active] === "tasks" && <TasksCard />}
+        {cards[active] === "checklist" && <ChecklistCard />}
+        {cards[active] === "delegation" && <DelegationCard />}
+        {cards[active] === "reports" && <ReportsCard reduce={reduce} />}
+        {cards[active] === "integration" && <IntegrationCard />}
+      </motion.div>
+
+      {/* progress dots */}
+      <div className="mt-4 flex justify-center gap-1.5">
+        {cards.map((c, i) => (
+          <button
+            key={c}
+            onClick={() => setActive(i)}
+            aria-label={c}
+            className={`h-1.5 rounded-full transition-all ${i === active ? "w-6 bg-white" : "w-1.5 bg-white/30 hover:bg-white/50"}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ---- Card 1: Attendance with check-in AND check-out ---- */
+function AttendanceCard({ reduce }: { reduce: boolean }) {
+  return (
+    <>
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Today · Check in</p>
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Today · Attendance</p>
         <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Verified</span>
       </div>
 
@@ -406,7 +433,7 @@ function CheckInMockup({ reduce }: { reduce: boolean }) {
           <Camera className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-sm font-semibold text-slate-900">Priya Sharma</p>
+          <p className="text-sm font-semibold text-slate-900">Krishna</p>
           <p className="text-xs text-slate-400">Field Executive · Sales</p>
         </div>
       </div>
@@ -422,15 +449,171 @@ function CheckInMockup({ reduce }: { reduce: boolean }) {
         </div>
       </div>
 
-      <motion.div
-        initial={reduce ? false : { scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ delay: 0.4, duration: 0.8, ease: "easeOut" }}
-        style={{ transformOrigin: "left" }}
-        className="mt-4 h-1.5 rounded-full bg-emerald-500"
-      />
-      <p className="mt-2 text-right text-[11px] font-medium text-emerald-600">09:14 AM · Checked in</p>
-    </motion.div>
+      {/* check-in + check-out row */}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-emerald-600">Check-in</p>
+          <p className="mt-0.5 text-sm font-bold text-emerald-700">09:14 AM</p>
+        </div>
+        <div className="rounded-xl border border-brand-100 bg-brand-50/60 p-2.5">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-brand-600">Check-out</p>
+          <p className="mt-0.5 text-sm font-bold text-brand-600">06:32 PM</p>
+        </div>
+      </div>
+      <p className="mt-2 text-right text-[11px] font-medium text-slate-400">Total · 9h 18m</p>
+    </>
+  );
+}
+
+/* ---- Card 2: Tasks with subtasks + on-time score ---- */
+function TasksCard() {
+  const items = [
+    { t: "Submit vendor invoice", done: true },
+    { t: "Call 3 new leads", done: true },
+    { t: "Update CRM pipeline", done: false },
+  ];
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">My tasks · Today</p>
+        <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-600">2 / 3</span>
+      </div>
+      <div className="mt-3 space-y-2">
+        {items.map((it) => (
+          <div key={it.t} className="flex items-center gap-2.5 rounded-lg border border-slate-100 px-3 py-2">
+            <span className={`grid h-4 w-4 shrink-0 place-items-center rounded border ${it.done ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-300"}`}>
+              {it.done && <Check className="h-2.5 w-2.5" />}
+            </span>
+            <span className={`text-xs ${it.done ? "text-slate-400 line-through" : "text-slate-700"}`}>{it.t}</span>
+            {it.t.includes("invoice") && (
+              <span className="ml-auto rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500">2 subtasks</span>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 rounded-lg bg-accent-gradient px-3 py-2 text-center text-[11px] font-semibold text-white">
+        On-time score · 92%
+      </div>
+    </>
+  );
+}
+
+/* ---- Card 3: Recurring checklist ---- */
+function ChecklistCard() {
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Recurring checklist</p>
+        <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-semibold text-brand-600">
+          <Repeat className="h-2.5 w-2.5" /> Weekly
+        </span>
+      </div>
+      <div className="mt-3 rounded-xl border border-slate-100 p-3">
+        <p className="text-sm font-semibold text-slate-900">Weekly stock count</p>
+        <p className="mt-0.5 text-xs text-slate-400">Auto-generates every Monday · skips holidays</p>
+        <div className="mt-3 flex items-center justify-between">
+          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+            <Check className="h-2.5 w-2.5" /> Done on time
+          </span>
+          <span className="text-[11px] text-slate-400">Next · Mon 9:00 AM</span>
+        </div>
+      </div>
+      <div className="mt-3 flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] text-slate-500">
+        <Lock className="h-3 w-3 text-slate-400" /> Completed tasks lock — only admin can re-open.
+      </div>
+    </>
+  );
+}
+
+/* ---- Card 4: Delegation with comment + extension ---- */
+function DelegationCard() {
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Delegated task</p>
+        <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600">High</span>
+      </div>
+      <p className="mt-3 text-sm font-semibold text-slate-900">Prepare Q3 sales report</p>
+      <p className="mt-0.5 text-xs text-slate-400">Assigned to Krishna · by Admin · due 30 Sep</p>
+
+      <div className="mt-3 space-y-2">
+        <div className="flex items-start gap-2 rounded-lg bg-slate-50 px-3 py-2">
+          <MessageSquare className="mt-0.5 h-3 w-3 shrink-0 text-brand-600" />
+          <p className="text-[11px] text-slate-600">&ldquo;Draft ready, reviewing numbers.&rdquo;</p>
+        </div>
+        <div className="flex items-center gap-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+          <CalendarClock className="h-3 w-3 shrink-0 text-amber-600" />
+          <p className="text-[11px] font-medium text-amber-700">Extension requested · 2 Oct</p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ---- Card 5: Reports / performance ---- */
+function ReportsCard({ reduce }: { reduce: boolean }) {
+  const bars = [62, 78, 55, 90, 72];
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Team reports</p>
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+          <TrendingUp className="h-2.5 w-2.5" /> +8%
+        </span>
+      </div>
+      <div className="mt-4 flex h-24 items-end justify-between gap-2">
+        {bars.map((h, i) => (
+          <motion.div
+            key={i}
+            initial={reduce ? false : { height: 0 }}
+            animate={{ height: `${h}%` }}
+            transition={{ delay: i * 0.08, duration: 0.5, ease: "easeOut" }}
+            className="w-full rounded-t-md bg-brand-gradient"
+          />
+        ))}
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+        {[["On-time", "92%"], ["Present", "18/20"], ["Tasks", "146"]].map(([l, v]) => (
+          <div key={l} className="rounded-lg bg-slate-50 py-1.5">
+            <p className="text-sm font-bold text-slate-900">{v}</p>
+            <p className="text-[10px] text-slate-400">{l}</p>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/* ---- Card 6: Google Workspace / Drive backup integration ---- */
+function IntegrationCard() {
+  return (
+    <>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Integrations</p>
+        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">Connected</span>
+      </div>
+      <div className="mt-3 flex items-center gap-3 rounded-xl border border-slate-100 p-3">
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-600">
+          <Sheet className="h-5 w-5" />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-slate-900">Google Workspace backup</p>
+          <p className="text-xs text-slate-400">Back up SM HRMS data to your own Drive</p>
+        </div>
+      </div>
+      <div className="mt-3 space-y-1.5">
+        <div className="flex items-center gap-2 text-[11px] text-slate-600">
+          <Check className="h-3 w-3 text-emerald-600" /> Auto-export to your Google Sheet
+        </div>
+        <div className="flex items-center gap-2 text-[11px] text-slate-600">
+          <Check className="h-3 w-3 text-emerald-600" /> Your data stays in your Drive
+        </div>
+        <div className="flex items-center gap-2 text-[11px] text-slate-600">
+          <Check className="h-3 w-3 text-emerald-600" /> One-tap CSV export, any module
+        </div>
+      </div>
+      <p className="mt-3 text-right text-[11px] font-medium text-brand-600">Last backup · 2 min ago</p>
+    </>
   );
 }
 
