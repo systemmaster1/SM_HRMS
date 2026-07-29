@@ -4,8 +4,9 @@ import React from "react";
 import { X } from "lucide-react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 
+/* Shared input style — soft rounded field with a brand focus ring */
 export const inputCls =
-  "w-full rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10 placeholder:text-slate-400 dark:placeholder:text-slate-500";
+  "w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10 placeholder:text-slate-400 dark:placeholder:text-slate-500";
 
 export function PageHeader({
   title,
@@ -19,8 +20,14 @@ export function PageHeader({
   return (
     <div className="mb-6 flex items-start justify-between gap-4">
       <div>
-        <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>}
+        {/* small orange accent bar above the title — consistent brand signature */}
+        <div className="mb-2 h-1 w-8 rounded-full bg-accent-gradient" />
+        <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+          {title}
+        </h1>
+        {subtitle && (
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
+        )}
       </div>
       {action}
     </div>
@@ -29,7 +36,9 @@ export function PageHeader({
 
 export function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={`overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 ${className}`}>
+    <div
+      className={`overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-card dark:border-slate-700/80 dark:bg-slate-800 dark:shadow-none ${className}`}
+    >
       {children}
     </div>
   );
@@ -46,7 +55,9 @@ export function EmptyState({
 }) {
   return (
     <div className="px-4 py-12 text-center">
-      <Icon className="mx-auto h-8 w-8 text-slate-300 dark:text-slate-600" />
+      <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-slate-100 dark:bg-slate-700/50">
+        <Icon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+      </div>
       <p className="mt-3 text-sm font-medium text-slate-900 dark:text-slate-100">{title}</p>
       {hint && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
     </div>
@@ -75,7 +86,11 @@ const tones: Record<string, string> = {
 export function Badge({ value }: { value: string }) {
   const cls = tones[value] || "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300";
   return (
-    <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${cls}`}>
+    <span
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${cls}`}
+    >
+      {/* status dot in the badge's own colour */}
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />
       {value.replace(/_/g, " ")}
     </span>
   );
@@ -101,7 +116,7 @@ export function Modal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: reduce ? 0 : 0.15 }}
-          className="fixed inset-0 z-50 grid place-items-center bg-slate-900/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-md"
           onClick={onClose}
         >
           <motion.div
@@ -109,12 +124,15 @@ export function Modal({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8 }}
             transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
-            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white dark:bg-slate-800 shadow-xl"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 dark:bg-slate-800 dark:ring-white/10"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 flex items-center justify-between border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 px-5 py-4">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur dark:border-slate-700 dark:bg-slate-800/95">
               <h3 className="font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
-              <button onClick={onClose} className="text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-200">
+              <button
+                onClick={onClose}
+                className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+              >
                 <X className="h-5 w-5" />
               </button>
             </div>
