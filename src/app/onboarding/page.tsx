@@ -79,9 +79,25 @@ export default function OnboardingPage() {
     router.refresh();
   };
 
+  // Lets a user who is stuck on onboarding get back to the login screen.
+  const signOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 p-5">
       <div className="w-full max-w-lg">
+        <div className="mb-4 flex justify-end">
+          <button
+            onClick={signOut}
+            className="flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-brand-600"
+          >
+            <ArrowLeft className="h-4 w-4" /> Sign out
+          </button>
+        </div>
         <div className="mb-8 flex justify-center">
           <LogoFull width={170} />
         </div>
