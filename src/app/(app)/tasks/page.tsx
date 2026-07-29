@@ -30,10 +30,10 @@ function computeStatus(dueDate: string, dueTime: string | null, completedAt: str
 }
 
 const STATUS_UI: Record<string, { label: string; cls: string; icon: any }> = {
-  pending:      { label: "Pending",       cls: "bg-slate-100 text-slate-600 dark:bg-slate-700/60 dark:text-slate-300",    icon: Clock },
-  overdue:      { label: "Overdue",       cls: "bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400",       icon: AlertTriangle },
-  done_on_time: { label: "Done on time",  cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400", icon: Check },
-  done_late:    { label: "Done late",     cls: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",     icon: Check },
+  pending:      { label: "Pending",       cls: "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300",    icon: Clock },
+  overdue:      { label: "Overdue",       cls: "bg-rose-50 text-rose-600",       icon: AlertTriangle },
+  done_on_time: { label: "Done on time",  cls: "bg-emerald-50 text-emerald-700", icon: Check },
+  done_late:    { label: "Done late",     cls: "bg-amber-50 text-amber-700",     icon: Check },
 };
 
 function StatusChip({ status }: { status: string }) {
@@ -74,28 +74,28 @@ function delayText(dueDate: string, dueTime: string | null, completedAt: string)
 /* ---------- One task window (Today / Delayed / Upcoming / Completed) ---------- */
 const TONES: Record<string, { head: string; ring: string }> = {
   today:    { head: "bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300",       ring: "border-brand-200 dark:border-brand-500/30" },
-  delayed:  { head: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",           ring: "border-rose-200 dark:border-rose-500/30" },
-  upcoming: { head: "bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400",      ring: "border-slate-200 dark:border-slate-700" },
-  done:     { head: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400", ring: "border-emerald-200 dark:border-emerald-500/30" },
+  delayed:  { head: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",         ring: "border-rose-200 dark:border-rose-500/30" },
+  upcoming: { head: "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400",      ring: "border-slate-200 dark:border-slate-700" },
+  done:     { head: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",   ring: "border-emerald-200 dark:border-emerald-500/30" },
 };
 
 function InstanceWindow({
-  title, tone, icon: Icon, items, me, admin, onToggle, locked = false, empty, members = [], onReassign,
+  title, tone, icon: Icon, items, me, admin, onToggle, locked = false, empty,
 }: {
   title: string; tone: string; icon: any; items: any[];
   me: Profile | null; admin: boolean; onToggle: (i: any) => void;
-  locked?: boolean; empty: string; members?: Profile[]; onReassign?: (i: any, newAssignee: string) => void;
+  locked?: boolean; empty: string;
 }) {
   const t = TONES[tone] || TONES.today;
 
   return (
-    <div className={`overflow-hidden rounded-2xl border ${t.ring} bg-white dark:border-slate-700 dark:bg-slate-800`}>
+    <div className={`overflow-hidden rounded-2xl border ${t.ring} bg-white dark:bg-slate-800 dark:border-slate-700`}>
       <div className={`flex items-center justify-between px-4 py-2.5 ${t.head}`}>
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4" />
           <h3 className="text-sm font-semibold">{title}</h3>
         </div>
-        <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-bold">
+        <span className="rounded-full bg-white dark:bg-slate-800/70 px-2 py-0.5 text-[11px] font-bold">
           {items.length}
         </span>
       </div>
@@ -106,8 +106,10 @@ function InstanceWindow({
         <ul className="divide-y divide-slate-100 dark:divide-slate-700">
           {items.map((i) => {
             const status = computeStatus(i.due_date, i.due_time, i.completed_at);
-            const doneLocked = !!i.completed_at && !admin; // completed tasks are locked for non-admins
-            const canToggle = (i.assigned_to === me?.id || admin) && !locked && !doneLocked;
+            // Completed occurrences lock for employees; only admin can re-open.
+            const canToggle = i.completed_at
+              ? admin
+              : ((i.assigned_to === me?.id || admin) && !locked);
             const late = i.completed_at
               ? delayText(i.due_date, i.due_time, i.completed_at)
               : null;
@@ -118,18 +120,18 @@ function InstanceWindow({
                   onClick={() => canToggle && onToggle(i)}
                   disabled={!canToggle}
                   title={
-                    locked ? "This task unlocks on its due date"
-                    : doneLocked ? "Completed — only an admin can reopen this task"
-                    : undefined
+                    i.completed_at
+                      ? (admin ? "Re-open (admin, reason required)" : "Completed \u2014 locked")
+                      : locked ? "This task unlocks on its due date" : undefined
                   }
                   className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
                     i.completed_at
                       ? "border-emerald-600 bg-emerald-600 text-white"
-                      : "border-slate-300 hover:border-brand-600 dark:border-slate-600"
+                      : "border-slate-300 dark:border-slate-600 hover:border-brand-600"
                   } ${!canToggle ? "cursor-not-allowed opacity-40" : ""}`}
                 >
                   {i.completed_at ? (
-                    doneLocked ? <Lock className="h-2.5 w-2.5" /> : <Check className="h-3 w-3" />
+                    admin ? <Check className="h-3 w-3" /> : <Lock className="h-2.5 w-2.5" />
                   ) : locked ? (
                     <Lock className="h-2.5 w-2.5 text-slate-400 dark:text-slate-500" />
                   ) : null}
@@ -137,11 +139,11 @@ function InstanceWindow({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className={`text-sm font-medium ${i.completed_at ? "text-slate-400 line-through dark:text-slate-500" : "text-slate-900 dark:text-slate-100"}`}>
+                    <p className={`text-sm font-medium ${i.completed_at ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"}`}>
                       {i.template?.title}
                     </p>
                     {!locked && <StatusChip status={status} />}
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400 dark:bg-slate-700/60">
+                    <span className="rounded-full bg-slate-100 dark:bg-slate-700 px-2 py-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
                       {FREQ_LABELS[i.template?.frequency]}
                     </span>
                     {late && (
@@ -151,20 +153,8 @@ function InstanceWindow({
                     )}
                   </div>
 
-                  {admin && onReassign ? (
-                    <select
-                      className="mt-1 rounded-lg border border-slate-200 bg-white px-1.5 py-0.5 text-[11px] text-slate-500 outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
-                      value={i.assigned_to || ""}
-                      onChange={(e) => onReassign(i, e.target.value)}
-                    >
-                      {members.map((m) => (
-                        <option key={m.id} value={m.id}>{m.full_name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    i.assignee?.full_name && (
-                      <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{i.assignee.full_name}</p>
-                    )
+                  {i.assignee?.full_name && (
+                    <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{i.assignee.full_name}</p>
                   )}
 
                   {/* Planned vs completed timestamps */}
@@ -335,26 +325,34 @@ export default function TasksPage() {
 
   const toggleDelegationDone = async (d: any) => {
     const willComplete = !d.completed_at;
-    // Once a task is marked complete, an employee can no longer reopen it —
-    // only an admin can. (Admin can still mark/unmark at any time.)
-    if (!willComplete && !admin) return;
-    await supabase.from("delegations")
-      .update({ completed_at: willComplete ? new Date().toISOString() : null })
-      .eq("id", d.id);
-    load();
-  };
 
-  const reassignDelegation = async (d: any, newAssignee: string) => {
-    if (!newAssignee || newAssignee === d.assigned_to) return;
-    await supabase.from("delegations").update({ assigned_to: newAssignee }).eq("id", d.id);
-    await supabase.from("notifications").insert({
-      company_id: me!.company_id,
-      user_id: newAssignee,
-      title: "A task was reassigned to you",
-      body: `${d.title} · due ${d.due_date}${d.due_time ? ` ${d.due_time.slice(0, 5)}` : ""}`,
-      kind: "task",
-      link: "/tasks",
-    });
+    // Re-opening a completed task is admin-only, and needs a reason.
+    if (!willComplete) {
+      if (!admin) return; // employees cannot un-complete
+      const reason = window.prompt("Reason for re-opening this completed task:");
+      if (reason === null) return;               // admin cancelled
+      if (!reason.trim()) { alert("A reason is required to re-open the task."); return; }
+      await supabase.from("delegations")
+        .update({ completed_at: null })
+        .eq("id", d.id);
+      await supabase.from("task_comments").insert({
+        company_id: me!.company_id, delegation_id: d.id, user_id: me!.id,
+        body: `\ud83d\udd13 Task re-opened by admin. Reason: ${reason.trim()}`,
+      });
+      if (d.assigned_to && d.assigned_to !== me!.id) {
+        await supabase.from("notifications").insert({
+          company_id: me!.company_id, user_id: d.assigned_to,
+          title: "Task re-opened", body: `${d.title} \u00b7 ${reason.trim()}`,
+          kind: "task", link: "/tasks",
+        });
+      }
+      load();
+      return;
+    }
+
+    await supabase.from("delegations")
+      .update({ completed_at: new Date().toISOString() })
+      .eq("id", d.id);
     load();
   };
 
@@ -485,35 +483,38 @@ export default function TasksPage() {
   };
 
   const toggleInstanceDone = async (inst: any) => {
-    const willComplete = !inst.completed_at;
-    // Once done, an employee can't reopen it — only an admin can.
-    if (!willComplete && !admin) return;
     const todayLocal = new Date().toLocaleDateString("en-CA");
-    if (willComplete && inst.due_date > todayLocal) {
+
+    // Re-opening a completed occurrence is admin-only and needs a reason.
+    if (inst.completed_at) {
+      if (!admin) return;
+      const reason = window.prompt("Reason for re-opening this completed task:");
+      if (reason === null) return;
+      if (!reason.trim()) { alert("A reason is required to re-open the task."); return; }
+      const { error } = await supabase.rpc("set_checklist_done", {
+        p_instance: inst.id, p_done: false,
+      });
+      if (error) { alert(error.message); return; }
+      if (inst.assigned_to && inst.assigned_to !== me!.id) {
+        await supabase.from("notifications").insert({
+          company_id: me!.company_id, user_id: inst.assigned_to,
+          title: "Checklist task re-opened",
+          body: `${inst.template?.title || "Task"} \u00b7 ${reason.trim()}`,
+          kind: "task", link: "/tasks",
+        });
+      }
+      load();
+      return;
+    }
+
+    if (inst.due_date > todayLocal) {
       alert("This task is scheduled for a future date and cannot be completed early.");
       return;
     }
     const { error } = await supabase.rpc("set_checklist_done", {
-      p_instance: inst.id, p_done: willComplete,
+      p_instance: inst.id, p_done: true,
     });
-    if (error) {
-      alert(error.message);
-      return;
-    }
-    load();
-  };
-
-  const reassignInstance = async (inst: any, newAssignee: string) => {
-    if (!newAssignee || newAssignee === inst.assigned_to) return;
-    await supabase.from("checklist_instances").update({ assigned_to: newAssignee }).eq("id", inst.id);
-    await supabase.from("notifications").insert({
-      company_id: me!.company_id,
-      user_id: newAssignee,
-      title: "A checklist task was reassigned to you",
-      body: `${inst.template?.title || "Task"} · due ${inst.due_date}`,
-      kind: "task",
-      link: "/tasks",
-    });
+    if (error) { alert(error.message); return; }
     load();
   };
 
@@ -642,13 +643,13 @@ export default function TasksPage() {
             <div className="flex shrink-0 flex-wrap gap-2">
               <button
                 onClick={exportTasks}
-                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:hover:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+                className="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-700/50"
               >
                 <Download className="h-4 w-4" /> Export
               </button>
               <Link
                 href="/tasks/import"
-                className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:hover:bg-slate-800 dark:border-slate-700 dark:text-slate-300"
+                className="flex items-center gap-2 rounded-lg border border-slate-300 dark:border-slate-600 px-4 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 transition hover:bg-slate-50 dark:hover:bg-slate-700/50"
               >
                 <Upload className="h-4 w-4" /> Import
               </Link>
@@ -664,16 +665,16 @@ export default function TasksPage() {
         }
       />
 
-      <div className="mb-5 flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-700/60">
+      <div className="mb-5 flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
         <button onClick={() => setTab("delegation")}
           className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${
-            tab === "delegation" ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            tab === "delegation" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
           }`}>
           Delegation {dPendingCount > 0 && `(${dPendingCount})`}
         </button>
         <button onClick={() => setTab("checklist")}
           className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${
-            tab === "checklist" ? "bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            tab === "checklist" ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
           }`}>
           Checklist {iPendingCount > 0 && `(${iPendingCount})`}
         </button>
@@ -682,7 +683,7 @@ export default function TasksPage() {
       {/* ================= DELEGATION ================= */}
       {tab === "delegation" && (
         <div>
-          <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-700/60">
+          <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-700 p-1">
             <ScopeBtn on={dScope === "mine"} onClick={() => setDScope("mine")}>Assigned to me</ScopeBtn>
             {admin && <ScopeBtn on={dScope === "byMe"} onClick={() => setDScope("byMe")}>Assigned by me</ScopeBtn>}
             {admin && <ScopeBtn on={dScope === "all"} onClick={() => setDScope("all")}>All</ScopeBtn>}
@@ -707,8 +708,10 @@ export default function TasksPage() {
               <ul className="divide-y divide-slate-100 dark:divide-slate-700">
                 {dList.map((d) => {
                   const status = computeStatus(d.due_date, d.due_time, d.completed_at);
-                  const doneLocked = !!d.completed_at && !admin; // completed — only admin can reopen
-                  const canToggle = (d.assigned_to === me?.id || admin) && !doneLocked;
+                  // Once completed, only an admin can re-open it (with a reason).
+                  const canToggle = d.completed_at
+                    ? admin
+                    : (d.assigned_to === me?.id || admin);
                   const subs = subtasks.filter((s) => s.delegation_id === d.id);
                   const subsDone = subs.filter((s) => s.done).length;
                   const cmts = comments.filter((c) => c.delegation_id === d.id);
@@ -724,19 +727,27 @@ export default function TasksPage() {
                         <button
                           onClick={() => canToggle && toggleDelegationDone(d)}
                           disabled={!canToggle}
-                          title={doneLocked ? "Completed — only an admin can reopen this task" : undefined}
+                          title={
+                            d.completed_at
+                              ? (admin ? "Re-open (admin, reason required)" : "Completed \u2014 locked")
+                              : undefined
+                          }
                           className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
                             d.completed_at
                               ? "border-emerald-600 bg-emerald-600 text-white"
                               : "border-slate-300 hover:border-brand-600 dark:border-slate-600"
                           } ${!canToggle ? "cursor-not-allowed opacity-50" : ""}`}
                         >
-                          {d.completed_at && (doneLocked ? <Lock className="h-2.5 w-2.5" /> : <Check className="h-3 w-3" />)}
+                          {d.completed_at
+                            ? (admin
+                                ? <Check className="h-3 w-3" />
+                                : <Lock className="h-2.5 w-2.5" />)
+                            : null}
                         </button>
 
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className={`text-sm font-medium ${d.completed_at ? "text-slate-400 line-through dark:text-slate-500" : "text-slate-900 dark:text-slate-100"}`}>
+                            <p className={`text-sm font-medium ${d.completed_at ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"}`}>
                               {d.title}
                             </p>
                             <StatusChip status={status} />
@@ -775,7 +786,7 @@ export default function TasksPage() {
                             setExpandedId(isRowOpen ? null : d.id);
                             setNewSub(""); setCommentText(""); setExtOpen(false); setExtError("");
                           }}
-                          className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-slate-400 transition hover:bg-slate-50 hover:text-slate-600 dark:hover:text-slate-300 dark:hover:bg-slate-800 dark:text-slate-500"
+                          className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-slate-400 dark:text-slate-500 transition hover:bg-slate-50 dark:hover:bg-slate-700/50 hover:text-slate-600 dark:hover:text-slate-300"
                         >
                           <MessageSquare className="h-3.5 w-3.5" />
                           {cmts.length > 0 && <span>{cmts.length}</span>}
@@ -803,17 +814,17 @@ export default function TasksPage() {
                                     className={`grid h-4 w-4 shrink-0 place-items-center rounded border transition ${
                                       s.done
                                         ? "border-emerald-600 bg-emerald-600 text-white"
-                                        : "border-slate-300 hover:border-brand-600 dark:border-slate-600"
+                                        : "border-slate-300 dark:border-slate-600 hover:border-brand-600"
                                     } ${!canEditSubs ? "cursor-not-allowed opacity-50" : ""}`}
                                   >
                                     {s.done && <Check className="h-2.5 w-2.5" />}
                                   </button>
-                                  <span className={`text-xs ${s.done ? "text-slate-400 line-through dark:text-slate-500" : "text-slate-700 dark:text-slate-300"}`}>
+                                  <span className={`text-xs ${s.done ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-700 dark:text-slate-200"}`}>
                                     {s.title}
                                   </span>
                                   {canManage && (
                                     <button onClick={() => deleteSubtask(s)}
-                                      className="ml-auto text-slate-300 dark:text-slate-600 opacity-0 transition hover:text-rose-500 group-hover:opacity-100">
+                                      className="ml-auto text-slate-300 opacity-0 transition hover:text-rose-500 group-hover:opacity-100">
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </button>
                                   )}
@@ -823,37 +834,19 @@ export default function TasksPage() {
                             {canEditSubs && !d.completed_at && (
                               <div className="mt-2 flex gap-2">
                                 <input
-                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-brand-600 placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 outline-none transition focus:border-brand-600 placeholder:text-slate-400"
                                   placeholder="Add a subtask and press Enter…"
                                   value={newSub}
                                   onChange={(e) => setNewSub(e.target.value)}
                                   onKeyDown={(e) => e.key === "Enter" && addSubtask(d)}
                                 />
                                 <button onClick={() => addSubtask(d)}
-                                  className="grid shrink-0 place-items-center rounded-lg border border-slate-300 px-3 text-slate-600 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-700">
+                                  className="grid shrink-0 place-items-center rounded-lg border border-slate-300 dark:border-slate-600 px-3 text-slate-600 dark:text-slate-300 transition hover:bg-white">
                                   <Plus className="h-3.5 w-3.5" />
                                 </button>
                               </div>
                             )}
                           </div>
-
-                          {/* Reassign — admin only, works even if the task is already completed */}
-                          {admin && (
-                            <div>
-                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                                Assigned to
-                              </p>
-                              <select
-                                className="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-2 text-xs text-slate-900 outline-none transition focus:border-brand-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                                value={d.assigned_to}
-                                onChange={(e) => reassignDelegation(d, e.target.value)}
-                              >
-                                {members.map((m) => (
-                                  <option key={m.id} value={m.id}>{m.full_name}</option>
-                                ))}
-                              </select>
-                            </div>
-                          )}
 
                           {/* Due-date extension */}
                           <div>
@@ -886,19 +879,19 @@ export default function TasksPage() {
                               </div>
                             ) : isAssignee && !d.completed_at ? (
                               extOpen ? (
-                                <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800">
+                                <div className="space-y-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3">
                                   <div className="grid grid-cols-2 gap-2">
                                     <input type="date"
-                                      className="rounded-lg border border-slate-300 px-2.5 py-2 text-xs outline-none focus:border-brand-600 dark:border-slate-700"
+                                      className="rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-2 text-xs outline-none focus:border-brand-600"
                                       value={extForm.date}
                                       onChange={(e) => setExtForm((f) => ({ ...f, date: e.target.value }))} />
                                     <input type="time"
-                                      className="rounded-lg border border-slate-300 px-2.5 py-2 text-xs outline-none focus:border-brand-600 dark:border-slate-700"
+                                      className="rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-2 text-xs outline-none focus:border-brand-600"
                                       value={extForm.time}
                                       onChange={(e) => setExtForm((f) => ({ ...f, time: e.target.value }))} />
                                   </div>
                                   <input
-                                    className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs outline-none focus:border-brand-600 placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:border-slate-700"
+                                    className="w-full rounded-lg border border-slate-300 dark:border-slate-600 px-2.5 py-2 text-xs outline-none focus:border-brand-600 placeholder:text-slate-400"
                                     placeholder="Reason (optional)"
                                     value={extForm.reason}
                                     onChange={(e) => setExtForm((f) => ({ ...f, reason: e.target.value }))} />
@@ -909,14 +902,14 @@ export default function TasksPage() {
                                       Submit request
                                     </button>
                                     <button onClick={() => { setExtOpen(false); setExtError(""); }}
-                                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:hover:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
+                                      className="rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700/50">
                                       Cancel
                                     </button>
                                   </div>
                                 </div>
                               ) : (
                                 <button onClick={() => setExtOpen(true)}
-                                  className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700 dark:border-slate-700 dark:text-slate-300">
+                                  className="flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 transition hover:border-brand-600 hover:text-brand-700">
                                   <CalendarClock className="h-3.5 w-3.5" /> Request extension
                                 </button>
                               )
@@ -937,8 +930,8 @@ export default function TasksPage() {
                             )}
                             <ul className="space-y-2">
                               {cmts.map((c) => (
-                                <li key={c.id} className="rounded-lg bg-white p-2.5 ring-1 ring-slate-100 dark:bg-slate-800 dark:ring-slate-700">
-                                  <p className="text-xs text-slate-700 dark:text-slate-300">{c.body}</p>
+                                <li key={c.id} className="rounded-lg bg-white dark:bg-slate-800 p-2.5 ring-1 ring-slate-100">
+                                  <p className="text-xs text-slate-700 dark:text-slate-200">{c.body}</p>
                                   <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
                                     {c.author?.full_name || "User"} · {fmtStamp(c.created_at)}
                                   </p>
@@ -947,7 +940,7 @@ export default function TasksPage() {
                             </ul>
                             <div className="mt-2 flex gap-2">
                               <input
-                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-brand-600 placeholder:text-slate-400 dark:placeholder:text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 outline-none transition focus:border-brand-600 placeholder:text-slate-400"
                                 placeholder="Write a comment…"
                                 value={commentText}
                                 onChange={(e) => setCommentText(e.target.value)}
@@ -977,7 +970,7 @@ export default function TasksPage() {
             <div>
               <button
                 onClick={() => setShowStats((s) => !s)}
-                className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900 transition hover:text-brand-700 dark:text-slate-100"
+                className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100 transition hover:text-brand-700"
               >
                 <BarChart3 className="h-4 w-4" />
                 Tasks per employee
@@ -992,7 +985,7 @@ export default function TasksPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-b border-slate-100 text-left dark:border-slate-700">
+                          <tr className="border-b border-slate-100 dark:border-slate-700 text-left">
                             <th className="p-3 font-medium text-slate-500 dark:text-slate-400">Employee</th>
                             <th className="p-3 font-medium text-slate-500 dark:text-slate-400">Department</th>
                             <th className="p-3 text-center font-medium text-slate-500 dark:text-slate-400">
@@ -1030,7 +1023,7 @@ export default function TasksPage() {
                           ))}
                         </tbody>
                       </table>
-                      <p className="border-t border-slate-100 px-3 py-2.5 text-[11px] text-slate-400 dark:border-slate-700 dark:text-slate-500">
+                      <p className="border-t border-slate-100 dark:border-slate-700 px-3 py-2.5 text-[11px] text-slate-400 dark:text-slate-500">
                         Counts cover the current calendar year. “Unique checklists” is how many
                         distinct recurring tasks that employee owns.
                       </p>
@@ -1061,11 +1054,11 @@ export default function TasksPage() {
                       <div className="flex shrink-0 gap-1.5">
                         <button onClick={() => toggleTemplateActive(t)}
                           title={t.active ? "Pause" : "Resume"}
-                          className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-500 transition hover:border-brand-600 hover:text-brand-700 dark:border-slate-700 dark:text-slate-400">
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 transition hover:border-brand-600 hover:text-brand-700">
                           {t.active ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                         </button>
                         <button onClick={() => deleteTemplate(t.id)} title="Delete"
-                          className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:text-rose-600 dark:border-slate-700 dark:text-slate-500">
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 transition hover:border-rose-300 hover:text-rose-600">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -1080,7 +1073,7 @@ export default function TasksPage() {
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Occurrences</h2>
               {admin && (
-                <div className="flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-700/60">
+                <div className="flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-700 p-1">
                   <ScopeBtn on={cScope === "mine"} onClick={() => setCScope("mine")}>Mine</ScopeBtn>
                   <ScopeBtn on={cScope === "all"} onClick={() => setCScope("all")}>Team</ScopeBtn>
                 </div>
@@ -1096,26 +1089,22 @@ export default function TasksPage() {
                 <InstanceWindow
                   title="Today's tasks" tone="today" icon={Clock}
                   items={iToday} me={me} admin={admin} onToggle={toggleInstanceDone}
-                  members={members} onReassign={reassignInstance}
                   empty="Nothing scheduled for today."
                 />
                 <InstanceWindow
                   title="Delayed" tone="delayed" icon={AlertTriangle}
                   items={iDelayed} me={me} admin={admin} onToggle={toggleInstanceDone}
-                  members={members} onReassign={reassignInstance}
                   empty="No delayed tasks — well done."
                 />
                 <InstanceWindow
                   title="Upcoming" tone="upcoming" icon={Lock}
                   items={iUpcoming} me={me} admin={admin} onToggle={toggleInstanceDone}
-                  members={members} onReassign={reassignInstance}
                   locked
                   empty="Nothing scheduled ahead."
                 />
                 <InstanceWindow
                   title="Completed" tone="done" icon={Check}
                   items={iCompleted} me={me} admin={admin} onToggle={toggleInstanceDone}
-                  members={members} onReassign={reassignInstance}
                   empty="No completed tasks yet."
                 />
               </div>
@@ -1128,18 +1117,18 @@ export default function TasksPage() {
       <Modal open={dOpen} onClose={() => setDOpen(false)} title="New delegation">
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Title *</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Title *</label>
             <input className={`mt-1.5 ${inputCls}`} placeholder="Submit vendor invoice"
               value={df.title} onChange={(e) => setD("title", e.target.value)} autoFocus />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">KRA ID</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">KRA ID</label>
             <div className="mt-1.5 flex gap-2">
               <input className={inputCls} placeholder="Generating…"
                 value={df.kra_id} onChange={(e) => setD("kra_id", e.target.value)} />
               <button type="button"
                 onClick={async () => { const id = await genKra(); if (id) setD("kra_id", id); }}
-                className="shrink-0 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:hover:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
+                className="shrink-0 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700/50">
                 <RotateCcw className="h-4 w-4" />
               </button>
             </div>
@@ -1148,14 +1137,14 @@ export default function TasksPage() {
             </p>
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Description</label>
             <textarea className={`mt-1.5 ${inputCls}`} rows={2}
               value={df.description} onChange={(e) => setD("description", e.target.value)} />
           </div>
 
           {company?.task_assignment_mode !== "direct" && (
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Department</label>
               <select className={`mt-1.5 ${inputCls}`} value={df.department}
                 onChange={(e) => { setD("department", e.target.value); setD("assigned_to", ""); }}>
                 <option value="">All departments</option>
@@ -1168,7 +1157,7 @@ export default function TasksPage() {
           )}
 
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Assign to *</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Assign to *</label>
             <select className={`mt-1.5 ${inputCls}`} value={df.assigned_to}
               onChange={(e) => setD("assigned_to", e.target.value)}>
               <option value="">Select…</option>
@@ -1179,17 +1168,17 @@ export default function TasksPage() {
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Due date *</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Due date *</label>
               <input type="date" className={`mt-1.5 ${inputCls}`} value={df.due_date}
                 onChange={(e) => setD("due_date", e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Due time</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Due time</label>
               <input type="time" className={`mt-1.5 ${inputCls}`} value={df.due_time}
                 onChange={(e) => setD("due_time", e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Priority</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Priority</label>
               <select className={`mt-1.5 ${inputCls}`} value={df.priority}
                 onChange={(e) => setD("priority", e.target.value)}>
                 <option value="low">Low</option>
@@ -1214,18 +1203,18 @@ export default function TasksPage() {
       <Modal open={cOpen} onClose={() => setCOpen(false)} title="New recurring checklist">
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Title *</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Title *</label>
             <input className={`mt-1.5 ${inputCls}`} placeholder="Weekly stock count"
               value={cf.title} onChange={(e) => setC("title", e.target.value)} autoFocus />
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">KRA ID</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">KRA ID</label>
             <div className="mt-1.5 flex gap-2">
               <input className={inputCls} placeholder="Generating…"
                 value={cf.kra_id} onChange={(e) => setC("kra_id", e.target.value)} />
               <button type="button"
                 onClick={async () => { const id = await genKra(); if (id) setC("kra_id", id); }}
-                className="shrink-0 rounded-lg border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 dark:hover:bg-slate-800 dark:border-slate-700 dark:text-slate-300">
+                className="shrink-0 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700/50">
                 <RotateCcw className="h-4 w-4" />
               </button>
             </div>
@@ -1234,14 +1223,14 @@ export default function TasksPage() {
             </p>
           </div>
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Description</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Description</label>
             <textarea className={`mt-1.5 ${inputCls}`} rows={2}
               value={cf.description} onChange={(e) => setC("description", e.target.value)} />
           </div>
 
           {company?.task_assignment_mode !== "direct" && (
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Department</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Department</label>
               <select className={`mt-1.5 ${inputCls}`} value={cf.department}
                 onChange={(e) => { setC("department", e.target.value); setC("assigned_to", ""); }}>
                 <option value="">All departments</option>
@@ -1254,7 +1243,7 @@ export default function TasksPage() {
           )}
 
           <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Assign to *</label>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Assign to *</label>
             <select className={`mt-1.5 ${inputCls}`} value={cf.assigned_to}
               onChange={(e) => setC("assigned_to", e.target.value)}>
               <option value="">Select…</option>
@@ -1266,14 +1255,14 @@ export default function TasksPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Frequency</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Frequency</label>
               <select className={`mt-1.5 ${inputCls}`} value={cf.frequency}
                 onChange={(e) => setC("frequency", e.target.value)}>
                 {Object.entries(FREQ_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Priority</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Priority</label>
               <select className={`mt-1.5 ${inputCls}`} value={cf.priority}
                 onChange={(e) => setC("priority", e.target.value)}>
                 <option value="low">Low</option>
@@ -1294,18 +1283,18 @@ export default function TasksPage() {
 
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Start date</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Start date</label>
               <input type="date" className={`mt-1.5 ${inputCls}`} value={cf.start_date}
                 onChange={(e) => setC("start_date", e.target.value)} />
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Due time</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Due time</label>
               <input type="time" className={`mt-1.5 ${inputCls}`} value={cf.start_time}
                 onChange={(e) => setC("start_time", e.target.value)} />
               <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">Default 9:00 AM each due day.</p>
             </div>
             <div>
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Ends on</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Ends on</label>
               <input type="date" className={`mt-1.5 ${inputCls}`} value={cf.end_date}
                 onChange={(e) => setC("end_date", e.target.value)} />
               <p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">Optional</p>
@@ -1329,15 +1318,9 @@ export default function TasksPage() {
 function SummaryTile({ label, value, accent, danger }: { label: string; value: string; accent?: boolean; danger?: boolean }) {
   return (
     <div className={`rounded-xl border p-3 ${
-      accent ? "border-brand-100 bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/10"
-        : danger ? "border-rose-100 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10"
-        : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800"
+      accent ? "border-brand-100 bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/10" : danger ? "border-rose-100 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/10" : "border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800"
     }`}>
-      <p className={`text-lg font-semibold ${
-        accent ? "text-brand-700 dark:text-brand-300"
-          : danger ? "text-rose-600 dark:text-rose-400"
-          : "text-slate-900 dark:text-slate-100"
-      }`}>{value}</p>
+      <p className={`text-lg font-semibold ${accent ? "text-brand-700 dark:text-brand-300" : danger ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-slate-100"}`}>{value}</p>
       <p className="text-[11px] text-slate-500 dark:text-slate-400">{label}</p>
     </div>
   );
@@ -1347,7 +1330,7 @@ function ScopeBtn({ on, onClick, children }: { on: boolean; onClick: () => void;
   return (
     <button onClick={onClick}
       className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-        on ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100" : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        on ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 shadow-sm" : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
       }`}>
       {children}
     </button>
