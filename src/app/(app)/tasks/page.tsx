@@ -10,6 +10,7 @@ import {
   Plus, ListChecks, ClipboardList, Check, Clock, AlertTriangle,
   RotateCcw, Pause, Play, Trash2, Repeat, Lock,
   Download, Upload, BarChart3, ChevronDown,
+  MessageSquare, CalendarClock, Send, X,
 } from "lucide-react";
 
 const FREQ_LABELS: Record<string, string> = {
@@ -200,6 +201,18 @@ export default function TasksPage() {
   });
   const setD = (k: string, v: string) => setDf((p) => ({ ...p, [k]: v }));
 
+  /* ---------------- Advanced delegation state ---------------- */
+  const [expandedId, setExpandedId] = useState<string | null>(null); // which task row is open
+  const [subtasks, setSubtasks] = useState<any[]>([]);               // all subtasks (grouped client-side)
+  const [comments, setComments] = useState<any[]>([]);               // all task comments
+  const [extensions, setExtensions] = useState<any[]>([]);           // all extension requests
+  const [newSub, setNewSub] = useState("");                          // "add subtask" input
+  const [commentText, setCommentText] = useState("");                // comment composer
+  const [commentSaving, setCommentSaving] = useState(false);
+  const [extOpen, setExtOpen] = useState(false);                     // extension form visible?
+  const [extForm, setExtForm] = useState({ date: "", time: "", reason: "" });
+  const [extError, setExtError] = useState("");
+
   /* ---------------- Checklist state ---------------- */
   const [templates, setTemplates] = useState<any[]>([]);
   const [instances, setInstances] = useState<any[]>([]);
@@ -234,7 +247,7 @@ export default function TasksPage() {
     // Catch up any due checklist occurrences (safe to call every visit)
     await supabase.rpc("generate_checklist_instances");
 
-    const [d, t, i] = await Promise.all([
+    const [d, t, i, st, cm, ex] = await Promise.all([
       supabase.from("delegations")
         .select("*, assignee:assigned_to(full_name), assigner:assigned_by(full_name)")
         .order("due_date", { ascending: true }),
@@ -244,11 +257,23 @@ export default function TasksPage() {
       supabase.from("checklist_instances")
         .select("*, template:template_id(title, description, frequency), assignee:assigned_to(full_name)")
         .order("due_date", { ascending: true }),
+      supabase.from("delegation_subtasks")
+        .select("*")
+        .order("sort", { ascending: true }),
+      supabase.from("task_comments")
+        .select("*, author:user_id(full_name)")
+        .order("created_at", { ascending: true }),
+      supabase.from("task_extensions")
+        .select("*, requester:requested_by(full_name)")
+        .order("created_at", { ascending: false }),
     ]);
 
     setDelegations(d.data || []);
     setTemplates(t.data || []);
     setInstances(i.data || []);
+    setSubtasks(st.data || []);
+    setComments(cm.data || []);
+    setExtensions(ex.data || []);
     setLoading(false);
   }, [supabase]);
 
@@ -296,6 +321,100 @@ export default function TasksPage() {
     await supabase.from("delegations")
       .update({ completed_at: willComplete ? new Date().toISOString() : null })
       .eq("id", d.id);
+    load();
+  };
+
+  /* ---------------- Subtask actions ---------------- */
+  const addSubtask = async (d: any) => {
+    const title = newSub.trim();
+    if (!title) return;
+    await supabase.from("delegation_subtasks").insert({
+      company_id: me!.company_id,
+      delegation_id: d.id,
+      title,
+      sort: subtasks.filter((s) => s.delegation_id === d.id).length + 1,
+    });
+    setNewSub("");
+    load();
+  };
+
+  const toggleSubtask = async (s: any) => {
+    await supabase.from("delegation_subtasks").update({ done: !s.done }).eq("id", s.id);
+    load();
+  };
+
+  const deleteSubtask = async (s: any) => {
+    await supabase.from("delegation_subtasks").delete().eq("id", s.id);
+    load();
+  };
+
+  /* ---------------- Comment actions ---------------- */
+  const postComment = async (d: any) => {
+    const body = commentText.trim();
+    if (!body) return;
+    setCommentSaving(true);
+    await supabase.from("task_comments").insert({
+      company_id: me!.company_id, delegation_id: d.id, user_id: me!.id, body,
+    });
+    // notify the other party on this task (assigner <-> assignee)
+    const target = me!.id === d.assigned_to ? d.assigned_by : d.assigned_to;
+    if (target && target !== me!.id) {
+      await supabase.from("notifications").insert({
+        company_id: me!.company_id, user_id: target,
+        title: "New comment on task",
+        body: `${d.title}: ${body.slice(0, 80)}`,
+        kind: "task", link: "/tasks",
+      });
+    }
+    setCommentText("");
+    setCommentSaving(false);
+    load();
+  };
+
+  /* ---------------- Extension request actions ---------------- */
+  const requestExtension = async (d: any) => {
+    setExtError("");
+    if (!extForm.date) return setExtError("Please choose the new due date.");
+    const { error } = await supabase.from("task_extensions").insert({
+      company_id: me!.company_id, delegation_id: d.id, requested_by: me!.id,
+      requested_date: extForm.date,
+      requested_time: extForm.time || null,
+      reason: extForm.reason.trim() || null,
+    });
+    if (error) return setExtError(error.message);
+    if (d.assigned_by && d.assigned_by !== me!.id) {
+      await supabase.from("notifications").insert({
+        company_id: me!.company_id, user_id: d.assigned_by,
+        title: "Task extension requested",
+        body: `${d.title} · new date ${extForm.date}`,
+        kind: "task", link: "/tasks",
+      });
+    }
+    setExtOpen(false);
+    setExtForm({ date: "", time: "", reason: "" });
+    load();
+  };
+
+  const decideExtension = async (d: any, req: any, approve: boolean) => {
+    await supabase.from("task_extensions").update({
+      status: approve ? "approved" : "rejected",
+      decided_by: me!.id,
+      decided_at: new Date().toISOString(),
+    }).eq("id", req.id);
+
+    if (approve) {
+      await supabase.from("delegations").update({
+        due_date: req.requested_date,
+        due_time: req.requested_time,
+        revised_count: (d.revised_count || 0) + 1,
+      }).eq("id", d.id);
+    }
+    await supabase.from("notifications").insert({
+      company_id: me!.company_id, user_id: req.requested_by,
+      title: approve ? "Extension approved" : "Extension rejected",
+      body: `${d.title}${approve ? ` · new due date ${req.requested_date}` : ""}`,
+      kind: "task", link: "/tasks",
+    });
     load();
   };
 
@@ -431,6 +550,15 @@ export default function TasksPage() {
     return true; // all
   });
 
+  /* ---- Delegation performance summary (for the strip above the list) ---- */
+  const dStatuses = dList.map((x) => computeStatus(x.due_date, x.due_time, x.completed_at));
+  const dDoneOnTime = dStatuses.filter((s) => s === "done_on_time").length;
+  const dDoneLate   = dStatuses.filter((s) => s === "done_late").length;
+  const dOverdue    = dStatuses.filter((s) => s === "overdue").length;
+  const dPendingN   = dStatuses.filter((s) => s === "pending").length;
+  const dDoneTotal  = dDoneOnTime + dDoneLate;
+  const dOnTimePct  = dDoneTotal > 0 ? Math.round((dDoneOnTime / dDoneTotal) * 100) : null;
+
   const iList = instances.filter((i) => {
     if (cScope === "mine") return i.assigned_to === me?.id;
     return true;
@@ -509,6 +637,17 @@ export default function TasksPage() {
             {admin && <ScopeBtn on={dScope === "all"} onClick={() => setDScope("all")}>All</ScopeBtn>}
           </div>
 
+          {/* Performance strip for the current filter */}
+          {dList.length > 0 && (
+            <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+              <SummaryTile label="On-time score" value={dOnTimePct === null ? "—" : `${dOnTimePct}%`} accent />
+              <SummaryTile label="Done on time" value={String(dDoneOnTime)} />
+              <SummaryTile label="Done late" value={String(dDoneLate)} />
+              <SummaryTile label="Overdue" value={String(dOverdue)} danger={dOverdue > 0} />
+              <SummaryTile label="Pending" value={String(dPendingN)} />
+            </div>
+          )}
+
           <Card>
             {dList.length === 0 ? (
               <EmptyState icon={ClipboardList} title="No delegated tasks"
@@ -518,39 +657,239 @@ export default function TasksPage() {
                 {dList.map((d) => {
                   const status = computeStatus(d.due_date, d.due_time, d.completed_at);
                   const canToggle = d.assigned_to === me?.id || admin;
+                  const subs = subtasks.filter((s) => s.delegation_id === d.id);
+                  const subsDone = subs.filter((s) => s.done).length;
+                  const cmts = comments.filter((c) => c.delegation_id === d.id);
+                  const exts = extensions.filter((x) => x.delegation_id === d.id);
+                  const pendingExt = exts.find((x) => x.status === "pending");
+                  const isRowOpen = expandedId === d.id;
+                  const isAssignee = d.assigned_to === me?.id;
+                  const canManage = admin || d.assigned_by === me?.id; // decide extensions, delete subtasks
+                  const canEditSubs = isAssignee || canManage;
                   return (
-                    <li key={d.id} className="flex items-start gap-3 px-4 py-3.5">
-                      <button
-                        onClick={() => canToggle && toggleDelegationDone(d)}
-                        disabled={!canToggle}
-                        className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
-                          d.completed_at
-                            ? "border-emerald-600 bg-emerald-600 text-white"
-                            : "border-slate-300 hover:border-brand-600"
-                        } ${!canToggle ? "cursor-not-allowed opacity-50" : ""}`}
-                      >
-                        {d.completed_at && <Check className="h-3 w-3" />}
-                      </button>
+                    <li key={d.id} className="px-4 py-3.5">
+                      <div className="flex items-start gap-3">
+                        <button
+                          onClick={() => canToggle && toggleDelegationDone(d)}
+                          disabled={!canToggle}
+                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 transition ${
+                            d.completed_at
+                              ? "border-emerald-600 bg-emerald-600 text-white"
+                              : "border-slate-300 hover:border-brand-600"
+                          } ${!canToggle ? "cursor-not-allowed opacity-50" : ""}`}
+                        >
+                          {d.completed_at && <Check className="h-3 w-3" />}
+                        </button>
 
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className={`text-sm font-medium ${d.completed_at ? "text-slate-400 line-through" : "text-slate-900"}`}>
-                            {d.title}
-                          </p>
-                          <StatusChip status={status} />
-                          {d.priority === "high" && (
-                            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-600">HIGH</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className={`text-sm font-medium ${d.completed_at ? "text-slate-400 line-through" : "text-slate-900"}`}>
+                              {d.title}
+                            </p>
+                            <StatusChip status={status} />
+                            {d.priority === "high" && (
+                              <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-600">HIGH</span>
+                            )}
+                            {subs.length > 0 && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[10px] font-medium text-brand-700">
+                                <ListChecks className="h-3 w-3" /> {subsDone}/{subs.length}
+                              </span>
+                            )}
+                            {(d.revised_count || 0) > 0 && (
+                              <span className="rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-600">
+                                Revised ×{d.revised_count}
+                              </span>
+                            )}
+                            {pendingExt && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                                <CalendarClock className="h-3 w-3" /> Extension requested
+                              </span>
+                            )}
+                          </div>
+                          {d.description && (
+                            <p className="mt-0.5 text-xs text-slate-500">{d.description}</p>
                           )}
+                          <p className="mt-1 text-xs text-slate-400">
+                            {d.assignee?.full_name && `${d.assignee.full_name} · `}
+                            Due {d.due_date}{d.due_time && ` at ${d.due_time.slice(0, 5)}`}
+                            {d.assigner?.full_name && ` · by ${d.assigner.full_name}`}
+                          </p>
                         </div>
-                        {d.description && (
-                          <p className="mt-0.5 text-xs text-slate-500">{d.description}</p>
-                        )}
-                        <p className="mt-1 text-xs text-slate-400">
-                          {d.assignee?.full_name && `${d.assignee.full_name} · `}
-                          Due {d.due_date}{d.due_time && ` at ${d.due_time.slice(0, 5)}`}
-                          {d.assigner?.full_name && ` · by ${d.assigner.full_name}`}
-                        </p>
+
+                        {/* Expand / collapse the details panel */}
+                        <button
+                          onClick={() => {
+                            setExpandedId(isRowOpen ? null : d.id);
+                            setNewSub(""); setCommentText(""); setExtOpen(false); setExtError("");
+                          }}
+                          className="flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-slate-400 transition hover:bg-slate-50 hover:text-slate-600"
+                        >
+                          <MessageSquare className="h-3.5 w-3.5" />
+                          {cmts.length > 0 && <span>{cmts.length}</span>}
+                          <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isRowOpen ? "rotate-180" : ""}`} />
+                        </button>
                       </div>
+
+                      {/* ---------- Expanded details: subtasks / extension / comments ---------- */}
+                      {isRowOpen && (
+                        <div className="ml-8 mt-3 space-y-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-700 dark:bg-slate-800/40">
+                          {/* Subtasks */}
+                          <div>
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Subtasks {subs.length > 0 && `· ${subsDone}/${subs.length} done`}
+                            </p>
+                            {subs.length === 0 && (
+                              <p className="text-xs text-slate-400">Break this task into smaller steps.</p>
+                            )}
+                            <ul className="space-y-1.5">
+                              {subs.map((s) => (
+                                <li key={s.id} className="group flex items-center gap-2.5">
+                                  <button
+                                    onClick={() => canEditSubs && toggleSubtask(s)}
+                                    disabled={!canEditSubs}
+                                    className={`grid h-4 w-4 shrink-0 place-items-center rounded border transition ${
+                                      s.done
+                                        ? "border-emerald-600 bg-emerald-600 text-white"
+                                        : "border-slate-300 hover:border-brand-600"
+                                    } ${!canEditSubs ? "cursor-not-allowed opacity-50" : ""}`}
+                                  >
+                                    {s.done && <Check className="h-2.5 w-2.5" />}
+                                  </button>
+                                  <span className={`text-xs ${s.done ? "text-slate-400 line-through" : "text-slate-700"}`}>
+                                    {s.title}
+                                  </span>
+                                  {canManage && (
+                                    <button onClick={() => deleteSubtask(s)}
+                                      className="ml-auto text-slate-300 opacity-0 transition hover:text-rose-500 group-hover:opacity-100">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                            {canEditSubs && !d.completed_at && (
+                              <div className="mt-2 flex gap-2">
+                                <input
+                                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-brand-600 placeholder:text-slate-400"
+                                  placeholder="Add a subtask and press Enter…"
+                                  value={newSub}
+                                  onChange={(e) => setNewSub(e.target.value)}
+                                  onKeyDown={(e) => e.key === "Enter" && addSubtask(d)}
+                                />
+                                <button onClick={() => addSubtask(d)}
+                                  className="grid shrink-0 place-items-center rounded-lg border border-slate-300 px-3 text-slate-600 transition hover:bg-white">
+                                  <Plus className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Due-date extension */}
+                          <div>
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Due date</p>
+                            {pendingExt ? (
+                              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                                <p className="text-xs font-medium text-amber-800">
+                                  {pendingExt.requester?.full_name || "Employee"} requested{" "}
+                                  {pendingExt.requested_date}
+                                  {pendingExt.requested_time && ` at ${String(pendingExt.requested_time).slice(0, 5)}`}
+                                </p>
+                                {pendingExt.reason && (
+                                  <p className="mt-1 text-xs text-amber-700">“{pendingExt.reason}”</p>
+                                )}
+                                {canManage && (
+                                  <div className="mt-2 flex gap-2">
+                                    <button onClick={() => decideExtension(d, pendingExt, true)}
+                                      className="flex items-center gap-1 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-emerald-700">
+                                      <Check className="h-3 w-3" /> Approve
+                                    </button>
+                                    <button onClick={() => decideExtension(d, pendingExt, false)}
+                                      className="flex items-center gap-1 rounded-lg border border-rose-300 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50">
+                                      <X className="h-3 w-3" /> Reject
+                                    </button>
+                                  </div>
+                                )}
+                                {!canManage && (
+                                  <p className="mt-1.5 text-[11px] text-amber-600">Waiting for approval.</p>
+                                )}
+                              </div>
+                            ) : isAssignee && !d.completed_at ? (
+                              extOpen ? (
+                                <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <input type="date"
+                                      className="rounded-lg border border-slate-300 px-2.5 py-2 text-xs outline-none focus:border-brand-600"
+                                      value={extForm.date}
+                                      onChange={(e) => setExtForm((f) => ({ ...f, date: e.target.value }))} />
+                                    <input type="time"
+                                      className="rounded-lg border border-slate-300 px-2.5 py-2 text-xs outline-none focus:border-brand-600"
+                                      value={extForm.time}
+                                      onChange={(e) => setExtForm((f) => ({ ...f, time: e.target.value }))} />
+                                  </div>
+                                  <input
+                                    className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs outline-none focus:border-brand-600 placeholder:text-slate-400"
+                                    placeholder="Reason (optional)"
+                                    value={extForm.reason}
+                                    onChange={(e) => setExtForm((f) => ({ ...f, reason: e.target.value }))} />
+                                  {extError && <p className="text-xs text-rose-600">{extError}</p>}
+                                  <div className="flex gap-2">
+                                    <button onClick={() => requestExtension(d)}
+                                      className="rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-800">
+                                      Submit request
+                                    </button>
+                                    <button onClick={() => { setExtOpen(false); setExtError(""); }}
+                                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-50">
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <button onClick={() => setExtOpen(true)}
+                                  className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700">
+                                  <CalendarClock className="h-3.5 w-3.5" /> Request extension
+                                </button>
+                              )
+                            ) : (
+                              <p className="text-xs text-slate-400">
+                                Due {d.due_date}{d.due_time && ` at ${d.due_time.slice(0, 5)}`}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Comments */}
+                          <div>
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Comments {cmts.length > 0 && `· ${cmts.length}`}
+                            </p>
+                            {cmts.length === 0 && (
+                              <p className="text-xs text-slate-400">No comments yet.</p>
+                            )}
+                            <ul className="space-y-2">
+                              {cmts.map((c) => (
+                                <li key={c.id} className="rounded-lg bg-white p-2.5 ring-1 ring-slate-100">
+                                  <p className="text-xs text-slate-700">{c.body}</p>
+                                  <p className="mt-1 text-[10px] text-slate-400">
+                                    {c.author?.full_name || "User"} · {fmtStamp(c.created_at)}
+                                  </p>
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="mt-2 flex gap-2">
+                              <input
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 outline-none transition focus:border-brand-600 placeholder:text-slate-400"
+                                placeholder="Write a comment…"
+                                value={commentText}
+                                onChange={(e) => setCommentText(e.target.value)}
+                                onKeyDown={(e) => e.key === "Enter" && !commentSaving && postComment(d)}
+                              />
+                              <button onClick={() => postComment(d)} disabled={commentSaving}
+                                className="grid shrink-0 place-items-center rounded-lg bg-brand-700 px-3 text-white transition hover:bg-brand-800 disabled:opacity-60">
+                                <Send className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </li>
                   );
                 })}
@@ -908,6 +1247,17 @@ export default function TasksPage() {
           </button>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function SummaryTile({ label, value, accent, danger }: { label: string; value: string; accent?: boolean; danger?: boolean }) {
+  return (
+    <div className={`rounded-xl border p-3 ${
+      accent ? "border-brand-100 bg-brand-50" : danger ? "border-rose-100 bg-rose-50" : "border-slate-200 bg-white"
+    }`}>
+      <p className={`text-lg font-semibold ${accent ? "text-brand-700" : danger ? "text-rose-600" : "text-slate-900"}`}>{value}</p>
+      <p className="text-[11px] text-slate-500">{label}</p>
     </div>
   );
 }
