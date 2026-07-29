@@ -342,6 +342,7 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             <Link href="/login" className="hover:text-slate-600 dark:hover:text-slate-200">Sign in</Link>
             <Link href="/signup" className="hover:text-slate-600 dark:hover:text-slate-200">Create account</Link>
+            <Link href="/privacy" className="hover:text-slate-600 dark:hover:text-slate-200">Privacy</Link>
             <a href="https://www.systemmaster.in" target="_blank" rel="noreferrer" className="hover:text-slate-600 dark:hover:text-slate-200">
               www.systemmaster.in
             </a>
