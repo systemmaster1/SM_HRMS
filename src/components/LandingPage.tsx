@@ -55,12 +55,7 @@ const modules = [
 ];
 
 export default function LandingPage() {
-  const [yearly, setYearly] = useState(false);
   const reduce = useReducedMotion();
-
-  const monthly = 19;
-  const yearlyPerMonth = 15;
-  const price = yearly ? yearlyPerMonth : monthly;
 
   return (
     <div className="min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -68,10 +63,10 @@ export default function LandingPage() {
       <header className="sticky top-0 z-40 border-b border-slate-100 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="grid h-9 w-9 place-items-center rounded-xl bg-brand-gradient shadow-sm">
-              <LogoMark size={22} />
+            <div className="grid h-11 w-11 place-items-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700">
+              <LogoMark size={38} />
             </div>
-            <span className="text-[15px] font-semibold tracking-tight">SM HRMS</span>
+            <span className="text-[17px] font-bold tracking-tight">SM HRMS</span>
           </div>
           <nav className="hidden items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-300 md:flex">
             <a href="#features" className="transition hover:text-brand-600 dark:hover:text-brand-300">Features</a>
@@ -276,28 +271,15 @@ export default function LandingPage() {
             This is a launch offer — the price goes up as we add more. Lock it in now.
           </p>
 
-          <div className="mt-7 inline-flex items-center gap-1 rounded-full bg-slate-100 p-1 dark:bg-slate-800">
-            <button onClick={() => setYearly(false)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${!yearly ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"}`}>
-              Monthly
-            </button>
-            <button onClick={() => setYearly(true)}
-              className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${yearly ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"}`}>
-              Yearly <span className="ml-1 text-emerald-600 dark:text-emerald-400">· save 20%</span>
-            </button>
-          </div>
         </FadeIn>
 
         <FadeIn delay={0.05}>
           <div className="mx-auto mt-8 max-w-sm rounded-2xl border-2 border-brand-600 bg-white p-8 shadow-card-hover dark:bg-slate-800">
             <p className="text-xs font-semibold uppercase tracking-wide text-accent-500">Launch offer</p>
             <p className="mt-3 flex items-end justify-center gap-1">
-              <span className="text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100">₹{price}</span>
+              <span className="text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100">₹19</span>
               <span className="pb-1.5 text-sm text-slate-400">/ user / month</span>
             </p>
-            {yearly && (
-              <p className="mt-1.5 text-xs text-slate-400">billed ₹{price * 12} per user, per year</p>
-            )}
             <ul className="mt-6 space-y-2.5 text-left text-sm text-slate-600 dark:text-slate-300">
               {[
                 "Unlimited attendance, leave & payroll",
