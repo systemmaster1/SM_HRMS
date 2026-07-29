@@ -140,15 +140,24 @@ export default function SignUpPage() {
   /* ---------- Sign-up form ---------- */
   return (
     <main className="grid min-h-screen lg:grid-cols-2">
-      <section className="hidden flex-col justify-between bg-brand-900 p-12 text-white lg:flex">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-11 w-11 place-items-center rounded-xl bg-white">
-            <LogoMark size={36} />
+      <section className="relative hidden flex-col justify-between overflow-hidden bg-hero-gradient p-12 text-white lg:flex">
+        <div className="pointer-events-none absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: "radial-gradient(circle at 1px 1px, white 1px, transparent 0)", backgroundSize: "26px 26px" }} />
+        <div className="pointer-events-none absolute -right-20 top-10 h-72 w-72 animate-pulse rounded-full bg-accent-400/20 blur-3xl" />
+        <div className="relative flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="grid h-11 w-11 place-items-center rounded-xl bg-white/95 shadow-sm">
+              <LogoMark size={36} />
+            </div>
+            <span className="text-lg font-semibold tracking-tight">SM HRMS</span>
           </div>
-          <span className="text-lg font-semibold tracking-tight">SM HRMS</span>
+          <Link href="/"
+            className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-sm font-medium text-white/90 transition hover:bg-white/10">
+            <ArrowLeft className="h-4 w-4" /> Back to home
+          </Link>
         </div>
 
-        <div className="max-w-md">
+        <div className="relative max-w-md">
           <h1 className="text-4xl font-semibold leading-tight tracking-tight">
             Start managing
             <br />
@@ -171,12 +180,16 @@ export default function SignUpPage() {
           </ul>
         </div>
 
-        <p className="text-sm text-white/40">
+        <p className="relative text-sm text-white/40">
           © {new Date().getFullYear()} SystemMaster · SM HRMS
         </p>
       </section>
 
-      <section className="flex items-center justify-center bg-white p-6 sm:p-12">
+      <section className="relative flex items-center justify-center bg-white p-6 dark:bg-slate-950 sm:p-12">
+        <Link href="/"
+          className="absolute left-5 top-5 flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-brand-600 lg:hidden dark:text-slate-400">
+          <ArrowLeft className="h-4 w-4" /> Home
+        </Link>
         <div className="w-full max-w-sm">
           <div className="mb-8 flex justify-center lg:hidden">
             <LogoFull width={160} />
@@ -246,7 +259,7 @@ export default function SignUpPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-brand-gradient py-2.5 font-semibold text-white shadow-sm transition hover:opacity-90 disabled:opacity-60"
             >
               <UserPlus className="h-4 w-4" />
               {loading ? "Creating account…" : "Create account"}
