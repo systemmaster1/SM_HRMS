@@ -1,12 +1,8 @@
-[
-  {
+[{
     "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
-      "package_name": "in.systemmaster.hrms",
-      "sha256_cert_fingerprints": [
-        "7D:BF:75:2D:F5:2A:C0:7C:C9:80:B6:B7:92:35:86:77:C4:28:01:64:87:33:D0:D8:2A:F6:00:EB:0C:9B:BE:84"
-      ]
+      "package_name": "in.systemmaster.hrms.twa",
+      "sha256_cert_fingerprints": ["7D:BF:75:2D:F5:2A:C0:7C:C9:80:B6:B7:92:35:86:77:C4:28:01:64:87:33:D0:D8:2A:F6:00:EB:0C:9B:BE:84"]
     }
-  }
-]
+}]
