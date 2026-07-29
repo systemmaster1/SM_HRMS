@@ -2,15 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
-:root.dark { color-scheme: dark; }
+/* ---------------------------------------------------------------------------
+   SM HRMS · Global theme
+   Brand: navy #053A6E · accent orange #E8792A (from logo)
+--------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+  /* soft ambient glows painted behind the whole app */
+  --glow-brand:  rgba(5, 58, 110, 0.06);
+  --glow-accent: rgba(232, 121, 42, 0.05);
+}
+:root.dark {
+  color-scheme: dark;
+  --glow-brand:  rgba(31, 90, 150, 0.14);
+  --glow-accent: rgba(232, 121, 42, 0.07);
+}
 
 html, body {
-  background: #F8FAFC;
+  background-color: #F6F8FB;
 }
 
 body {
   color: #0F172A;
+  /* subtle radial glows — gives the flat grey background gentle depth */
+  background-image:
+    radial-gradient(900px 460px at 88% -12%, var(--glow-brand), transparent 62%),
+    radial-gradient(760px 420px at -12% 104%, var(--glow-accent), transparent 62%);
+  background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -23,11 +42,38 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 html.dark, html.dark body {
-  background: #0B1220;
+  background-color: #070D1A;
   color: #E2E8F0;
 }
 
+/* text selection in brand colour */
+::selection {
+  background: rgba(232, 121, 42, 0.25);
+}
+
+/* keyboard focus ring */
+:focus-visible {
+  outline: 2px solid rgba(232, 121, 42, 0.6);
+  outline-offset: 2px;
+}
+
+/* scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 8px; }
 ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+html.dark ::-webkit-scrollbar-thumb { background: #334155; }
+html.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+@layer utilities {
+  /* headline gradient — navy sweeping into brand orange */
+  .text-gradient {
+    background-image: linear-gradient(92deg, #053A6E 0%, #1F5A96 55%, #E8792A 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .dark .text-gradient {
+    background-image: linear-gradient(92deg, #7BA5CE 0%, #AFC9E3 55%, #F08A3C 100%);
+  }
+}
