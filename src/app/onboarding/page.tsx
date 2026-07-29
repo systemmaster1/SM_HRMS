@@ -35,16 +35,45 @@ export default function OnboardingPage() {
     setError("");
 
     const supabase = createClient();
-    const { error } = await supabase.rpc("create_company", {
-      p_name: name.trim(),
-      p_industry: industry,
-      p_size: size,
-      p_city: city,
-      p_phone: phone,
-    });
+
+    const runCreate = () =>
+      supabase.rpc("create_company", {
+        p_name: name.trim(),
+        p_industry: industry,
+        p_size: size,
+        p_city: city,
+        p_phone: phone,
+      });
+
+    // A device clock that runs ahead makes Supabase reject the token with
+    // "JWT issued at future". Refreshing the session mints a fresh token,
+    // which usually clears it — so we detect that case and retry once.
+    const looksLikeClockError = (msg?: string) =>
+      !!msg &&
+      /issued at future|jwt|token|expired|not yet valid|clock/i.test(msg);
+
+    let { error } = await runCreate();
+
+    if (error && looksLikeClockError(error.message)) {
+      // Force a new token, then try again.
+      await supabase.auth.refreshSession();
+      const retry = await runCreate();
+      error = retry.error;
+    }
 
     setLoading(false);
-    if (error) return setError(error.message);
+
+    if (error) {
+      if (looksLikeClockError(error.message)) {
+        setError(
+          "Your device clock looks slightly ahead of the correct time, so sign-in was rejected. " +
+          "Please set your date & time to automatic (and tap Sync now), then try again."
+        );
+      } else {
+        setError(error.message);
+      }
+      return;
+    }
 
     router.push("/dashboard");
     router.refresh();
