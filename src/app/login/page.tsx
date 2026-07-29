@@ -57,7 +57,15 @@ export default function LoginPage() {
     setLoading(false);
 
     if (error) {
-      setError("Incorrect credentials. Please try again.");
+      // A device clock that runs ahead makes Supabase reject the token.
+      if (/issued at future|jwt|token|not yet valid|clock/i.test(error.message)) {
+        setError(
+          "Your device clock looks ahead of the correct time, so sign-in was rejected. " +
+          "Set your date & time to automatic (and tap Sync now), then try again."
+        );
+      } else {
+        setError("Incorrect credentials. Please try again.");
+      }
       return;
     }
 
