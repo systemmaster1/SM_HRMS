@@ -143,18 +143,19 @@ export default function Shell({
       )
     : null;
 
+  /* Leaf link — active items get a soft white pill + orange indicator bar */
   const leafCls = (active: boolean) =>
-    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] transition ${
+    `relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] transition ${
       active
-        ? "bg-white/[0.08] font-medium text-white"
-        : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+        ? "bg-white/[0.10] font-medium text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-accent-500 before:content-['']"
+        : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-100"
     }`;
 
   const Sidebar = (
-    <div className="flex h-full flex-col bg-brand-900">
+    <div className="flex h-full flex-col border-r border-white/[0.06] bg-sidebar-gradient">
       {/* Company */}
       <div className="flex h-16 items-center gap-2.5 border-b border-white/[0.08] px-5">
-        <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg bg-white">
+        <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl bg-white ring-1 ring-white/20">
           {company?.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logo_url} alt="" className="h-full w-full object-contain" />
@@ -166,7 +167,7 @@ export default function Shell({
           <p className="truncate text-sm font-semibold tracking-tight text-white">
             {company?.name || "SM HRMS"}
           </p>
-          <p className="truncate text-[11px] text-slate-500">SM HRMS</p>
+          <p className="truncate text-[11px] text-slate-400/80">SM HRMS</p>
         </div>
       </div>
 
@@ -197,7 +198,7 @@ export default function Shell({
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] transition ${
                   groupActive
                     ? "text-white"
-                    : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+                    : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-100"
                 }`}
               >
                 {entry.icon}
@@ -214,10 +215,10 @@ export default function Shell({
                         key={item.href}
                         href={item.href}
                         onClick={() => setOpen(false)}
-                        className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition ${
+                        className={`relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition ${
                           active
-                            ? "bg-white/[0.08] font-medium text-white"
-                            : "text-slate-400 hover:bg-white/[0.04] hover:text-slate-200"
+                            ? "bg-white/[0.10] font-medium text-white before:absolute before:-left-[17px] before:top-1/2 before:h-4 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-accent-500 before:content-['']"
+                            : "text-slate-400 hover:bg-white/[0.05] hover:text-slate-100"
                         }`}
                       >
                         {item.icon}
@@ -234,7 +235,7 @@ export default function Shell({
 
       {/* Trial banner — visible to the owner/admin only */}
       {admin && company?.plan === "trial" && trialDaysLeft !== null && (
-        <div className="mx-3 mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2.5">
+        <div className="mx-3 mb-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2.5">
           <p className="text-xs font-medium text-amber-300">
             Trial · {trialDaysLeft} days left
           </p>
@@ -251,7 +252,7 @@ export default function Shell({
             className="flex min-w-0 flex-1 items-center gap-3 rounded-lg px-1 py-1 transition hover:bg-white/5"
             title="My profile"
           >
-            <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-brand-500/20 text-xs font-semibold text-white">
+            <div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full bg-accent-gradient text-xs font-semibold text-white ring-1 ring-white/20">
               {profile.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={profile.avatar_url} alt="" className="h-full w-full object-cover" />
@@ -263,7 +264,7 @@ export default function Shell({
               <p className="truncate text-[13px] font-medium text-white">
                 {profile.full_name || "User"}
               </p>
-              <p className="truncate text-[11px] text-slate-500">
+              <p className="truncate text-[11px] text-slate-400/80">
                 {roleLabel[profile.role]}
               </p>
             </div>
@@ -272,7 +273,7 @@ export default function Shell({
           <button
             onClick={doLogout}
             title="Sign out"
-            className="rounded-md p-1.5 text-slate-500 transition hover:bg-white/5 hover:text-white"
+            className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
           >
             <LogOut className="h-[18px] w-[18px]" />
           </button>
@@ -282,7 +283,7 @@ export default function Shell({
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen">
       <aside className="fixed inset-y-0 left-0 hidden w-64 lg:block">{Sidebar}</aside>
 
       {open && (
@@ -304,7 +305,7 @@ export default function Shell({
       )}
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-slate-200 bg-white/80 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 sm:px-6">
+        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-slate-200/70 bg-white/70 px-4 backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-900/70 sm:px-6">
           <div className="flex items-center gap-3 lg:hidden">
             <button onClick={() => setOpen(true)} className="text-slate-600 dark:text-slate-300">
               <Menu className="h-6 w-6" />
@@ -323,7 +324,7 @@ export default function Shell({
             <ThemeToggle className="text-slate-400 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" />
           </div>
         </header>
-        <main className="mx-auto max-w-6xl bg-slate-50 p-5 dark:bg-slate-950 sm:p-7 lg:p-9">
+        <main className="mx-auto max-w-6xl p-5 sm:p-7 lg:p-9">
           <RouteTransition routeKey={pathname}>{children}</RouteTransition>
         </main>
       </div>
