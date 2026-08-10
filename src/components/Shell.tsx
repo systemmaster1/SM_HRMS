@@ -13,7 +13,7 @@ import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types"
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
   ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
-  Contact, LifeBuoy, Wallet, ChevronDown, HelpCircle, BarChart3, Download, Sheet,
+  Contact, LifeBuoy, Wallet, ChevronDown, HelpCircle, BarChart3, Download, Sheet, Sparkles,
 } from "lucide-react";
 
 interface Leaf {
@@ -56,6 +56,7 @@ const nav: NavEntry[] = [
       { href: "/field-reports", label: "Field reports", icon: <BarChart3 className="h-4 w-4" /> },
       { href: "/tasks",        label: "Tasks",         icon: <ListChecks className="h-4 w-4" /> },
       { href: "/em-report",    label: "EM Report",     icon: <BarChart3 className="h-4 w-4" /> },
+      { href: "/upcoming-features", label: "Upcoming features", icon: <Sparkles className="h-4 w-4" /> },
     ],
   },
   { href: "/payroll", label: "Payroll", icon: <Wallet className="h-[18px] w-[18px]" /> },
