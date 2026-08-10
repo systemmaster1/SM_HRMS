@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Users, CalendarCheck, Plane, ArrowUpRight } from "lucide-react";
+import { MapPin, Users, CalendarCheck, Plane, ArrowUpRight, Activity, WifiOff, AlertTriangle, CheckCircle2 } from "lucide-react";
 import TodayUpdates from "@/components/TodayUpdates";
 import { FadeIn, StaggerGroup, StaggerItem, HoverLift } from "@/components/motion";
 
@@ -21,13 +21,14 @@ const iconMap: Record<string, any> = {
 };
 
 export default function DashboardClient({
-  greeting, firstName, admin, stats, visits,
+  greeting, firstName, admin, stats, visits, fieldSummary,
 }: {
   greeting: string;
   firstName: string;
   admin: boolean;
   stats: { label: string; value: number; icon: string; color: string; href: string }[];
   visits: any[];
+  fieldSummary?: { tracked: number; liveNow: number; onVisit: number; completed: number; gpsBlocked: number; stale: number };
 }) {
   const quickActions = [
     { href: "/attendance", label: "Mark attendance", icon: CalendarCheck },
@@ -70,6 +71,25 @@ export default function DashboardClient({
           );
         })}
       </StaggerGroup>
+
+      {admin && fieldSummary && <FadeIn delay={0.08}>
+        <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-700">
+            <div><h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Live field operations</h2><p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Sales-team tracking, GPS health and today&apos;s field progress.</p></div>
+            <div className="flex gap-2"><Link href="/field-reports" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200">Reports</Link><Link href="/field-visits" className="rounded-lg bg-brand-700 px-3 py-2 text-xs font-medium text-white">Open live tracking</Link></div>
+          </div>
+          <div className="grid grid-cols-2 gap-px bg-slate-100 sm:grid-cols-3 lg:grid-cols-6 dark:bg-slate-700">
+            {[
+              ["Tracked", fieldSummary.tracked, Users, "text-slate-900"],
+              ["Live now", fieldSummary.liveNow, Activity, "text-emerald-600"],
+              ["On visit", fieldSummary.onVisit, MapPin, "text-blue-600"],
+              ["Completed", fieldSummary.completed, CheckCircle2, "text-violet-600"],
+              ["GPS blocked", fieldSummary.gpsBlocked, WifiOff, "text-rose-600"],
+              ["Stale", fieldSummary.stale, AlertTriangle, "text-amber-600"],
+            ].map(([label, value, Icon, tone]: any) => <div key={label} className="bg-white p-4 dark:bg-slate-800"><div className="flex items-center justify-between"><p className="text-[11px] text-slate-500">{label}</p><Icon className={`h-4 w-4 ${tone}`} /></div><p className={`mt-2 text-xl font-semibold ${tone}`}>{value}</p></div>)}
+          </div>
+        </div>
+      </FadeIn>}
 
       <FadeIn delay={0.1}>
         <TodayUpdates />
