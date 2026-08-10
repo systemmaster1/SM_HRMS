@@ -53,6 +53,7 @@ const nav: NavEntry[] = [
     icon: <ListChecks className="h-[18px] w-[18px]" />,
     items: [
       { href: "/field-visits", label: "Field visits", icon: <MapPin className="h-4 w-4" /> },
+      { href: "/field-reports", label: "Field reports", icon: <BarChart3 className="h-4 w-4" /> },
       { href: "/tasks",        label: "Tasks",         icon: <ListChecks className="h-4 w-4" /> },
       { href: "/em-report",    label: "EM Report",     icon: <BarChart3 className="h-4 w-4" /> },
     ],
