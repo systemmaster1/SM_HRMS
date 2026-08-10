@@ -30,7 +30,7 @@ export default function ActiveVisitTracker() {
 
   const state = useCallback(async (s: string, reason?: string) => {
     if (!ctx.current.enabled) return;
-    await supabase.rpc("record_tracking_state_v6", {
+    await supabase.rpc("record_tracking_state_v7", {
       p_state: s,
       p_reason: reason || null,
       p_app_state: document.visibilityState,
@@ -46,7 +46,7 @@ export default function ActiveVisitTracker() {
 
       navigator.geolocation.getCurrentPosition(async (pos) => {
         try {
-          await supabase.rpc("record_employee_location_v6", {
+          await supabase.rpc("record_employee_location_v7", {
             p_latitude: pos.coords.latitude,
             p_longitude: pos.coords.longitude,
             p_accuracy_m: Math.round(pos.coords.accuracy || 0),
@@ -60,7 +60,7 @@ export default function ActiveVisitTracker() {
           const s = err.code === err.PERMISSION_DENIED ? "permission_denied" : err.code === err.TIMEOUT ? "timeout" : "unavailable";
           await state(s, err.message);
         } finally { running.current = false; }
-      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 45000 });
+      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: Math.min(45000, ctx.current.interval * 30000) });
       return;
     } finally {
       // geolocation callback owns running=false. For early returns, release here.
