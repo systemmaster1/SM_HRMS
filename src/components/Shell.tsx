@@ -12,7 +12,7 @@ import { RouteTransition } from "@/components/motion";
 import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types";
 import {
   LayoutDashboard, Users, CalendarCheck, Plane,
-  ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
+  ListChecks, MapPin, Route, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
   Contact, LifeBuoy, Wallet, ChevronDown, HelpCircle, BarChart3, Download, Sheet, Sparkles,
 } from "lucide-react";
 
@@ -54,6 +54,7 @@ const nav: NavEntry[] = [
     items: [
       { href: "/field-visits", label: "Field visits", icon: <MapPin className="h-4 w-4" /> },
       { href: "/field-reports", label: "Field reports", icon: <BarChart3 className="h-4 w-4" /> },
+      { href: "/route-history", label: "Route history", icon: <Route className="h-4 w-4" /> },
       { href: "/tasks",        label: "Tasks",         icon: <ListChecks className="h-4 w-4" /> },
       { href: "/em-report",    label: "EM Report",     icon: <BarChart3 className="h-4 w-4" /> },
       { href: "/upcoming-features", label: "Upcoming features", icon: <Sparkles className="h-4 w-4" /> },
