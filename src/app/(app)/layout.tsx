@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import Shell from "@/components/Shell";
 import AccountLocked from "@/components/AccountLocked";
 import type { Profile, Company } from "@/lib/types";
+import ActiveVisitTracker from "@/components/ActiveVisitTracker";
 
 export default async function AppLayout({
   children,
@@ -75,6 +76,7 @@ export default async function AppLayout({
   return (
     <Shell profile={profile as Profile} company={company as Company | null}>
       {children}
+      <ActiveVisitTracker />
     </Shell>
   );
 }
