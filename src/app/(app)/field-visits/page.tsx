@@ -94,7 +94,7 @@ export default function FieldVisitsPage() {
       .select("*, profiles:employee_id(full_name, role, designation, manager_id, field_tracking_enabled, tracking_stale_after_minutes)")
       .order("visit_date", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(150);
+      .limit(100);
     setVisits(v || []);
 
     if (canManageTeam(profile?.role)) {
@@ -102,13 +102,6 @@ export default function FieldVisitsPage() {
       if (!isAdminRole(profile.role)) q = q.eq("manager_id", profile.id);
       const { data: m } = await q;
       setMembers((m as Profile[]) || []);
-
-      const { data: ev } = await supabase
-        .from("tracking_events")
-        .select("id, employee_id, visit_id, event_type, event_time, latitude, longitude, details")
-        .order("event_time", { ascending: false })
-        .limit(300);
-      setEvents((ev as TrackingEvent[]) || []);
 
       const { data: ll } = await supabase
         .from("employee_live_locations")
@@ -125,9 +118,14 @@ export default function FieldVisitsPage() {
     const channel = supabase
       .channel(`field-ops-${me.company_id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "field_visits", filter: `company_id=eq.${me.company_id}` }, () => load(true))
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "visit_location_history", filter: `company_id=eq.${me.company_id}` }, () => load(true))
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "tracking_events", filter: `company_id=eq.${me.company_id}` }, () => load(true))
-      .on("postgres_changes", { event: "*", schema: "public", table: "employee_live_locations", filter: `company_id=eq.${me.company_id}` }, () => load(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "employee_live_locations", filter: `company_id=eq.${me.company_id}` }, (payload: any) => {
+        const row = payload.new as LiveLocation;
+        if (!row?.employee_id) return;
+        setLiveLocations((prev) => {
+          const next = prev.filter((x) => x.employee_id !== row.employee_id);
+          return [row, ...next];
+        });
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load, me?.company_id, me?.role, supabase]);
@@ -293,7 +291,19 @@ export default function FieldVisitsPage() {
     else await load(true);
   };
 
-  const selectedTimeline = liveVisit ? events.filter((e) => e.employee_id === liveVisit.employee_id).slice(0, 12) : [];
+  const openLiveMap = async (visitLike: any) => {
+    setLiveVisit(visitLike);
+    setEvents([]);
+    const { data } = await supabase
+      .from("tracking_events")
+      .select("id, employee_id, visit_id, event_type, event_time, latitude, longitude, details")
+      .eq("employee_id", visitLike.employee_id)
+      .order("event_time", { ascending: false })
+      .limit(50);
+    setEvents((data as TrackingEvent[]) || []);
+  };
+
+  const selectedTimeline = liveVisit ? events.slice(0, 12) : [];
   const selectedLat = liveVisit?.last_lat ?? liveVisit?.check_in_lat;
   const selectedLng = liveVisit?.last_lng ?? liveVisit?.check_in_lng;
 
@@ -337,7 +347,7 @@ export default function FieldVisitsPage() {
                 <div><p className="text-sm font-semibold text-slate-900">{member.full_name}</p><p className="text-xs text-slate-500">{member.designation || member.role} · {member.employee_type || "field"}</p></div>
                 <div><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${healthCls}`}>{healthLabel}</span>{visit && <p className="mt-1 text-xs text-slate-500 capitalize">{String(visit.status).replaceAll("_", " ")}</p>}</div>
                 <div>{visit ? <><p className="text-sm font-medium text-slate-700">{visit.client_name}</p><p className="mt-0.5 text-xs text-slate-500">{lat != null && lng != null ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}` : "Waiting for first GPS location"}</p><p className="mt-0.5 text-[11px] text-slate-400">Last location: {timeAgo(lastSeen)}{latestEvent ? ` · Last event ${String(latestEvent.event_type).replaceAll("_", " ")}` : ""}</p></> : <p className="text-xs text-slate-400">No active visit</p>}</div>
-                <button disabled={lat == null || lng == null} onClick={() => setLiveVisit({ ...(visit || {}), employee_id: member.id, profiles: { full_name: member.full_name }, client_name: visit?.client_name || "No active visit", status: visit?.status || live?.tracking_state || "idle", last_lat: lat, last_lng: lng, last_location_at: lastSeen })} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-brand-200 px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"><Eye className="h-3.5 w-3.5" /> Live map</button>
+                <button disabled={lat == null || lng == null} onClick={() => openLiveMap({ ...(visit || {}), employee_id: member.id, profiles: { full_name: member.full_name }, client_name: visit?.client_name || "No active visit", status: visit?.status || live?.tracking_state || "idle", last_lat: lat, last_lng: lng, last_location_at: lastSeen })} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-brand-200 px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"><Eye className="h-3.5 w-3.5" /> Live map</button>
               </div>;
             })}
           </div>}
