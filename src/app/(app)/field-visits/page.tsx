@@ -62,6 +62,8 @@ export default function FieldVisitsPage() {
   const [visits, setVisits] = useState<any[]>([]);
   const [events, setEvents] = useState<TrackingEvent[]>([]);
   const [liveLocations, setLiveLocations] = useState<LiveLocation[]>([]);
+  const [distanceToday, setDistanceToday] = useState<Record<string, number>>({});
+  const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -104,16 +106,26 @@ export default function FieldVisitsPage() {
       const { data: m } = await q;
       setMembers((m as Profile[]) || []);
 
-      await supabase.rpc("refresh_tracking_health_v6");
+      await supabase.rpc("refresh_tracking_health_v7");
       const { data: ll } = await supabase
         .from("employee_live_locations")
         .select("employee_id, company_id, visit_id, latitude, longitude, accuracy_m, permission_state, tracking_state, app_state, duty_status, duty_started_at, duty_ended_at, last_state_changed_at, last_seen_at, last_error, updated_at");
       setLiveLocations((ll as LiveLocation[]) || []);
+      const { data: dist } = await supabase.rpc("tracking_distance_today_v7");
+      const distanceMap: Record<string, number> = {};
+      for (const row of (dist || []) as any[]) distanceMap[row.employee_id] = Number(row.distance_km || 0);
+      setDistanceToday(distanceMap);
     }
     setLoading(false);
   }, [supabase]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!me?.company_id || !canManageTeam(me.role)) return;
+    const id = window.setInterval(() => load(true), 2 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [load, me?.company_id, me?.role]);
 
   useEffect(() => {
     if (!me?.company_id || !canManageTeam(me.role)) return;
@@ -191,6 +203,7 @@ export default function FieldVisitsPage() {
   const admin = isAdminRole(me?.role);
   const today = new Date().toISOString().slice(0, 10);
   const trackedMembers = members.filter((m) => m.field_tracking_enabled);
+  const totalDistanceToday = trackedMembers.reduce((sum, m) => sum + (distanceToday[m.id] || 0), 0);
 
   const latestEventByEmployee = useMemo(() => {
     const map = new Map<string, TrackingEvent>();
@@ -229,7 +242,16 @@ export default function FieldVisitsPage() {
     return { member, visit, latestEvent, live, health, mins, lastSeen };
   }), [activeByEmployee, latestEventByEmployee, liveByEmployee, trackedMembers]);
 
-  const teamMapRow = staffRows.find((r) => (r.live?.latitude ?? r.visit?.last_lat ?? r.visit?.check_in_lat) != null && (r.live?.longitude ?? r.visit?.last_lng ?? r.visit?.check_in_lng) != null);
+  const teamMapRow = selectedEmployee === "all"
+    ? staffRows.find((r) =>
+        (r.live?.latitude ?? r.visit?.last_lat ?? r.visit?.check_in_lat) != null &&
+        (r.live?.longitude ?? r.visit?.last_lng ?? r.visit?.check_in_lng) != null
+      )
+    : staffRows.find((r) =>
+        r.member.id === selectedEmployee &&
+        (r.live?.latitude ?? r.visit?.last_lat ?? r.visit?.check_in_lat) != null &&
+        (r.live?.longitude ?? r.visit?.last_lng ?? r.visit?.check_in_lng) != null
+      );
 
   const onDutyCount = staffRows.filter((r) => r.live?.duty_status === "on_duty").length;
   const activeCount = staffRows.filter((r) => r.health === "live").length;
@@ -280,16 +302,48 @@ export default function FieldVisitsPage() {
       <PageHeader
         title={manager ? "Field Operations" : "My Field Visits"}
         subtitle={manager ? "Live sales-team visibility, visit control, GPS health and client outcomes." : "Manage assigned visits, travel, GPS check-ins and outcomes."}
-        action={<div className="flex flex-wrap gap-2">
-          {manager && <Link href="/field-reports" className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"><BarChart3 className="h-4 w-4" /> Reports</Link>
-          <Link href="/route-history" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-brand-200 hover:text-brand-700"><Route className="h-4 w-4" /> Route history</Link>}
-          {admin && <button onClick={() => setSettingsOpen(true)} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"><Settings2 className="h-4 w-4" /> Tracking setup</button>}
-          <button onClick={() => setOpen(true)} className="flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-800"><Plus className="h-4 w-4" /> New visit</button>
-        </div>}
+        action={
+          <div className="flex flex-wrap gap-2">
+            {manager && (
+              <>
+                <Link
+                  href="/field-reports"
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <BarChart3 className="h-4 w-4" />
+                  Reports
+                </Link>
+                <Link
+                  href="/route-history"
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <Route className="h-4 w-4" />
+                  Route history
+                </Link>
+              </>
+            )}
+            {admin && (
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <Settings2 className="h-4 w-4" />
+                Tracking setup
+              </button>
+            )}
+            <button
+              onClick={() => setOpen(true)}
+              className="flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-800"
+            >
+              <Plus className="h-4 w-4" />
+              New visit
+            </button>
+          </div>
+        }
       />
 
       {manager && <>
-        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-9">
           {[
             ["Tracked", trackedMembers.length, Users, "text-slate-900"],
             ["On duty", onDutyCount, UserCheck, "text-cyan-700"],
@@ -299,6 +353,7 @@ export default function FieldVisitsPage() {
             ["GPS off", offCount, XCircle, "text-rose-700"],
             ["Stale", staleCount, AlertTriangle, "text-amber-700"],
             ["Off duty", offDutyCount, LogOut, "text-slate-500"],
+            ["Distance today", `${totalDistanceToday.toFixed(1)} km`, Route, "text-indigo-700"],
           ].map(([label, value, Icon, tone]: any) => <Card key={label}><div className="p-4"><div className="flex items-center justify-between"><p className="text-[11px] text-slate-500">{label}</p><Icon className={`h-4 w-4 ${tone}`} /></div><p className={`mt-2 text-2xl font-semibold ${tone}`}>{value}</p></div></Card>)}
         </div>
 
@@ -315,7 +370,7 @@ export default function FieldVisitsPage() {
               const healthLabel = health === "live" ? "Live" : health === "off" ? "GPS off / blocked" : health === "stale" ? "Stale" : health === "off_duty" ? "Employee Off Duty" : "Waiting";
               const healthCls = health === "live" ? "bg-emerald-50 text-emerald-700" : health === "off" ? "bg-rose-50 text-rose-700" : health === "stale" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600";
               return <div key={member.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[1.2fr_.8fr_1.4fr_auto] lg:items-center">
-                <div><p className="text-sm font-semibold text-slate-900">{member.full_name}</p><p className="text-xs text-slate-500">{member.designation || member.role} · {member.employee_type || "field"}</p></div>
+                <div><p className="text-sm font-semibold text-slate-900">{member.full_name}</p><p className="text-xs text-slate-500">{member.designation || member.role} · {member.employee_type || "field"}</p><p className="mt-1 text-[11px] font-semibold text-indigo-600">Today: {(distanceToday[member.id] || 0).toFixed(1)} km</p></div>
                 <div><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${healthCls}`}>{healthLabel}</span>{visit && <p className="mt-1 text-xs text-slate-500 capitalize">{String(visit.status).replaceAll("_", " ")}</p>}</div>
                 <div>{visit ? <><p className="text-sm font-medium text-slate-700">{visit.client_name}</p><p className="mt-0.5 text-xs text-slate-500">{lat != null && lng != null ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}` : "Waiting for first GPS location"}</p><p className="mt-0.5 text-[11px] text-slate-400">Last location: {timeAgo(lastSeen)}{latestEvent ? ` · Last event ${String(latestEvent.event_type).replaceAll("_", " ")}` : ""}</p></> : <p className="text-xs text-slate-400">No active visit</p>}</div>
                 <button disabled={lat == null || lng == null} onClick={() => openLiveMap({ ...(visit || {}), employee_id: member.id, profiles: { full_name: member.full_name }, client_name: visit?.client_name || "No active visit", status: visit?.status || live?.tracking_state || "idle", last_lat: lat, last_lng: lng, last_location_at: lastSeen })} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-brand-200 px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"><Eye className="h-3.5 w-3.5" /> Live map</button>
@@ -338,7 +393,7 @@ export default function FieldVisitsPage() {
               </div>
             </div>
             <div className="min-h-[300px] bg-slate-50 p-5">
-              <div className="flex items-center justify-between"><div><h2 className="font-semibold text-slate-900">Live map</h2><p className="mt-1 text-xs text-slate-500">Click Live map on an employee to open full tracking, route and timeline.</p></div><button onClick={() => load(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600"><RefreshCw className="h-3.5 w-3.5" /> Refresh</button></div>
+              <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="font-semibold text-slate-900">Live map</h2><p className="mt-1 text-xs text-slate-500">Employee-wise or combined monitoring · dashboard auto-syncs every 2 min.</p></div><div className="flex items-center gap-2"><select value={selectedEmployee} onChange={(e) => setSelectedEmployee(e.target.value)} className="rounded-lg border border-slate-200 bg-white px-2.5 py-2 text-xs text-slate-600"><option value="all">All tracked employees</option>{trackedMembers.map((m) => <option key={m.id} value={m.id}>{m.full_name} · {(distanceToday[m.id] || 0).toFixed(1)} km</option>)}</select><button onClick={() => load(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600"><RefreshCw className="h-3.5 w-3.5" /> Refresh</button></div></div>
               <div className="mt-4 min-h-[260px] overflow-hidden rounded-2xl border border-slate-200 bg-white">{teamMapRow ? (() => { const lat = teamMapRow.live?.latitude ?? teamMapRow.visit?.last_lat ?? teamMapRow.visit?.check_in_lat; const lng = teamMapRow.live?.longitude ?? teamMapRow.visit?.last_lng ?? teamMapRow.visit?.check_in_lng; return <div className="relative h-[260px]"><iframe title="Team live map" src={mapEmbed(Number(lat), Number(lng))} className="h-full w-full border-0" loading="lazy" /><div className="absolute left-3 top-3 rounded-xl bg-white/95 px-3 py-2 shadow-lg backdrop-blur"><p className="text-xs font-semibold text-slate-900">{teamMapRow.member.full_name}</p><p className="text-[11px] text-slate-500">{teamMapRow.visit?.client_name || "Latest employee location"} · {timeAgo(teamMapRow.lastSeen)}</p></div></div>; })() : <div className="grid h-[260px] place-items-center p-8 text-center"><div><LocateFixed className="mx-auto h-9 w-9 text-brand-600" /><p className="mt-3 text-sm font-semibold text-slate-800">Waiting for first GPS</p><p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">Enable tracking and ask the employee to open HRMS and allow Location permission. The latest map appears automatically.</p></div></div>}</div>
             </div>
           </div>
