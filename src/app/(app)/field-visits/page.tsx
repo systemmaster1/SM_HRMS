@@ -32,6 +32,7 @@ type LiveLocation = {
   employee_id: string; company_id: string; visit_id: string | null;
   latitude: number | null; longitude: number | null; accuracy_m: number | null;
   permission_state: string; tracking_state: string; app_state: string;
+  duty_status?: string; duty_started_at?: string | null; duty_ended_at?: string | null; last_state_changed_at?: string | null;
   last_seen_at: string | null; last_error: string | null; updated_at: string;
 };
 
@@ -103,9 +104,10 @@ export default function FieldVisitsPage() {
       const { data: m } = await q;
       setMembers((m as Profile[]) || []);
 
+      await supabase.rpc("refresh_tracking_health_v6");
       const { data: ll } = await supabase
         .from("employee_live_locations")
-        .select("employee_id, company_id, visit_id, latitude, longitude, accuracy_m, permission_state, tracking_state, app_state, last_seen_at, last_error, updated_at");
+        .select("employee_id, company_id, visit_id, latitude, longitude, accuracy_m, permission_state, tracking_state, app_state, duty_status, duty_started_at, duty_ended_at, last_state_changed_at, last_seen_at, last_error, updated_at");
       setLiveLocations((ll as LiveLocation[]) || []);
     }
     setLoading(false);
@@ -155,71 +157,34 @@ export default function FieldVisitsPage() {
     load(true);
   };
 
-  const updateVisit = async (id: string, patch: Record<string, unknown>) => {
-    setBusyId(id);
-    const { error: updateError } = await supabase.from("field_visits").update(patch).eq("id", id);
-    setBusyId(null);
-    if (updateError) setError(updateError.message);
-    await load(true);
-  };
-
-  const logAction = async (visit: any, event_type: string, lat?: number | null, lng?: number | null) => {
-    if (!me?.company_id) return;
-    await supabase.from("tracking_events").insert({
-      company_id: me.company_id,
-      visit_id: visit.id,
-      employee_id: me.id,
-      event_type,
-      latitude: lat ?? null,
-      longitude: lng ?? null,
-      details: { source: "field_visit_action" },
+  const visitAction = async (visit: any, action: string, extra: Record<string, unknown> = {}) => {
+    setBusyId(visit.id); setError("");
+    let lat: number | null = null, lng: number | null = null;
+    if (["start_travel","check_in","complete"].includes(action)) {
+      const pos = await getPosition(); lat = pos.lat; lng = pos.lng;
+    }
+    const { error: e } = await supabase.rpc("field_visit_action_v6", {
+      p_visit_id: visit.id, p_action: action, p_lat: lat, p_lng: lng,
+      p_person_met: extra.person_met || null, p_outcome: extra.outcome || null,
+      p_completion_notes: extra.completion_notes || null,
+      p_next_followup_at: extra.next_followup_at ? new Date(String(extra.next_followup_at)).toISOString() : null,
     });
-  };
-
-  const accept = async (visit: any) => {
-    await updateVisit(visit.id, { status: "accepted", accepted_at: new Date().toISOString() });
-    await logAction(visit, "tracking_ready");
-  };
-
-  const start = async (visit: any) => {
-    const { lat, lng } = await getPosition();
-    const now = new Date().toISOString();
-    await updateVisit(visit.id, { status: "on_the_way", travel_started_at: now, last_lat: lat, last_lng: lng, last_location_at: lat != null ? now : null });
-    await logAction(visit, "tracking_started", lat, lng);
-  };
-
-  const checkIn = async (visit: any) => {
-    setBusyId(visit.id);
-    const { lat, lng } = await getPosition();
-    const now = new Date().toISOString();
-    await supabase.from("field_visits").update({
-      status: "checked_in", reached_at: now, check_in_at: now,
-      check_in_lat: lat, check_in_lng: lng, last_lat: lat, last_lng: lng, last_location_at: lat != null ? now : null,
-    }).eq("id", visit.id);
-    await logAction(visit, "client_check_in", lat, lng);
     setBusyId(null);
-    load(true);
+    if (e) { setError(e.message); return false; }
+    await load(true); return true;
   };
 
-  const beginMeeting = (visit: any) => updateVisit(visit.id, { status: "meeting", meeting_started_at: new Date().toISOString() });
+  const accept = (visit: any) => visitAction(visit, "accept");
+  const start = (visit: any) => visitAction(visit, "start_travel");
+  const checkIn = (visit: any) => visitAction(visit, "check_in");
+  const beginMeeting = (visit: any) => visitAction(visit, "meeting");
 
   const completeVisit = async () => {
     if (!completionVisit) return;
-    setBusyId(completionVisit.id);
-    const { lat, lng } = await getPosition();
-    const now = new Date().toISOString();
-    const { error: completeError } = await supabase.from("field_visits").update({
-      status: "completed", check_out_at: now, completed_at: now, check_out_lat: lat, check_out_lng: lng,
-      last_lat: lat, last_lng: lng, last_location_at: lat != null ? now : completionVisit.last_location_at,
-      person_met: completion.person_met, outcome: completion.outcome, completion_notes: completion.completion_notes,
-      next_followup_at: completion.next_followup_at || null,
-    }).eq("id", completionVisit.id);
-    await logAction(completionVisit, "tracking_stopped", lat, lng);
-    setBusyId(null);
-    if (completeError) return setError(completeError.message);
+    const ok = await visitAction(completionVisit, "complete", completion);
+    if (!ok) return;
     setCompletionVisit(null);
     setCompletion({ person_met: "", outcome: "successful", completion_notes: "", next_followup_at: "" });
-    load(true);
   };
 
   const manager = canManageTeam(me?.role);
@@ -256,20 +221,23 @@ export default function FieldVisitsPage() {
     const mins = ageMinutes(lastSeen);
     const blocked = live?.permission_state === "denied" || live?.tracking_state === "blocked";
     const badEvent = latestEvent && badTrackingEvents.includes(latestEvent.event_type) && (!lastSeen || new Date(latestEvent.event_time) > new Date(lastSeen));
-    let health: "live" | "stale" | "off" | "idle" = "idle";
-    if (blocked || badEvent) health = "off";
+    let health: "live" | "stale" | "off" | "off_duty" | "idle" = "idle";
+    if (live?.duty_status === "off_duty" || live?.tracking_state === "off_duty") health = "off_duty";
+    else if (blocked || badEvent) health = "off";
     else if (lastSeen && mins <= staleAfter) health = "live";
-    else if (lastSeen || visit) health = "stale";
+    else if (live?.duty_status === "on_duty" || lastSeen || visit) health = "stale";
     return { member, visit, latestEvent, live, health, mins, lastSeen };
   }), [activeByEmployee, latestEventByEmployee, liveByEmployee, trackedMembers]);
 
   const teamMapRow = staffRows.find((r) => (r.live?.latitude ?? r.visit?.last_lat ?? r.visit?.check_in_lat) != null && (r.live?.longitude ?? r.visit?.last_lng ?? r.visit?.check_in_lng) != null);
 
-  const activeCount = staffRows.filter((r) => r.visit).length;
+  const onDutyCount = staffRows.filter((r) => r.live?.duty_status === "on_duty").length;
+  const activeCount = staffRows.filter((r) => r.health === "live").length;
   const travellingCount = staffRows.filter((r) => r.visit && travellingStatuses.includes(r.visit.status)).length;
   const atClientCount = staffRows.filter((r) => r.visit && atClientStatuses.includes(r.visit.status)).length;
   const offCount = staffRows.filter((r) => r.health === "off").length;
   const staleCount = staffRows.filter((r) => r.health === "stale").length;
+  const offDutyCount = staffRows.filter((r) => r.health === "off_duty").length;
   const completedToday = visits.filter((v) => v.status === "completed" && v.visit_date === today).length;
 
   const filteredVisits = visits.filter((v) => filter === "all" || v.status === filter);
@@ -320,15 +288,17 @@ export default function FieldVisitsPage() {
       />
 
       {manager && <>
-        <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
           {[
-            ["Tracked staff", trackedMembers.length, Users, "text-slate-900"],
-            ["Active now", activeCount, Activity, "text-emerald-700"],
+            ["Tracked", trackedMembers.length, Users, "text-slate-900"],
+            ["On duty", onDutyCount, UserCheck, "text-cyan-700"],
+            ["Live GPS", activeCount, Activity, "text-emerald-700"],
             ["Travelling", travellingCount, Navigation, "text-blue-700"],
             ["At client", atClientCount, MapPin, "text-violet-700"],
-            ["GPS off / blocked", offCount, XCircle, "text-rose-700"],
-            ["Location stale", staleCount, AlertTriangle, "text-amber-700"],
-          ].map(([label, value, Icon, tone]: any) => <Card key={label}><div className="p-4"><div className="flex items-center justify-between"><p className="text-xs text-slate-500">{label}</p><Icon className={`h-4 w-4 ${tone}`} /></div><p className={`mt-2 text-2xl font-semibold ${tone}`}>{value}</p></div></Card>)}
+            ["GPS off", offCount, XCircle, "text-rose-700"],
+            ["Stale", staleCount, AlertTriangle, "text-amber-700"],
+            ["Off duty", offDutyCount, LogOut, "text-slate-500"],
+          ].map(([label, value, Icon, tone]: any) => <Card key={label}><div className="p-4"><div className="flex items-center justify-between"><p className="text-[11px] text-slate-500">{label}</p><Icon className={`h-4 w-4 ${tone}`} /></div><p className={`mt-2 text-2xl font-semibold ${tone}`}>{value}</p></div></Card>)}
         </div>
 
         <Card className="mb-5 overflow-hidden">
@@ -341,7 +311,7 @@ export default function FieldVisitsPage() {
             {staffRows.map(({ member, visit, latestEvent, live, health, lastSeen }) => {
               const lat = live?.latitude ?? visit?.last_lat ?? visit?.check_in_lat;
               const lng = live?.longitude ?? visit?.last_lng ?? visit?.check_in_lng;
-              const healthLabel = health === "live" ? "Live" : health === "off" ? "GPS off / blocked" : health === "stale" ? "Stale" : "No active visit";
+              const healthLabel = health === "live" ? "Live" : health === "off" ? "GPS off / blocked" : health === "stale" ? "Stale" : health === "off_duty" ? "Employee Off Duty" : "Waiting";
               const healthCls = health === "live" ? "bg-emerald-50 text-emerald-700" : health === "off" ? "bg-rose-50 text-rose-700" : health === "stale" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600";
               return <div key={member.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[1.2fr_.8fr_1.4fr_auto] lg:items-center">
                 <div><p className="text-sm font-semibold text-slate-900">{member.full_name}</p><p className="text-xs text-slate-500">{member.designation || member.role} · {member.employee_type || "field"}</p></div>
@@ -408,10 +378,10 @@ export default function FieldVisitsPage() {
       </div></Modal>
 
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Field tracking setup"><div className="space-y-3">
-        <div className="rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><ShieldAlert className="mr-1 inline h-4 w-4" />Enable tracking only for employees whose job requires official field travel. Browser/PWA tracking works best while the app is active.</div>
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs leading-relaxed text-emerald-800"><ShieldAlert className="mr-1 inline h-4 w-4" /><b>Duty-only privacy control:</b> location tracking can run only after Attendance IN and automatically stops after Attendance OUT. All tracking/audit timestamps come from the server, not the employee device clock.</div>
         {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
-        {members.map((m) => <div key={m.id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{m.full_name}</p><p className="text-xs text-slate-500">{m.designation || m.role}</p></div><button disabled={busyId === m.id} onClick={() => updateTracking(m, { field_tracking_enabled: !m.field_tracking_enabled, employee_type: m.employee_type || "field" })} className={`relative h-7 w-12 rounded-full transition ${m.field_tracking_enabled ? "bg-emerald-500" : "bg-slate-300"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${m.field_tracking_enabled ? "left-6" : "left-1"}`} /></button></div>
-          {m.field_tracking_enabled && <div className="mt-3 grid gap-2 sm:grid-cols-2"><label className="text-[11px] text-slate-500">Employee type<select value={m.employee_type || "field"} onChange={(e) => updateTracking(m, { employee_type: e.target.value as Profile["employee_type"] })} className={`mt-1 ${inputCls}`}><option value="sales">Sales</option><option value="field">Field</option><option value="hybrid">Hybrid</option><option value="office">Office</option></select></label><label className="text-[11px] text-slate-500">Tracking mode<select value={m.tracking_mode || "active_visit"} onChange={(e) => updateTracking(m, { tracking_mode: e.target.value as Profile["tracking_mode"] })} className={`mt-1 ${inputCls}`}><option value="active_visit">Active visit only</option><option value="working_hours">While HRMS app is active</option><option value="manual">Manual / app active</option></select></label><label className="text-[11px] text-slate-500">GPS interval<select value={m.tracking_interval_minutes || 5} onChange={(e) => updateTracking(m, { tracking_interval_minutes: Number(e.target.value) })} className={`mt-1 ${inputCls}`}><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option></select></label><label className="text-[11px] text-slate-500">Stale alert after<select value={m.tracking_stale_after_minutes || 10} onChange={(e) => updateTracking(m, { tracking_stale_after_minutes: Number(e.target.value) })} className={`mt-1 ${inputCls}`}><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label></div>}
+        {members.map((m) => <div key={m.id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{m.full_name}</p><p className="text-xs text-slate-500">{m.designation || m.role}</p></div><button disabled={busyId === m.id} onClick={() => updateTracking(m, { field_tracking_enabled: !m.field_tracking_enabled, employee_type: m.employee_type || "field", tracking_mode: m.tracking_mode || "working_hours" })} className={`relative h-7 w-12 rounded-full transition ${m.field_tracking_enabled ? "bg-emerald-500" : "bg-slate-300"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${m.field_tracking_enabled ? "left-6" : "left-1"}`} /></button></div>
+          {m.field_tracking_enabled && <div className="mt-3 grid gap-2 sm:grid-cols-2"><label className="text-[11px] text-slate-500">Employee type<select value={m.employee_type || "field"} onChange={(e) => updateTracking(m, { employee_type: e.target.value as Profile["employee_type"] })} className={`mt-1 ${inputCls}`}><option value="sales">Sales</option><option value="field">Field</option><option value="hybrid">Hybrid</option><option value="office">Office</option></select></label><label className="text-[11px] text-slate-500">Tracking mode<select value={m.tracking_mode || "active_visit"} onChange={(e) => updateTracking(m, { tracking_mode: e.target.value as Profile["tracking_mode"] })} className={`mt-1 ${inputCls}`}><option value="working_hours">Duty time (Attendance IN → OUT) · Recommended</option><option value="active_visit">Active visit only (still duty-time bounded)</option></select></label><label className="text-[11px] text-slate-500">GPS interval<select value={m.tracking_interval_minutes || 5} onChange={(e) => updateTracking(m, { tracking_interval_minutes: Number(e.target.value) })} className={`mt-1 ${inputCls}`}><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option></select></label><label className="text-[11px] text-slate-500">Stale alert after<select value={m.tracking_stale_after_minutes || 10} onChange={(e) => updateTracking(m, { tracking_stale_after_minutes: Number(e.target.value) })} className={`mt-1 ${inputCls}`}><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label></div>}
         </div>)}
       </div></Modal>
 
@@ -420,7 +390,8 @@ export default function FieldVisitsPage() {
         <div className="grid min-h-0 flex-1 lg:grid-cols-[1.8fr_1fr]"><div className="min-h-[48vh] bg-slate-100">{selectedLat != null && selectedLng != null ? <iframe title="Live location map" src={mapEmbed(selectedLat, selectedLng)} className="h-full min-h-[48vh] w-full border-0" loading="lazy" /> : <div className="grid h-full place-items-center p-8 text-center text-slate-500"><div><MapPin className="mx-auto mb-3 h-8 w-8" /><p>No GPS location received yet.</p></div></div>}</div>
           <div className="overflow-y-auto p-5"><div className="grid grid-cols-2 gap-3"><div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] text-slate-500">Visit status</p><p className="mt-1 text-sm font-semibold capitalize">{String(liveVisit.status).replaceAll("_", " ")}</p></div><div className="rounded-xl bg-slate-50 p-3"><p className="text-[11px] text-slate-500">Last GPS</p><p className="mt-1 text-sm font-semibold">{timeAgo(liveVisit.last_location_at)}</p></div></div>
             <div className="mt-4 rounded-xl border border-slate-200 p-4"><p className="text-sm font-semibold text-slate-900">Current visit</p><p className="mt-2 text-sm text-slate-700">{liveVisit.client_name}</p><p className="mt-1 text-xs text-slate-500">{liveVisit.address || "No address added"}</p>{selectedLat != null && selectedLng != null && <a href={`https://www.google.com/maps?q=${selectedLat},${selectedLng}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-brand-700">Open in Google Maps <ExternalLink className="h-3 w-3" /></a>}</div>
-            <div className="mt-5"><p className="mb-3 text-sm font-semibold text-slate-900">Tracking timeline</p><div className="space-y-3">{selectedTimeline.length ? selectedTimeline.map((ev) => <div key={ev.id} className="flex gap-3"><div className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${badTrackingEvents.includes(ev.event_type) ? "bg-rose-500" : "bg-emerald-500"}`} /><div><p className="text-xs font-medium capitalize text-slate-700">{ev.event_type.replaceAll("_", " ")}</p><p className="text-[11px] text-slate-400">{new Date(ev.event_time).toLocaleString("en-IN")}</p></div></div>) : <p className="text-xs text-slate-400">No tracking events yet.</p>}</div></div>
+            <div className="mt-4 rounded-xl bg-slate-50 p-3 text-xs leading-5 text-slate-600"><b>Privacy:</b> tracking is duty-only. After Attendance OUT, the employee is shown as <b>Off Duty</b> and no new GPS coordinates are stored.</div>
+            <div className="mt-5"><p className="mb-3 text-sm font-semibold text-slate-900">Tracking timeline</p><div className="space-y-3">{selectedTimeline.length ? selectedTimeline.map((ev) => <div key={ev.id} className="flex gap-3"><div className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${badTrackingEvents.includes(ev.event_type) ? "bg-rose-500" : "bg-emerald-500"}`} /><div><p className="text-xs font-medium capitalize text-slate-700">{ev.event_type.replaceAll("_", " ")}</p><p className="text-[11px] text-slate-400">{new Date(ev.event_time).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} · Server time{ev.details?.time_source === "server_derived" ? " · inferred" : ""}</p></div></div>) : <p className="text-xs text-slate-400">No tracking events yet.</p>}</div></div>
           </div></div>
       </div></div>}
 
