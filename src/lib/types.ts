@@ -78,3 +78,4 @@ export interface Task {
 }
 
 export const isAdminRole = (r?: Role | null) => r === "owner" || r === "admin";
+export const canManageTeam = (r?: Role | null) => r === "owner" || r === "admin" || r === "manager";
