@@ -22,11 +22,14 @@ export default async function DashboardPage() {
   if (manager) teamQuery = teamQuery.eq("manager_id", user!.id);
   if (!teamView) teamQuery = teamQuery.eq("id", user!.id);
 
-  const [team, present, onField, onLeave] = await Promise.all([
+  const [team, present, onField, onLeave, tracked, completedVisits, liveLocations] = await Promise.all([
     teamQuery,
     supabase.from("attendance").select("*", { count: "exact", head: true }).eq("work_date", today).eq("status", "present"),
     supabase.from("field_visits").select("*", { count: "exact", head: true }).eq("visit_date", today).in("status", ["accepted", "on_the_way", "reached", "checked_in", "meeting"]),
     supabase.from("leaves").select("*", { count: "exact", head: true }).eq("status", "approved").lte("from_date", today).gte("to_date", today),
+    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active").eq("field_tracking_enabled", true),
+    supabase.from("field_visits").select("*", { count: "exact", head: true }).eq("visit_date", today).eq("status", "completed"),
+    supabase.from("employee_live_locations").select("employee_id, permission_state, tracking_state, last_seen_at"),
   ]);
 
   const { data: visits } = await supabase
@@ -49,6 +52,20 @@ export default async function DashboardPage() {
     { label: "On leave", value: onLeave.count ?? 0, icon: "plane", color: "text-amber-600 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400", href: "/leave" },
   ];
 
+  const liveRows = liveLocations.data || [];
+  const now = Date.now();
+  const liveNow = liveRows.filter((r: any) => r.last_seen_at && (now - new Date(r.last_seen_at).getTime()) <= 10 * 60000 && r.permission_state !== "denied").length;
+  const gpsBlocked = liveRows.filter((r: any) => r.permission_state === "denied" || r.tracking_state === "blocked").length;
+  const stale = liveRows.filter((r: any) => r.last_seen_at && (now - new Date(r.last_seen_at).getTime()) > 10 * 60000 && r.permission_state !== "denied").length;
+  const fieldSummary = {
+    tracked: tracked.count ?? 0,
+    liveNow,
+    onVisit: onField.count ?? 0,
+    completed: completedVisits.count ?? 0,
+    gpsBlocked,
+    stale,
+  };
+
   return (
     <DashboardClient
       greeting={greeting}
@@ -56,6 +73,7 @@ export default async function DashboardPage() {
       admin={teamView}
       stats={stats}
       visits={visits || []}
+      fieldSummary={fieldSummary}
     />
   );
 }
