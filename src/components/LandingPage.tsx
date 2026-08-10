@@ -9,7 +9,7 @@ import {
   Camera, Navigation, ShieldCheck, Check, ArrowRight, Building2,
   Moon, Bell, FileText, Clock, User, Phone, Mail,
   Repeat, MessageSquare, CalendarClock, BarChart3, Lock, Smartphone,
-  TrendingUp, LayoutDashboard, Sheet, ClipboardCheck, Globe, Radar, MapPinned, UserCog, Route,
+  TrendingUp, LayoutDashboard, Sheet, ClipboardCheck, Globe, Radar, MapPinned, UserCog, Route, Download, CheckCircle2, BriefcaseBusiness,
 } from "lucide-react";
 
 const employeeFeatures = [
@@ -57,8 +57,64 @@ const modules = [
   { icon: Sheet, label: "Exports" },
 ];
 
+
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+};
+
+const trustFeatures = [
+  { icon: ShieldCheck, title: "Server-trusted audit trail", desc: "Attendance and operational records are designed around trusted system records instead of relying on an employee changing their phone clock." },
+  { icon: Radar, title: "Duty-time field visibility", desc: "Track enabled field staff for official work, with latest GPS, travelling/at-client state, stale-location visibility and reporting-manager access." },
+  { icon: MapPinned, title: "Visit proof & outcomes", desc: "Assign client visits, capture travel/check-in progress, person met, outcome, notes and follow-up in one workflow." },
+  { icon: BarChart3, title: "Management reports", desc: "Review attendance, tasks, employee performance, field visits and operational exceptions, with export-ready records." },
+];
+
+const workflowFeatures = [
+  "Attendance + GPS + selfie + geofence",
+  "Leave, short leave, WFH & holiday rules",
+  "Payroll, salary master & payslips",
+  "Tasks, subtasks, comments & extensions",
+  "Recurring checklists & delegations",
+  "Field visits + live sales-team visibility",
+  "Employee directory, documents & KYC",
+  "Help desk tickets & notifications",
+  "Multi-branch, departments & reporting hierarchy",
+  "CSV exports + Google Sheets backup integration",
+];
+
 export default function LandingPage() {
   const reduce = useReducedMotion();
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    const standalone =
+      window.matchMedia?.("(display-mode: standalone)")?.matches ||
+      (window.navigator as Navigator & { standalone?: boolean }).standalone === true;
+    setIsStandalone(Boolean(standalone));
+
+    const onInstall = (event: Event) => {
+      event.preventDefault();
+      setInstallPrompt(event as BeforeInstallPromptEvent);
+    };
+    window.addEventListener("beforeinstallprompt", onInstall);
+    return () => window.removeEventListener("beforeinstallprompt", onInstall);
+  }, []);
+
+  const installApp = async () => {
+    if (isStandalone) {
+      window.location.href = "/login?source=app";
+      return;
+    }
+    if (installPrompt) {
+      await installPrompt.prompt();
+      const result = await installPrompt.userChoice;
+      if (result.outcome === "accepted") setInstallPrompt(null);
+      return;
+    }
+    document.getElementById("install-guide")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <div className="min-h-screen bg-white text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -258,6 +314,79 @@ export default function LandingPage() {
           <FadeIn delay={0.1}>
             <PhoneMockup reduce={!!reduce} />
           </FadeIn>
+        </div>
+      </section>
+
+
+      {/* Trust & business operating layer */}
+      <section className="border-y border-slate-100 bg-slate-50/70 py-20 dark:border-slate-800 dark:bg-slate-900/40">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="mx-auto max-w-3xl text-center">
+            <span className="text-xs font-bold uppercase tracking-[0.18em] text-brand-600">Built for management confidence</span>
+            <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">One system. From attendance to field execution.</h2>
+            <p className="mt-4 text-base leading-7 text-slate-600 dark:text-slate-300">
+              Replace scattered attendance apps, task sheets, visit registers and payroll follow-ups with one connected employee operating system.
+            </p>
+          </div>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {trustFeatures.map((item) => (
+              <div key={item.title} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+                <item.icon className="h-5 w-5 text-brand-600" />
+                <h3 className="mt-4 font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{item.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950 sm:p-8">
+            <div className="flex flex-col gap-8 lg:flex-row lg:items-start lg:justify-between">
+              <div className="max-w-md">
+                <div className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                  <BriefcaseBusiness className="h-3.5 w-3.5" /> Single-app operations
+                </div>
+                <h3 className="mt-4 text-2xl font-bold">Give employees one app. Give management one source of truth.</h3>
+                <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                  Every module uses the same employee, branch, department and reporting structure, so information stays connected instead of being duplicated across tools.
+                </p>
+              </div>
+              <div className="grid flex-1 gap-3 sm:grid-cols-2">
+                {workflowFeatures.map((feature) => (
+                  <div key={feature} className="flex items-start gap-2.5 text-sm text-slate-700 dark:text-slate-300">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                    <span>{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PWA install guide */}
+      <section id="install-guide" className="py-20">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="overflow-hidden rounded-3xl bg-slate-950 px-6 py-10 text-white shadow-xl sm:px-10 lg:flex lg:items-center lg:justify-between lg:gap-10">
+            <div className="max-w-2xl">
+              <span className="text-xs font-bold uppercase tracking-[0.18em] text-blue-300">Mobile ready</span>
+              <h2 className="mt-3 text-3xl font-bold">Install SM HRMS on your phone</h2>
+              <p className="mt-4 text-sm leading-7 text-slate-300">
+                Use the same secure account on desktop and mobile. On supported Android/Chrome devices, install SM HRMS directly to the home screen for an app-like experience—no Play Store wait required.
+              </p>
+              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-300">
+                <span>✓ Home-screen icon</span><span>✓ Standalone app window</span><span>✓ Same live company data</span><span>✓ No separate account</span>
+              </div>
+            </div>
+            <div className="mt-8 shrink-0 lg:mt-0">
+              <button onClick={installApp} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-slate-100 lg:w-auto">
+                <Download className="h-4 w-4" />
+                {isStandalone ? "Open SM HRMS" : installPrompt ? "Install app now" : "How to install"}
+              </button>
+              <p className="mt-3 max-w-xs text-center text-[11px] leading-5 text-slate-400 lg:text-left">
+                iPhone/iPad: open in Safari → Share → Add to Home Screen. Android: Chrome → Install app / Add to Home screen.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
