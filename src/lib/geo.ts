@@ -90,6 +90,7 @@ export async function getPublicIp(): Promise<string | null> {
 export const fmtTime = (t: string | null) =>
   t
     ? new Date(t).toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
         hour: "2-digit",
         minute: "2-digit",
         hour12: true,
