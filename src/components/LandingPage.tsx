@@ -9,7 +9,7 @@ import {
   Camera, Navigation, ShieldCheck, Check, ArrowRight, Building2,
   Moon, Bell, FileText, Clock, User, Phone, Mail,
   Repeat, MessageSquare, CalendarClock, BarChart3, Lock, Smartphone,
-  TrendingUp, LayoutDashboard, Sheet, ClipboardCheck, Globe,
+  TrendingUp, LayoutDashboard, Sheet, ClipboardCheck, Globe, Radar, MapPinned, UserCog, Route,
 } from "lucide-react";
 
 const employeeFeatures = [
@@ -17,7 +17,7 @@ const employeeFeatures = [
   { icon: Plane, title: "Apply for leave in seconds", desc: "Casual, sick, earned, short leave, work-from-home — balance updates instantly." },
   { icon: ListChecks, title: "Daily tasks & recurring checklists", desc: "See what's due today; recurring work reschedules itself around holidays, automatically." },
   { icon: ClipboardCheck, title: "Subtasks, comments & tracking", desc: "Break a task into steps, discuss it in comments, and request a deadline extension when needed." },
-  { icon: MapPin, title: "Field visit logging", desc: "Log client visits with GPS check-in/out — perfect for sales and service teams." },
+  { icon: MapPinned, title: "Live field & sales tracking", desc: "Track enabled field staff during official visits, see latest GPS, travel status, client check-in and visit outcome." },
   { icon: Wallet, title: "Payslips on your phone", desc: "View and download your monthly payslip anytime — no need to ask HR." },
   { icon: Users, title: "Employee directory", desc: "Find any colleague's contact, department and reporting line in one place." },
   { icon: LifeBuoy, title: "Raise a help desk ticket", desc: "IT, HR or payroll issue — raise it, track it, get notified when it's resolved." },
@@ -27,6 +27,8 @@ const employeeFeatures = [
 const adminFeatures = [
   { icon: Wallet, title: "Automatic payroll", desc: "Late arrivals, short leave and absences deduct automatically — every rule is yours to set." },
   { icon: Navigation, title: "Office geofencing", desc: "Know instantly if someone checked in from outside the office, and how far away." },
+  { icon: Radar, title: "Sales team live operations", desc: "Owner and reporting managers can see travelling, at-client, stale and GPS-blocked field staff from one dashboard." },
+  { icon: UserCog, title: "Admin-controlled tracking", desc: "Choose exactly which sales or field employees require visit tracking, with role-based visibility and stale-location alerts." },
   { icon: Lock, title: "Mandatory location & locked tasks", desc: "Force location on for attendance, and lock completed tasks so only an admin can re-open them." },
   { icon: Repeat, title: "Recurring task engine", desc: "Set a checklist once — daily, weekly, monthly or yearly — and it generates itself forever." },
   { icon: BarChart3, title: "On-time performance scoring", desc: "See each employee's on-time %, done, late and overdue counts at a glance." },
@@ -45,6 +47,7 @@ const modules = [
   { icon: ListChecks, label: "Tasks" },
   { icon: Repeat, label: "Checklists" },
   { icon: MapPin, label: "Field visits" },
+  { icon: Route, label: "Live field tracking" },
   { icon: Users, label: "Directory" },
   { icon: Building2, label: "Organization" },
   { icon: LifeBuoy, label: "Help desk" },
@@ -101,9 +104,7 @@ export default function LandingPage() {
               Run your whole team from one screen.
             </h1>
             <p className="mt-5 max-w-lg text-lg leading-relaxed text-white/75">
-              Attendance with GPS and a selfie, leave that updates itself, payroll that
-              calculates on its own, and a task engine that keeps everyone on track —
-              built for Indian businesses, from five people to five hundred.
+              Attendance, leave, payroll, task management and live field-sales operations in one system. Track official client visits, latest GPS, reporting teams and outcomes — built for Indian businesses, from five people to five hundred.
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-4">
               <Link href="/signup"
@@ -132,7 +133,7 @@ export default function LandingPage() {
             { icon: Navigation, label: "GPS + geofence" },
             { icon: Camera, label: "Selfie verified" },
             { icon: Repeat, label: "Auto-recurring tasks" },
-            { icon: Smartphone, label: "App + Web" },
+            { icon: Smartphone, label: "Installable mobile + Web" },
           ].map((s) => (
             <div key={s.label} className="flex items-center justify-center gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
               <s.icon className="h-4 w-4 text-brand-600 dark:text-brand-300" /> {s.label}
