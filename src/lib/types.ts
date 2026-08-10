@@ -49,6 +49,12 @@ export interface Profile {
   manager_id: string | null;
   must_change_password: boolean;
   created_at: string;
+  employee_type?: "office" | "sales" | "field" | "hybrid";
+  field_tracking_enabled?: boolean;
+  tracking_mode?: "active_visit" | "working_hours" | "manual";
+  tracking_interval_minutes?: number;
+  tracking_stale_after_minutes?: number;
+  route_history_enabled?: boolean;
 }
 
 export interface Invite {
