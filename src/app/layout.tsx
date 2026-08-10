@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import PwaBootstrap from "@/components/PwaBootstrap";
 
 export const metadata: Metadata = {
   title: "SM HRMS — Empowering People. Optimizing Talent.",
@@ -33,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">{children}<PwaBootstrap /></body>
     </html>
   );
 }
