@@ -7,7 +7,7 @@ export const metadata = {
   description: "How SM HRMS collects, uses and protects your data.",
 };
 
-const LAST_UPDATED = "29 July 2026";
+const LAST_UPDATED = "10 August 2026";
 
 /* A small helper for consistent section headings */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
           <p>We collect only the information needed to run your organization&rsquo;s HR operations:</p>
           <ul className="ml-5 list-disc space-y-1.5">
             <li><strong>Account details</strong> — your name, email address, mobile number, role and department.</li>
-            <li><strong>Location data</strong> — your GPS location at the moment you check in or out for attendance, and during field-visit logging. Location is captured only at those specific actions, not continuously in the background.</li>
+            <li><strong>Location data</strong> — GPS coordinates used for attendance, field visits and, where your organization enables field tracking for your role, duty-time location visibility. Field tracking is bounded by attendance: it can begin only after Attendance IN and stops after Attendance OUT.</li>
             <li><strong>Photos</strong> — a selfie taken at check-in when your organization enables photo verification.</li>
             <li><strong>Employment records</strong> — attendance, leave, tasks, payroll figures, documents and KYC information added by you or your administrator.</li>
             <li><strong>Device &amp; usage data</strong> — basic technical information such as your IP address and app interactions, used for security and to keep the service working.</li>
@@ -80,15 +80,20 @@ export default function PrivacyPage() {
 
         <Section title="3. Location &amp; camera permissions">
           <p>
-            The app requests <strong>location</strong> and <strong>camera</strong> permissions
-            because attendance and field visits depend on them. Location is used only when you
-            actively check in, check out, or log a visit. The camera is used only when you take a
-            check-in selfie. You can decline these permissions, but attendance features that rely
-            on them will not be available, and your organization may require them for attendance.
+            The app requests <strong>location</strong> and <strong>camera</strong> permissions because attendance and field work may depend on them. If your organization enables field tracking for your role, location may be collected at configured intervals <strong>only while you are on duty</strong> (after Attendance IN and before Attendance OUT), or only during an active field visit if your organization chooses that narrower mode. After Attendance OUT the tracking service records an <strong>Employee Off Duty</strong> state and does not store new GPS coordinates.
+          </p>
+          <p>
+            GPS permission denied/unavailable states, silent tracking gaps and later restoration may be recorded for audit and operational reporting. Silent gaps are marked as <strong>inferred</strong> when the server does not receive an expected heartbeat. The camera is used only for user-initiated photo capture such as attendance verification.
           </p>
         </Section>
 
-        <Section title="4. Data sharing">
+        <Section title="4. Trusted timestamps &amp; attendance integrity">
+          <p>
+            Attendance IN/OUT, field-visit action times and tracking audit events use timestamps generated or validated by our server infrastructure. The employee device clock is not accepted as the authoritative punch time. This helps prevent backdating by changing the date or time on a phone or computer.
+          </p>
+        </Section>
+
+        <Section title="5. Data sharing">
           <p>Your information is visible to:</p>
           <ul className="ml-5 list-disc space-y-1.5">
             <li>The administrators and authorized managers of your own organization&rsquo;s workspace.</li>
@@ -100,7 +105,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="5. Google Workspace / Drive backup">
+        <Section title="6. Google Workspace / Drive backup">
           <p>
             If your organization chooses to enable the backup integration, HR data can be exported
             or backed up to <strong>your organization&rsquo;s own Google Drive or Google Sheets</strong>.
@@ -109,7 +114,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="6. Data security">
+        <Section title="7. Data security">
           <p>
             Data is transmitted over encrypted HTTPS connections and stored with access controls so
             that only authorized users in your workspace can view it. No method of transmission or
@@ -117,7 +122,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="7. Data retention">
+        <Section title="8. Data retention">
           <p>
             We retain your data for as long as your organization maintains an active account, or as
             needed to provide the service and meet legal obligations. When an employee is offboarded,
@@ -126,7 +131,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="8. Your rights &amp; data deletion">
+        <Section title="9. Your rights &amp; data deletion">
           <p>
             You may request access to, correction of, or deletion of your personal data. Because your
             employer owns the workspace, such requests are usually handled through your organization&rsquo;s
@@ -135,18 +140,18 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="9. Children">
+        <Section title="10. Children">
           <p>SM HRMS is intended for use by employees and is not directed at anyone under 18.</p>
         </Section>
 
-        <Section title="10. Changes to this policy">
+        <Section title="11. Changes to this policy">
           <p>
             We may update this policy from time to time. Material changes will be reflected by the
             &ldquo;Last updated&rdquo; date at the top of this page.
           </p>
         </Section>
 
-        <Section title="11. Contact us">
+        <Section title="12. Contact us">
           <p>
             For any privacy question or request, contact:
           </p>
