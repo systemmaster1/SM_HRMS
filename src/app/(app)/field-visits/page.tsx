@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
 import { getPosition, fmtTime } from "@/lib/geo";
@@ -8,7 +9,7 @@ import { type Profile, canManageTeam, isAdminRole } from "@/lib/types";
 import {
   Activity, AlertTriangle, ArrowLeft, CheckCircle2, Clock3, ExternalLink,
   Eye, LocateFixed, MapPin, Navigation, Plus, Route, Settings2, ShieldAlert,
-  Users, UserCheck, XCircle, LogIn, LogOut,
+  Users, UserCheck, XCircle, LogIn, LogOut, Download, BarChart3, RefreshCw, Wifi, WifiOff,
 } from "lucide-react";
 
 const activeStatuses = ["accepted", "on_the_way", "reached", "checked_in", "meeting"];
@@ -25,6 +26,13 @@ type TrackingEvent = {
   latitude: number | null;
   longitude: number | null;
   details?: Record<string, unknown>;
+};
+
+type LiveLocation = {
+  employee_id: string; company_id: string; visit_id: string | null;
+  latitude: number | null; longitude: number | null; accuracy_m: number | null;
+  permission_state: string; tracking_state: string; app_state: string;
+  last_seen_at: string | null; last_error: string | null; updated_at: string;
 };
 
 function ageMinutes(ts?: string | null) {
@@ -52,6 +60,7 @@ export default function FieldVisitsPage() {
   const [members, setMembers] = useState<Profile[]>([]);
   const [visits, setVisits] = useState<any[]>([]);
   const [events, setEvents] = useState<TrackingEvent[]>([]);
+  const [liveLocations, setLiveLocations] = useState<LiveLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -66,6 +75,7 @@ export default function FieldVisitsPage() {
   const [f, setF] = useState({
     client_name: "", purpose: "", address: "",
     visit_date: new Date().toISOString().slice(0, 10),
+    scheduled_at: "", target_duration_minutes: "60",
     employee_id: "",
   });
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
@@ -99,6 +109,11 @@ export default function FieldVisitsPage() {
         .order("event_time", { ascending: false })
         .limit(300);
       setEvents((ev as TrackingEvent[]) || []);
+
+      const { data: ll } = await supabase
+        .from("employee_live_locations")
+        .select("employee_id, company_id, visit_id, latitude, longitude, accuracy_m, permission_state, tracking_state, app_state, last_seen_at, last_error, updated_at");
+      setLiveLocations((ll as LiveLocation[]) || []);
     }
     setLoading(false);
   }, [supabase]);
@@ -112,6 +127,7 @@ export default function FieldVisitsPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "field_visits", filter: `company_id=eq.${me.company_id}` }, () => load(true))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "visit_location_history", filter: `company_id=eq.${me.company_id}` }, () => load(true))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "tracking_events", filter: `company_id=eq.${me.company_id}` }, () => load(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "employee_live_locations", filter: `company_id=eq.${me.company_id}` }, () => load(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [load, me?.company_id, me?.role, supabase]);
@@ -130,12 +146,14 @@ export default function FieldVisitsPage() {
       purpose: f.purpose,
       address: f.address,
       visit_date: f.visit_date,
+      scheduled_at: f.scheduled_at ? new Date(f.scheduled_at).toISOString() : null,
+      target_duration_minutes: Math.max(5, Number(f.target_duration_minutes || 60)),
       status: assignee === me.id ? "planned" : "assigned",
     });
     setSaving(false);
     if (insertError) return setError(insertError.message);
     setOpen(false);
-    setF({ client_name: "", purpose: "", address: "", visit_date: new Date().toISOString().slice(0, 10), employee_id: "" });
+    setF({ client_name: "", purpose: "", address: "", visit_date: new Date().toISOString().slice(0, 10), scheduled_at: "", target_duration_minutes: "60", employee_id: "" });
     load(true);
   };
 
@@ -225,18 +243,29 @@ export default function FieldVisitsPage() {
     return map;
   }, [visits]);
 
+  const liveByEmployee = useMemo(() => {
+    const map = new Map<string, LiveLocation>();
+    for (const loc of liveLocations) map.set(loc.employee_id, loc);
+    return map;
+  }, [liveLocations]);
+
   const staffRows = useMemo(() => trackedMembers.map((member) => {
     const visit = activeByEmployee.get(member.id);
     const latestEvent = latestEventByEmployee.get(member.id);
+    const live = liveByEmployee.get(member.id);
     const staleAfter = Number(member.tracking_stale_after_minutes || 10);
-    const mins = ageMinutes(visit?.last_location_at);
-    const badEvent = latestEvent && badTrackingEvents.includes(latestEvent.event_type) && (!visit?.last_location_at || new Date(latestEvent.event_time) > new Date(visit.last_location_at));
+    const lastSeen = live?.last_seen_at || visit?.last_location_at || null;
+    const mins = ageMinutes(lastSeen);
+    const blocked = live?.permission_state === "denied" || live?.tracking_state === "blocked";
+    const badEvent = latestEvent && badTrackingEvents.includes(latestEvent.event_type) && (!lastSeen || new Date(latestEvent.event_time) > new Date(lastSeen));
     let health: "live" | "stale" | "off" | "idle" = "idle";
-    if (badEvent) health = "off";
-    else if (visit && mins <= staleAfter) health = "live";
-    else if (visit) health = "stale";
-    return { member, visit, latestEvent, health, mins };
-  }), [activeByEmployee, latestEventByEmployee, trackedMembers]);
+    if (blocked || badEvent) health = "off";
+    else if (lastSeen && mins <= staleAfter) health = "live";
+    else if (lastSeen || visit) health = "stale";
+    return { member, visit, latestEvent, live, health, mins, lastSeen };
+  }), [activeByEmployee, latestEventByEmployee, liveByEmployee, trackedMembers]);
+
+  const teamMapRow = staffRows.find((r) => (r.live?.latitude ?? r.visit?.last_lat ?? r.visit?.check_in_lat) != null && (r.live?.longitude ?? r.visit?.last_lng ?? r.visit?.check_in_lng) != null);
 
   const activeCount = staffRows.filter((r) => r.visit).length;
   const travellingCount = staffRows.filter((r) => r.visit && travellingStatuses.includes(r.visit.status)).length;
@@ -248,11 +277,20 @@ export default function FieldVisitsPage() {
   const filteredVisits = visits.filter((v) => filter === "all" || v.status === filter);
 
   const updateTracking = async (member: Profile, patch: Partial<Profile>) => {
-    setBusyId(member.id);
-    const { error: e } = await supabase.from("profiles").update(patch).eq("id", member.id);
+    setBusyId(member.id); setError("");
+    const next = { ...member, ...patch };
+    const { error: e } = await supabase.rpc("set_employee_tracking_config", {
+      p_employee_id: member.id,
+      p_enabled: !!next.field_tracking_enabled,
+      p_employee_type: next.employee_type || "field",
+      p_tracking_mode: next.tracking_mode || "active_visit",
+      p_interval_minutes: Number(next.tracking_interval_minutes || 5),
+      p_stale_minutes: Number(next.tracking_stale_after_minutes || 10),
+      p_route_history: next.route_history_enabled !== false,
+    });
     setBusyId(null);
-    if (e) setError(e.message);
-    else load(true);
+    if (e) setError(`Tracking setup failed: ${e.message}`);
+    else await load(true);
   };
 
   const selectedTimeline = liveVisit ? events.filter((e) => e.employee_id === liveVisit.employee_id).slice(0, 12) : [];
@@ -264,7 +302,8 @@ export default function FieldVisitsPage() {
       <PageHeader
         title={manager ? "Field Operations" : "My Field Visits"}
         subtitle={manager ? "Live sales-team visibility, visit control, GPS health and client outcomes." : "Manage assigned visits, travel, GPS check-ins and outcomes."}
-        action={<div className="flex gap-2">
+        action={<div className="flex flex-wrap gap-2">
+          {manager && <Link href="/field-reports" className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"><BarChart3 className="h-4 w-4" /> Reports</Link>}
           {admin && <button onClick={() => setSettingsOpen(true)} className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"><Settings2 className="h-4 w-4" /> Tracking setup</button>}
           <button onClick={() => setOpen(true)} className="flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-800"><Plus className="h-4 w-4" /> New visit</button>
         </div>}
@@ -289,19 +328,39 @@ export default function FieldVisitsPage() {
           </div>
           {staffRows.length === 0 ? <div className="p-8 text-center text-sm text-slate-500">No employees are enabled for field tracking. Use <b>Tracking setup</b>.</div> :
           <div className="divide-y divide-slate-100">
-            {staffRows.map(({ member, visit, latestEvent, health }) => {
-              const lat = visit?.last_lat ?? visit?.check_in_lat;
-              const lng = visit?.last_lng ?? visit?.check_in_lng;
+            {staffRows.map(({ member, visit, latestEvent, live, health, lastSeen }) => {
+              const lat = live?.latitude ?? visit?.last_lat ?? visit?.check_in_lat;
+              const lng = live?.longitude ?? visit?.last_lng ?? visit?.check_in_lng;
               const healthLabel = health === "live" ? "Live" : health === "off" ? "GPS off / blocked" : health === "stale" ? "Stale" : "No active visit";
               const healthCls = health === "live" ? "bg-emerald-50 text-emerald-700" : health === "off" ? "bg-rose-50 text-rose-700" : health === "stale" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-600";
               return <div key={member.id} className="grid gap-3 px-5 py-4 lg:grid-cols-[1.2fr_.8fr_1.4fr_auto] lg:items-center">
                 <div><p className="text-sm font-semibold text-slate-900">{member.full_name}</p><p className="text-xs text-slate-500">{member.designation || member.role} · {member.employee_type || "field"}</p></div>
                 <div><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${healthCls}`}>{healthLabel}</span>{visit && <p className="mt-1 text-xs text-slate-500 capitalize">{String(visit.status).replaceAll("_", " ")}</p>}</div>
-                <div>{visit ? <><p className="text-sm font-medium text-slate-700">{visit.client_name}</p><p className="mt-0.5 text-xs text-slate-500">{lat != null && lng != null ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}` : "Waiting for first GPS location"}</p><p className="mt-0.5 text-[11px] text-slate-400">Last location: {timeAgo(visit.last_location_at)}{latestEvent ? ` · Last event ${String(latestEvent.event_type).replaceAll("_", " ")}` : ""}</p></> : <p className="text-xs text-slate-400">No active visit</p>}</div>
-                <button disabled={!visit} onClick={() => setLiveVisit(visit)} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-brand-200 px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"><Eye className="h-3.5 w-3.5" /> Live map</button>
+                <div>{visit ? <><p className="text-sm font-medium text-slate-700">{visit.client_name}</p><p className="mt-0.5 text-xs text-slate-500">{lat != null && lng != null ? `${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}` : "Waiting for first GPS location"}</p><p className="mt-0.5 text-[11px] text-slate-400">Last location: {timeAgo(lastSeen)}{latestEvent ? ` · Last event ${String(latestEvent.event_type).replaceAll("_", " ")}` : ""}</p></> : <p className="text-xs text-slate-400">No active visit</p>}</div>
+                <button disabled={lat == null || lng == null} onClick={() => setLiveVisit({ ...(visit || {}), employee_id: member.id, profiles: { full_name: member.full_name }, client_name: visit?.client_name || "No active visit", status: visit?.status || live?.tracking_state || "idle", last_lat: lat, last_lng: lng, last_location_at: lastSeen })} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-brand-200 px-3 py-2 text-xs font-semibold text-brand-700 hover:bg-brand-50 disabled:cursor-not-allowed disabled:opacity-40"><Eye className="h-3.5 w-3.5" /> Live map</button>
               </div>;
             })}
           </div>}
+        </Card>
+
+        <Card className="mb-5 overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[1fr_1.6fr]">
+            <div className="border-b border-slate-100 p-5 lg:border-b-0 lg:border-r">
+              <h2 className="font-semibold text-slate-900">Location health monitor</h2>
+              <p className="mt-1 text-xs text-slate-500">Permission, last GPS and app status for employees enabled in Tracking setup.</p>
+              <div className="mt-4 space-y-2">
+                {staffRows.slice(0, 8).map(({ member, live, health, lastSeen }) => <div key={member.id} className="flex items-center justify-between rounded-xl border border-slate-100 px-3 py-2.5">
+                  <div><p className="text-sm font-medium text-slate-800">{member.full_name}</p><p className="text-[11px] text-slate-400">{live?.permission_state || "permission unknown"} · {timeAgo(lastSeen)}</p></div>
+                  <div className="flex items-center gap-2">{health === "live" ? <Wifi className="h-4 w-4 text-emerald-600" /> : <WifiOff className={`h-4 w-4 ${health === "off" ? "text-rose-600" : "text-amber-600"}`} />}<span className="text-[11px] capitalize text-slate-500">{health}</span></div>
+                </div>)}
+                {!staffRows.length && <p className="py-6 text-center text-xs text-slate-400">Enable a sales/field employee to start monitoring.</p>}
+              </div>
+            </div>
+            <div className="min-h-[300px] bg-slate-50 p-5">
+              <div className="flex items-center justify-between"><div><h2 className="font-semibold text-slate-900">Live map</h2><p className="mt-1 text-xs text-slate-500">Click Live map on an employee to open full tracking, route and timeline.</p></div><button onClick={() => load(true)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600"><RefreshCw className="h-3.5 w-3.5" /> Refresh</button></div>
+              <div className="mt-4 min-h-[260px] overflow-hidden rounded-2xl border border-slate-200 bg-white">{teamMapRow ? (() => { const lat = teamMapRow.live?.latitude ?? teamMapRow.visit?.last_lat ?? teamMapRow.visit?.check_in_lat; const lng = teamMapRow.live?.longitude ?? teamMapRow.visit?.last_lng ?? teamMapRow.visit?.check_in_lng; return <div className="relative h-[260px]"><iframe title="Team live map" src={mapEmbed(Number(lat), Number(lng))} className="h-full w-full border-0" loading="lazy" /><div className="absolute left-3 top-3 rounded-xl bg-white/95 px-3 py-2 shadow-lg backdrop-blur"><p className="text-xs font-semibold text-slate-900">{teamMapRow.member.full_name}</p><p className="text-[11px] text-slate-500">{teamMapRow.visit?.client_name || "Latest employee location"} · {timeAgo(teamMapRow.lastSeen)}</p></div></div>; })() : <div className="grid h-[260px] place-items-center p-8 text-center"><div><LocateFixed className="mx-auto h-9 w-9 text-brand-600" /><p className="mt-3 text-sm font-semibold text-slate-800">Waiting for first GPS</p><p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">Enable tracking and ask the employee to open HRMS and allow Location permission. The latest map appears automatically.</p></div></div>}</div>
+            </div>
+          </div>
         </Card>
       </>}
 
@@ -333,14 +392,16 @@ export default function FieldVisitsPage() {
         <div><label className="text-sm font-medium text-slate-700">Client / site name *</label><input className={`mt-1.5 ${inputCls}`} placeholder="Acme Industries" value={f.client_name} onChange={(e) => set("client_name", e.target.value)} autoFocus /></div>
         <div><label className="text-sm font-medium text-slate-700">Purpose</label><input className={`mt-1.5 ${inputCls}`} placeholder="Client meeting / Site survey" value={f.purpose} onChange={(e) => set("purpose", e.target.value)} /></div>
         <div><label className="text-sm font-medium text-slate-700">Address</label><input className={`mt-1.5 ${inputCls}`} placeholder="Sector 62, Noida" value={f.address} onChange={(e) => set("address", e.target.value)} /></div>
-        <div className="grid grid-cols-2 gap-3"><div><label className="text-sm font-medium text-slate-700">Date</label><input type="date" className={`mt-1.5 ${inputCls}`} value={f.visit_date} onChange={(e) => set("visit_date", e.target.value)} /></div>{manager && <div><label className="text-sm font-medium text-slate-700">Assign to</label><select className={`mt-1.5 ${inputCls}`} value={f.employee_id} onChange={(e) => set("employee_id", e.target.value)}><option value="">Myself</option>{members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>}</div>
+        <div className="grid gap-3 sm:grid-cols-2"><div><label className="text-sm font-medium text-slate-700">Visit date</label><input type="date" className={`mt-1.5 ${inputCls}`} value={f.visit_date} onChange={(e) => set("visit_date", e.target.value)} /></div><div><label className="text-sm font-medium text-slate-700">Scheduled start</label><input type="datetime-local" className={`mt-1.5 ${inputCls}`} value={f.scheduled_at} onChange={(e) => set("scheduled_at", e.target.value)} /></div></div>
+        <div className="grid gap-3 sm:grid-cols-2"><div><label className="text-sm font-medium text-slate-700">Target duration</label><select className={`mt-1.5 ${inputCls}`} value={f.target_duration_minutes} onChange={(e) => set("target_duration_minutes", e.target.value)}><option value="30">30 min</option><option value="60">1 hour</option><option value="90">1.5 hours</option><option value="120">2 hours</option><option value="180">3 hours</option></select></div>{manager && <div><label className="text-sm font-medium text-slate-700">Assign to</label><select className={`mt-1.5 ${inputCls}`} value={f.employee_id} onChange={(e) => set("employee_id", e.target.value)}><option value="">Myself</option>{members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>}</div>
         {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}<button onClick={create} disabled={saving} className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white">{saving ? "Creating…" : "Create visit"}</button>
       </div></Modal>
 
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Field tracking setup"><div className="space-y-3">
         <div className="rounded-xl bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><ShieldAlert className="mr-1 inline h-4 w-4" />Enable tracking only for employees whose job requires official field travel. Browser/PWA tracking works best while the app is active.</div>
+        {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">{error}</p>}
         {members.map((m) => <div key={m.id} className="rounded-xl border border-slate-200 p-3"><div className="flex items-center justify-between gap-3"><div><p className="text-sm font-semibold text-slate-900">{m.full_name}</p><p className="text-xs text-slate-500">{m.designation || m.role}</p></div><button disabled={busyId === m.id} onClick={() => updateTracking(m, { field_tracking_enabled: !m.field_tracking_enabled, employee_type: m.employee_type || "field" })} className={`relative h-7 w-12 rounded-full transition ${m.field_tracking_enabled ? "bg-emerald-500" : "bg-slate-300"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${m.field_tracking_enabled ? "left-6" : "left-1"}`} /></button></div>
-          {m.field_tracking_enabled && <div className="mt-3 grid grid-cols-2 gap-2"><label className="text-[11px] text-slate-500">Employee type<select value={m.employee_type || "field"} onChange={(e) => updateTracking(m, { employee_type: e.target.value as Profile["employee_type"] })} className={`mt-1 ${inputCls}`}><option value="sales">Sales</option><option value="field">Field</option><option value="hybrid">Hybrid</option><option value="office">Office</option></select></label><label className="text-[11px] text-slate-500">Stale alert after<select value={m.tracking_stale_after_minutes || 10} onChange={(e) => updateTracking(m, { tracking_stale_after_minutes: Number(e.target.value) })} className={`mt-1 ${inputCls}`}><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label></div>}
+          {m.field_tracking_enabled && <div className="mt-3 grid gap-2 sm:grid-cols-2"><label className="text-[11px] text-slate-500">Employee type<select value={m.employee_type || "field"} onChange={(e) => updateTracking(m, { employee_type: e.target.value as Profile["employee_type"] })} className={`mt-1 ${inputCls}`}><option value="sales">Sales</option><option value="field">Field</option><option value="hybrid">Hybrid</option><option value="office">Office</option></select></label><label className="text-[11px] text-slate-500">Tracking mode<select value={m.tracking_mode || "active_visit"} onChange={(e) => updateTracking(m, { tracking_mode: e.target.value as Profile["tracking_mode"] })} className={`mt-1 ${inputCls}`}><option value="active_visit">Active visit only</option><option value="working_hours">While HRMS app is active</option><option value="manual">Manual / app active</option></select></label><label className="text-[11px] text-slate-500">GPS interval<select value={m.tracking_interval_minutes || 5} onChange={(e) => updateTracking(m, { tracking_interval_minutes: Number(e.target.value) })} className={`mt-1 ${inputCls}`}><option value="2">2 min</option><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option></select></label><label className="text-[11px] text-slate-500">Stale alert after<select value={m.tracking_stale_after_minutes || 10} onChange={(e) => updateTracking(m, { tracking_stale_after_minutes: Number(e.target.value) })} className={`mt-1 ${inputCls}`}><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option></select></label></div>}
         </div>)}
       </div></Modal>
 
