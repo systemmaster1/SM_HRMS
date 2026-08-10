@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { MapPin, Users, CalendarCheck, Plane } from "lucide-react";
-import { isAdminRole, type Role } from "@/lib/types";
+import { canManageTeam, isAdminRole, type Role } from "@/lib/types";
 import DashboardClient from "@/components/DashboardClient";
 
 export default async function DashboardPage() {
@@ -9,17 +9,23 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, role")
+    .select("full_name, role, id")
     .eq("id", user!.id)
     .single();
 
   const admin = isAdminRole(profile?.role as Role);
+  const manager = profile?.role === "manager";
+  const teamView = canManageTeam(profile?.role as Role);
   const today = new Date().toISOString().slice(0, 10);
 
+  let teamQuery = supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active");
+  if (manager) teamQuery = teamQuery.eq("manager_id", user!.id);
+  if (!teamView) teamQuery = teamQuery.eq("id", user!.id);
+
   const [team, present, onField, onLeave] = await Promise.all([
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active"),
+    teamQuery,
     supabase.from("attendance").select("*", { count: "exact", head: true }).eq("work_date", today).eq("status", "present"),
-    supabase.from("field_visits").select("*", { count: "exact", head: true }).eq("visit_date", today).in("status", ["on_the_way", "checked_in"]),
+    supabase.from("field_visits").select("*", { count: "exact", head: true }).eq("visit_date", today).in("status", ["accepted", "on_the_way", "reached", "checked_in", "meeting"]),
     supabase.from("leaves").select("*", { count: "exact", head: true }).eq("status", "approved").lte("from_date", today).gte("to_date", today),
   ]);
 
@@ -47,7 +53,7 @@ export default async function DashboardPage() {
     <DashboardClient
       greeting={greeting}
       firstName={firstName}
-      admin={admin}
+      admin={teamView}
       stats={stats}
       visits={visits || []}
     />
