@@ -217,16 +217,7 @@ export default function TeamPage() {
       <PageHeader
         title="Team"
         subtitle={`${activeMembers.length} active${leftMembers.length ? ` · ${leftMembers.length} left` : ""}`}
-        action={
-          admin && (
-            <Link
-              href="/team/new"
-              className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800"
-            >
-              <UserPlus className="h-4 w-4" /> Add employee
-            </Link>
-          )
-        }
+        action={admin && <div className="flex gap-2"><Link href="/team/access" className="flex shrink-0 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700"><Settings2 className="h-4 w-4"/> Access control</Link><Link href="/team/new" className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800"><UserPlus className="h-4 w-4" /> Add employee</Link></div>}
       />
 
       {loadError && (
