@@ -76,8 +76,7 @@ export default async function AppLayout({
 
   return (
     <Shell profile={profile as Profile} company={company as Company | null}>
-      <ContextBackButton />
-      {children}
+      <><ContextBackButton />{children}</>
       <ActiveVisitTracker />
     </Shell>
   );
