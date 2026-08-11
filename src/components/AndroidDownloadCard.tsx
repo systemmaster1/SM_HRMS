@@ -18,8 +18,9 @@ export default function AndroidDownloadCard({
     setError("");
 
     try {
-      const response = await fetch("/downloads/SM-HRMS.apk", {
+      const response = await fetch(`/downloads/SM-HRMS.apk?v=${Date.now()}`, {
         cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
       });
 
       if (!response.ok || !response.body) {
@@ -115,7 +116,7 @@ export default function AndroidDownloadCard({
             <span className="text-xs font-bold uppercase tracking-[0.18em] text-blue-300">Native Android App</span>
             <h2 className="mt-2 text-2xl font-bold sm:text-3xl">Install SM HRMS</h2>
             <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
-              Built for attendance, field visits and duty-time location tracking. Use the same SM HRMS account you already use on web.
+              Android 15-ready build for attendance, field visits and duty-time location tracking. Use the same SM HRMS account you already use on web.
             </p>
           </div>
         </div>
