@@ -100,9 +100,11 @@ export default function FieldVisitsPage() {
       .limit(100);
     setVisits(v || []);
 
-    if (canManageTeam(profile?.role)) {
+    const fieldScope = profile?.access_permissions?.live_tracking || profile?.access_permissions?.field_visits || "none";
+    const canViewFieldTeam = canManageTeam(profile?.role) || fieldScope === "team" || fieldScope === "company";
+    if (canViewFieldTeam) {
       let q = supabase.from("profiles").select("*").eq("status", "active").order("full_name");
-      if (!isAdminRole(profile.role)) q = q.eq("manager_id", profile.id);
+      if (!isAdminRole(profile.role) && fieldScope !== "company") q = q.eq("field_manager_id", profile.id);
       const { data: m } = await q;
       setMembers((m as Profile[]) || []);
 
@@ -122,13 +124,13 @@ export default function FieldVisitsPage() {
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
-    if (!me?.company_id || !canManageTeam(me.role)) return;
+    if (!me?.company_id || !(canManageTeam(me.role) || ["team","company"].includes(me.access_permissions?.live_tracking || "none"))) return;
     const id = window.setInterval(() => load(true), 2 * 60 * 1000);
     return () => window.clearInterval(id);
   }, [load, me?.company_id, me?.role]);
 
   useEffect(() => {
-    if (!me?.company_id || !canManageTeam(me.role)) return;
+    if (!me?.company_id || !(canManageTeam(me.role) || ["team","company"].includes(me.access_permissions?.live_tracking || "none"))) return;
     const channel = supabase
       .channel(`field-ops-${me.company_id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "field_visits", filter: `company_id=eq.${me.company_id}` }, () => load(true))
@@ -199,7 +201,7 @@ export default function FieldVisitsPage() {
     setCompletion({ person_met: "", outcome: "successful", completion_notes: "", next_followup_at: "" });
   };
 
-  const manager = canManageTeam(me?.role);
+  const manager = canManageTeam(me?.role) || ["team","company"].includes(me?.access_permissions?.live_tracking || "none") || ["team","company"].includes(me?.access_permissions?.field_visits || "none");
   const admin = isAdminRole(me?.role);
   const today = new Date().toISOString().slice(0, 10);
   const trackedMembers = members.filter((m) => m.field_tracking_enabled);
