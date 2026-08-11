@@ -1,0 +1,22 @@
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, Save, ShieldCheck } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+const modules = [
+  ["attendance","Attendance"],["leave","Leave"],["tasks","Tasks"],["field_visits","Field Visits"],
+  ["live_tracking","Live Team Tracking"],["route_history","Route History / KM"],["field_reports","Field Reports"],
+  ["payroll","Payroll"],["team","Team Management"],["reports","Management Reports"],
+];
+const defaults: Record<string,string>={dashboard:"self",attendance:"self",leave:"self",tasks:"self",field_visits:"none",live_tracking:"none",route_history:"none",field_reports:"none",payroll:"none",team:"none",reports:"none"};
+export default function AccessControlPage(){
+ const supabase=useMemo(()=>createClient(),[]); const [users,setUsers]=useState<any[]>([]); const [selected,setSelected]=useState(""); const [access,setAccess]=useState<Record<string,string>>(defaults); const [saving,setSaving]=useState(false); const [msg,setMsg]=useState("");
+ useEffect(()=>{(async()=>{const {data}=await supabase.from("profiles").select("id,full_name,email,role,designation,field_tracking_enabled,access_permissions").eq("status","active").order("full_name"); setUsers(data||[]);})();},[supabase]);
+ const choose=(id:string)=>{setSelected(id); const u=users.find(x=>x.id===id); setAccess({...defaults,...(u?.access_permissions||{})}); setMsg("");};
+ const save=async()=>{if(!selected)return; setSaving(true);setMsg("");const r=await fetch("/api/team/access",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({user_id:selected,access_permissions:access})});const o=await r.json();setSaving(false);setMsg(r.ok?"Access updated successfully.":o.error||"Could not update access.");};
+ const u=users.find(x=>x.id===selected);
+ return <div className="mx-auto max-w-6xl space-y-6 pb-10"><div><Link href="/team" className="inline-flex items-center gap-2 text-sm text-slate-500"><ArrowLeft className="h-4 w-4"/>Back to Team</Link><h1 className="mt-3 text-3xl font-bold">User Access Control</h1><p className="mt-1 text-sm text-slate-500">Control HRMS, work, field tracking and reporting independently for every employee.</p></div>
+ <div className="grid gap-5 lg:grid-cols-[320px_1fr]"><section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm"><p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-400">Employees</p>{users.map(x=><button key={x.id} onClick={()=>choose(x.id)} className={`mb-2 w-full rounded-xl border p-3 text-left ${selected===x.id?"border-brand-500 bg-brand-50":"border-slate-200"}`}><div className="text-sm font-semibold">{x.full_name}</div><div className="text-xs text-slate-500">{x.designation||x.role} · {x.field_tracking_enabled?"GPS employee":"No own GPS"}</div></button>)}</section>
+ <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">{!u?<div className="py-20 text-center text-sm text-slate-500">Select an employee to configure access.</div>:<><div className="flex items-start justify-between gap-4"><div><div className="flex items-center gap-2"><ShieldCheck className="h-5 w-5 text-brand-700"/><h2 className="font-semibold">{u.full_name}</h2></div><p className="mt-1 text-xs text-slate-500">Viewer access does not enable this employee&apos;s own GPS tracking.</p></div><button onClick={save} disabled={saving||u.role==="owner"} className="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"><Save className="h-4 w-4"/>{saving?"Saving…":"Save access"}</button></div>{msg&&<div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm">{msg}</div>}<div className="mt-5 grid gap-3 md:grid-cols-2">{modules.map(([key,label])=><label key={key} className="rounded-2xl border border-slate-200 p-4"><span className="text-sm font-semibold">{label}</span><select disabled={u.role==="owner"} value={u.role==="owner"?"company":access[key]||"none"} onChange={e=>setAccess(a=>({...a,[key]:e.target.value}))} className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm"><option value="none">No access</option><option value="self">Own / Self</option><option value="team">Assigned Team</option><option value="company">All Company</option></select></label>)}</div></>}</section></div></div>
+}
