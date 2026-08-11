@@ -72,9 +72,16 @@ export default function NewEmployeePage() {
     notify_hr_manager: true,
     notify_work_manager: true,
     notify_field_manager: true,
+    access_permissions: {
+      dashboard: "self", attendance: "self", leave: "self", tasks: "self",
+      field_visits: "none", live_tracking: "none", route_history: "none",
+      field_reports: "none", payroll: "none", team: "none", reports: "none",
+    } as Record<string, "none" | "self" | "team" | "company">,
   });
 
   const set = (key: string, value: any) => setF((p) => ({ ...p, [key]: value }));
+  const setAccess = (key: string, value: "none" | "self" | "team" | "company") =>
+    setF((p) => ({ ...p, access_permissions: { ...p.access_permissions, [key]: value } }));
 
   useEffect(() => {
     (async () => {
@@ -275,6 +282,20 @@ export default function NewEmployeePage() {
         </p>
       </section>
 
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-indigo-700"/><div><h2 className="font-semibold">Module Access & Permissions</h2><p className="text-xs text-slate-500">Choose exactly what this user can use or monitor. Field GPS stays OFF unless explicitly enabled.</p></div></div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          {[
+            ["attendance","Attendance","Punch and attendance view"], ["leave","Leave","Leave requests and balances"],
+            ["tasks","Tasks","Tasks and work activity"], ["field_visits","Field Visits","Visit workflow and customer visits"],
+            ["live_tracking","Live Team Tracking","View field employee GPS"], ["route_history","Route History","Historical route and daily KM"],
+            ["field_reports","Field Reports","Field performance reports/export"], ["payroll","Payroll","Salary/payroll module"],
+            ["team","Team Management","Employee directory/control"], ["reports","Management Reports","Cross-module reporting"],
+          ].map(([key,title,desc]) => <label key={key} className="rounded-2xl border border-slate-200 p-4 text-sm"><span className="font-semibold text-slate-900">{title}</span><span className="mt-1 block text-xs text-slate-500">{desc}</span><select className={fieldCls} value={f.access_permissions[key]} onChange={(e)=>setAccess(key,e.target.value as any)}><option value="none">No access</option><option value="self">Own / Self</option><option value="team">Assigned Team</option><option value="company">All Company</option></select></label>)}
+        </div>
+        <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800"><b>Privacy rule:</b> Giving Live Team Tracking permission lets this user view authorized field employees; it does not turn on this user&apos;s own GPS. Own GPS is controlled separately below.</div>
+      </section>
+
       <section className="grid gap-5 lg:grid-cols-2">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-brand-700"/><div><h2 className="font-semibold">Attendance Setup</h2><p className="text-xs text-slate-500">Employee-specific attendance controls.</p></div></div>
@@ -300,7 +321,7 @@ export default function NewEmployeePage() {
           <div className="flex items-center gap-3"><Route className="h-5 w-5 text-emerald-700"/><div><h2 className="font-semibold">Field Tracking Setup</h2><p className="text-xs text-slate-500">Configure only if official field work requires location visibility.</p></div></div>
           <div className="mt-5 space-y-4">
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3.5">
-              <input type="checkbox" checked={f.field_tracking_enabled} onChange={(e) => set("field_tracking_enabled",e.target.checked)} className="mt-1" />
+              <input type="checkbox" checked={f.field_tracking_enabled} onChange={(e) => { const on=e.target.checked; set("field_tracking_enabled",on); if(on){ setAccess("field_visits","self"); setAccess("live_tracking","self"); setAccess("route_history","self"); } }} className="mt-1" />
               <span><span className="block text-sm font-medium">Enable field tracking</span><span className="block text-xs text-slate-500">Duty-time tracking can be monitored by the assigned Field Manager.</span></span>
             </label>
             {f.field_tracking_enabled && <>
