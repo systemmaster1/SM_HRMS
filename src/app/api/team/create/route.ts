@@ -121,6 +121,7 @@ export async function POST(req: Request) {
       notify_hr_manager: body.notify_hr_manager !== false,
       notify_work_manager: body.notify_work_manager !== false,
       notify_field_manager: body.notify_field_manager !== false,
+      access_permissions: body.access_permissions || undefined,
       status: "active",
       left_at: null,
       must_change_password: true,
