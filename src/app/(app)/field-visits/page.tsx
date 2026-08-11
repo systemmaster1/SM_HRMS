@@ -68,6 +68,13 @@ export default function FieldVisitsPage() {
   const [customValues, setCustomValues] = useState<Record<string, any>>({});
   const [nextSyncSeconds, setNextSyncSeconds] = useState(120);
   const [lastDashboardSync, setLastDashboardSync] = useState<Date | null>(null);
+  const [visitSearch, setVisitSearch] = useState("");
+  const [visitStatusFilter, setVisitStatusFilter] = useState("all");
+  const [visitEmployeeFilter, setVisitEmployeeFilter] = useState("all");
+  const [visitDateFrom, setVisitDateFrom] = useState("");
+  const [visitDateTo, setVisitDateTo] = useState("");
+  const [selectedVisitDetail, setSelectedVisitDetail] = useState<any>(null);
+
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -492,6 +499,15 @@ export default function FieldVisitsPage() {
               </div>
             )}
             {v.address && <p className="mt-0.5 truncate text-xs text-slate-400">{v.address}</p>}
+            <div className="mt-3">
+              <button
+                onClick={() => setSelectedVisitDetail(v)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:border-brand-200 hover:text-brand-700"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Visit details
+              </button>
+            </div>
             <p className="mt-1 text-xs text-slate-400">{new Date(v.visit_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}{v.travel_started_at && ` · Travel ${fmtTime(v.travel_started_at)}`}{v.check_in_at && ` · In ${fmtTime(v.check_in_at)}`}{v.check_out_at && ` · Out ${fmtTime(v.check_out_at)}`}</p>
             {currentLat != null && currentLng != null && <div className="mt-2 flex flex-wrap gap-3 text-xs"><button onClick={() => setLiveVisit(v)} className="inline-flex items-center gap-1 font-medium text-brand-700"><LocateFixed className="h-3 w-3" /> Live / latest map</button><span className="text-slate-400">Updated {timeAgo(v.last_location_at)}</span></div>}
             {v.outcome && <p className="mt-2 text-xs text-slate-600"><span className="font-medium">Outcome:</span> {String(v.outcome).replaceAll("_", " ")}{v.person_met ? ` · Met ${v.person_met}` : ""}</p>}
@@ -506,7 +522,114 @@ export default function FieldVisitsPage() {
         })}</ul>}
       </Card>}
 
-      <Modal open={open} onClose={() => setOpen(false)} title="New field visit"><div className="space-y-4">
+      
+      <Modal
+        open={!!selectedVisitDetail}
+        onClose={() => setSelectedVisitDetail(null)}
+        title="Visit details"
+      >
+        {selectedVisitDetail && (
+          <div className="space-y-5">
+            <div className="rounded-2xl bg-slate-950 p-5 text-white">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Client / Site</p>
+                  <h3 className="mt-1 text-xl font-bold">{selectedVisitDetail.client_name || "—"}</h3>
+                  <p className="mt-1 text-sm text-slate-300">
+                    {selectedVisitDetail.company_name || "No company name"}
+                  </p>
+                </div>
+                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold capitalize">
+                  {String(selectedVisitDetail.status || "unknown").replaceAll("_"," ")}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                ["Employee", selectedVisitDetail.profiles?.full_name],
+                ["Visit Date", selectedVisitDetail.visit_date],
+                ["Contact Person", selectedVisitDetail.contact_person],
+                ["Contact Number", selectedVisitDetail.contact_number],
+                ["Email", selectedVisitDetail.contact_email],
+                ["Purpose", selectedVisitDetail.purpose],
+                ["Address", selectedVisitDetail.address],
+                ["Outcome", selectedVisitDetail.outcome],
+                ["Next Action", selectedVisitDetail.next_action],
+                ["Remarks", selectedVisitDetail.remarks],
+              ].map(([label,value]: any) => (
+                <div key={label} className="rounded-xl border border-slate-200 p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{label}</div>
+                  <div className="mt-1 text-sm font-medium text-slate-800">{value || "—"}</div>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <h4 className="text-sm font-semibold text-slate-800">Visit timeline</h4>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {[
+                  ["Scheduled", selectedVisitDetail.scheduled_at],
+                  ["Travel Started", selectedVisitDetail.travel_started_at],
+                  ["Checked In", selectedVisitDetail.check_in_at || selectedVisitDetail.check_in],
+                  ["Meeting Started", selectedVisitDetail.meeting_started_at],
+                  ["Completed", selectedVisitDetail.completed_at],
+                  ["Checked Out", selectedVisitDetail.check_out_at || selectedVisitDetail.check_out],
+                  ["Next Follow-up", selectedVisitDetail.next_follow_up_at],
+                ].map(([label,value]: any) => (
+                  <div key={label} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
+                    <span className="text-xs text-slate-500">{label}</span>
+                    <span className="text-xs font-semibold text-slate-800">
+                      {value ? new Date(value).toLocaleString("en-IN", {
+                        timeZone: "Asia/Kolkata",
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }) : "—"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {selectedVisitDetail.custom_data && Object.keys(selectedVisitDetail.custom_data).length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-slate-800">Additional visit information</h4>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {Object.entries(selectedVisitDetail.custom_data).map(([key,value]: any) => {
+                    const def = visitCustomFields.find((x:any)=>x.field_key===key);
+                    return (
+                      <div key={key} className="rounded-xl border border-slate-200 p-3">
+                        <div className="text-[11px] uppercase tracking-wide text-slate-400">
+                          {def?.label || key.replaceAll("_"," ")}
+                        </div>
+                        <div className="mt-1 text-sm font-medium text-slate-800">
+                          {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value ?? "—")}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {(selectedVisitDetail.last_lat || selectedVisitDetail.check_in_lat) && (
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${selectedVisitDetail.last_lat || selectedVisitDetail.check_in_lat},${selectedVisitDetail.last_lng || selectedVisitDetail.check_in_lng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-700 px-4 py-2.5 text-sm font-semibold text-white"
+              >
+                <MapPin className="h-4 w-4" />
+                Open visit location
+              </a>
+            )}
+          </div>
+        )}
+      </Modal>
+
+<Modal open={open} onClose={() => setOpen(false)} title="New field visit"><div className="space-y-4">
         <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
           Visit form fields can be managed by Admin/Manager from <b>Visit form setup</b>.
         </div>
