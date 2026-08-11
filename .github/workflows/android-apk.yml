@@ -18,6 +18,7 @@ concurrency:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,43 +36,120 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
+      - name: Locate Android SDK tools
+        shell: bash
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+
+          if [ -z "$SDK_ROOT" ]; then
+            echo "Android SDK environment variable is not set."
+            exit 1
+          fi
+
+          SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager was not found under $SDK_ROOT/cmdline-tools"
+            echo "Available SDK directories:"
+            find "$SDK_ROOT" -maxdepth 3 -type d | head -n 100
+            exit 1
+          fi
+
+          echo "Using sdkmanager: $SDKMANAGER"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          echo "SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+
       - name: Android SDK 35
-        run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" >/dev/null
+        shell: bash
+        run: |
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+          echo "Installed Android packages:"
+          "$SDKMANAGER" --list_installed | grep -E "platforms;android-35|build-tools;35.0.0|platform-tools" || true
+
+      - name: Clean Android build
+        working-directory: android-app
+        run: |
+          gradle clean
 
       - name: Build fresh APK
         working-directory: android-app
         run: |
-          rm -rf app/build
-          gradle clean assembleDebug --stacktrace
+          gradle assembleDebug --stacktrace
 
-      - name: Verify modern Android target
+      - name: Verify APK exists
+        shell: bash
         run: |
           APK="android-app/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
-          BADGING="$(aapt dump badging "$APK")"
-          echo "$BADGING" | grep "package: name='in.systemmaster.hrms'"
-          echo "$BADGING" | grep "targetSdkVersion:'35'"
-          echo "$BADGING" | grep "versionName='1.2.0'"
-          sha256sum "$APK"
 
-      - name: Prepare website download
+          if [ ! -f "$APK" ]; then
+            echo "APK was not generated."
+            find android-app/app/build/outputs -maxdepth 6 -type f || true
+            exit 1
+          fi
+
+          echo "APK generated:"
+          ls -lh "$APK"
+
+          # APK/ZIP files must begin with PK.
+          MAGIC="$(xxd -p -l 2 "$APK")"
+          if [ "$MAGIC" != "504b" ]; then
+            echo "Generated file is not a valid APK/ZIP. Magic=$MAGIC"
+            exit 1
+          fi
+
+      - name: Verify modern Android target
+        shell: bash
+        run: |
+          APK="android-app/app/build/outputs/apk/debug/app-debug.apk"
+
+          AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt 2>/dev/null | sort -V | tail -n 1)"
+
+          if [ -z "$AAPT" ]; then
+            echo "aapt not found; APK exists but target verification cannot run."
+            exit 1
+          fi
+
+          BADGING="$("$AAPT" dump badging "$APK")"
+          echo "$BADGING" | grep -E "package:|sdkVersion|targetSdkVersion"
+
+          TARGET="$(echo "$BADGING" | sed -n "s/.*targetSdkVersion:'\([^']*\)'.*/\1/p" | head -n 1)"
+
+          if [ "$TARGET" != "35" ]; then
+            echo "Expected targetSdkVersion 35, got: $TARGET"
+            exit 1
+          fi
+
+          echo "Verified targetSdkVersion 35."
+
+      - name: Prepare direct-download APK
+        shell: bash
         run: |
           mkdir -p public/downloads
           cp android-app/app/build/outputs/apk/debug/app-debug.apk public/downloads/SM-HRMS.apk
           cp public/downloads/SM-HRMS.apk SM-HRMS.apk
-          SHA=$(sha256sum SM-HRMS.apk | cut -d' ' -f1)
-          SIZE=$(stat -c%s SM-HRMS.apk)
-          printf '{"version":"1.2.0","versionCode":3,"targetSdk":35,"sha256":"%s","size":%s,"builtAt":"%s"}\n' "$SHA" "$SIZE" "$(date -u +%FT%TZ)" > public/downloads/android-build.json
 
-      - name: Publish fresh APK into website
+          echo "Direct-download APK:"
+          ls -lh public/downloads/SM-HRMS.apk
+
+          sha256sum public/downloads/SM-HRMS.apk | tee public/downloads/SM-HRMS.apk.sha256
+
+      - name: Publish APK into website repository
+        shell: bash
         run: |
           git config user.name "SM HRMS Android Builder"
           git config user.email "actions@users.noreply.github.com"
-          git add -f public/downloads/SM-HRMS.apk public/downloads/android-build.json
+
+          git add -f public/downloads/SM-HRMS.apk public/downloads/SM-HRMS.apk.sha256
+
           if git diff --cached --quiet; then
-            echo "APK unchanged."
+            echo "APK unchanged; no repository commit required."
           else
-            git commit -m "Publish SM HRMS Android v1.2.0 target SDK 35 [skip ci]"
+            git commit -m "Publish latest SM HRMS Android APK [skip ci]"
             git pull --rebase origin main
             git push origin HEAD:main
           fi
@@ -79,17 +157,17 @@ jobs:
       - name: Create GitHub Release copy
         env:
           GH_TOKEN: ${{ github.token }}
+        shell: bash
         run: |
-          TAG="android-v1.2.0-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" SM-HRMS.apk public/downloads/android-build.json \
-            --title "SM HRMS Android v1.2.0 (${GITHUB_RUN_NUMBER})" \
-            --notes "Android target SDK 35. Duty-time foreground location tracking build." \
+          TAG="android-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" SM-HRMS.apk \
+            --title "SM HRMS Android ${GITHUB_RUN_NUMBER}" \
+            --notes "Native SM HRMS Android APK. Primary direct download: https://hrms.systemmaster.in/download/android" \
             --latest
 
-      - name: Upload build artifact
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SM-HRMS-Android-v1.2.0
-          path: |
-            SM-HRMS.apk
-            public/downloads/android-build.json
+          name: SM-HRMS-APK
+          path: SM-HRMS.apk
+          if-no-files-found: error
