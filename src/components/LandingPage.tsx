@@ -11,6 +11,7 @@ import {
   Repeat, MessageSquare, CalendarClock, BarChart3, Lock, Smartphone,
   TrendingUp, LayoutDashboard, Sheet, ClipboardCheck, Globe, Radar, MapPinned, UserCog, Route, Download, CheckCircle2, BriefcaseBusiness,
 } from "lucide-react";
+import AndroidDownloadCard from "@/components/AndroidDownloadCard";
 
 const employeeFeatures = [
   { icon: CalendarCheck, title: "GPS + selfie attendance", desc: "Check in with a live photo and location — no buddy punching, no disputes." },
@@ -390,7 +391,33 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="android-app" className="border-y border-slate-100 bg-slate-50 py-16 dark:border-slate-800 dark:bg-slate-900/40">\n        <div className="mx-auto max-w-6xl px-5">\n          <div className="rounded-3xl bg-slate-950 p-7 text-white shadow-xl sm:p-10 lg:flex lg:items-center lg:justify-between lg:gap-10">\n            <div className="max-w-2xl">\n              <span className="text-xs font-bold uppercase tracking-[0.18em] text-blue-300">Native Android tracking</span>\n              <h2 className="mt-3 text-3xl font-bold">SM HRMS Android App</h2>\n              <p className="mt-4 text-sm leading-7 text-slate-300">\n                Install the native Android app for duty-time field tracking that can continue while the app is minimized or the screen is locked. The same SM HRMS login, attendance, tasks, visits and reports stay connected to your existing account.\n              </p>\n              <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-300">\n                <span>✓ Native foreground GPS</span><span>✓ Same HRMS login</span><span>✓ Duty IN → OUT privacy boundary</span><span>✓ Server-timestamped location</span>\n              </div>\n            </div>\n            <div className="mt-7 shrink-0 lg:mt-0">\n              <a href="/download/android" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-white px-6 py-3.5 text-sm font-bold text-slate-950 transition hover:bg-slate-100 lg:w-auto">\n                <Download className="h-4 w-4" /> Download Android APK\n              </a>\n              <p className="mt-3 max-w-xs text-center text-[11px] leading-5 text-slate-400 lg:text-left">Direct install build. Android may ask you to allow installation from your browser/download source.</p>\n            </div>\n          </div>\n        </div>\n      </section>\n\n      {/* Pricing */}
+      <section id="android-app" className="border-y border-slate-100 bg-slate-50 py-16 dark:border-slate-800 dark:bg-slate-900/40">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="grid gap-8 rounded-[2rem] bg-slate-950 p-7 text-white shadow-2xl sm:p-10 lg:grid-cols-[1.05fr_.95fr] lg:items-center">
+            <div>
+              <span className="inline-flex rounded-full border border-blue-400/20 bg-blue-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-blue-300">
+                Native Android · Direct Download
+              </span>
+              <h2 className="mt-4 text-3xl font-bold sm:text-4xl">Take SM HRMS with your field team.</h2>
+              <p className="mt-4 max-w-xl text-sm leading-7 text-slate-300">
+                Attendance, tasks, field visits and native duty-time tracking in one Android app. Install it directly today; Play Store distribution can be added later.
+              </p>
+              <div className="mt-6 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
+                <span>✓ Same SM HRMS account</span>
+                <span>✓ Native foreground GPS</span>
+                <span>✓ Screen-lock/minimize tracking</span>
+                <span>✓ Duty IN → OUT privacy boundary</span>
+              </div>
+              <p className="mt-5 text-[11px] leading-5 text-slate-500">
+                Normal Android security prompts still apply when installing an APK outside Google Play.
+              </p>
+            </div>
+            <AndroidDownloadCard compact />
+          </div>
+        </div>
+      </section>
+
+      {/* Pricing */}
       <section id="pricing" className="mx-auto max-w-3xl px-5 py-20 text-center">
         <FadeIn>
           <p className="text-sm font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-300">Pricing</p>
