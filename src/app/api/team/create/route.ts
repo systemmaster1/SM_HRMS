@@ -63,6 +63,15 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
+  let employeeCode = (body.employee_code || "").trim();
+  if (!employeeCode) {
+    const { data: nextCode, error: codeErr } = await supabase.rpc("next_employee_code_v9");
+    if (codeErr || !nextCode) {
+      return NextResponse.json({ error: codeErr?.message || "Could not generate employee code." }, { status: 400 });
+    }
+    employeeCode = nextCode;
+  }
+
   // Create the auth user (email confirmed so they can sign in immediately)
   const { data: created, error: createErr } = await admin.auth.admin.createUser({
     email,
@@ -95,9 +104,25 @@ export async function POST(req: Request) {
       department: body.department || "",
       branch_id: body.branch_id || null,
       designation: body.designation || "",
-      employee_code: body.employee_code || "",
+      employee_code: employeeCode,
       manager_id: body.manager_id || null,
+      work_manager_id: body.work_manager_id || null,
+      field_manager_id: body.field_manager_id || null,
+      photo_required: !!body.photo_required,
+      auto_attendance: !!body.auto_attendance,
+      auto_in_time: body.auto_in_time || "09:30",
+      auto_out_time: body.auto_out_time || "18:30",
+      field_tracking_enabled: !!body.field_tracking_enabled,
+      employee_type: body.employee_type || "office",
+      tracking_mode: body.tracking_mode || "working_hours",
+      tracking_interval_minutes: Number(body.tracking_interval_minutes || 5),
+      tracking_stale_after_minutes: Number(body.tracking_stale_after_minutes || 10),
+      route_history_enabled: body.route_history_enabled !== false,
+      notify_hr_manager: body.notify_hr_manager !== false,
+      notify_work_manager: body.notify_work_manager !== false,
+      notify_field_manager: body.notify_field_manager !== false,
       status: "active",
+      left_at: null,
       must_change_password: true,
     })
     .eq("id", created.user.id);
@@ -108,5 +133,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: profErr.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true, id: created.user.id });
+  return NextResponse.json({ ok: true, id: created.user.id, employee_code: employeeCode });
 }
