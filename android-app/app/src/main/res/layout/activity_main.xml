@@ -1,1 +1,66 @@
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent"><WebView android:id="@+id/webView" android:layout_width="match_parent" android:layout_height="match_parent" /></FrameLayout>
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F4F7FB">
+
+    <WebView
+        android:id="@+id/webView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="invisible" />
+
+    <LinearLayout
+        android:id="@+id/loadingView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:padding="32dp"
+        android:background="#F4F7FB">
+
+        <ImageView
+            android:layout_width="88dp"
+            android:layout_height="88dp"
+            android:contentDescription="@string/app_name"
+            android:src="@drawable/ic_launcher" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="SM HRMS"
+            android:textColor="#0F172A"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:text="HRMS • Task Management • Field Force"
+            android:textColor="#64748B"
+            android:textSize="13sp" />
+
+        <ProgressBar
+            android:id="@+id/pageProgress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="220dp"
+            android:layout_height="6dp"
+            android:layout_marginTop="28dp"
+            android:max="100"
+            android:progress="5"
+            android:progressTint="#123E7A"
+            android:progressBackgroundTint="#DCE6F2" />
+
+        <TextView
+            android:id="@+id/loadingText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="Loading secure workspace…"
+            android:textColor="#64748B"
+            android:textSize="12sp" />
+    </LinearLayout>
+</FrameLayout>
