@@ -10,6 +10,17 @@ type Context = {
   interval: number;
 };
 
+declare global {
+  interface Window {
+    SMHRMSNative?: {
+      startDutyTracking: (configJson: string) => string;
+      updateTrackingConfig: (configJson: string) => string;
+      stopDutyTracking: () => string;
+      getTrackingStatus: () => string;
+    };
+  }
+}
+
 export default function ActiveVisitTracker() {
   const supabase = createClient();
   const ctx = useRef<Context>({ enabled: false, interval: DEFAULT_INTERVAL_MINUTES });
@@ -20,12 +31,33 @@ export default function ActiveVisitTracker() {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { ctx.current = { enabled: false, interval: DEFAULT_INTERVAL_MINUTES }; return; }
     const { data: p } = await supabase.from("profiles")
-      .select("field_tracking_enabled,tracking_interval_minutes")
+      .select("field_tracking_enabled,tracking_interval_minutes,full_name")
       .eq("id", auth.user.id).single();
     ctx.current = {
       enabled: p?.field_tracking_enabled === true,
       interval: Math.max(1, Number(p?.tracking_interval_minutes || DEFAULT_INTERVAL_MINUTES)),
     };
+
+    if (window.SMHRMSNative) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      if (ctx.current.enabled && session) {
+        const { data: onDuty } = await supabase.rpc("is_employee_on_duty_v7", { p_employee_id: auth.user.id });
+        const nativeConfig = JSON.stringify({
+          userId: auth.user.id,
+          employeeName: p?.full_name || auth.user.email || "Employee",
+          intervalMinutes: ctx.current.interval,
+          supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          accessToken: session.access_token,
+          refreshToken: session.refresh_token,
+        });
+        if (onDuty === true) window.SMHRMSNative.startDutyTracking(nativeConfig);
+        else window.SMHRMSNative.stopDutyTracking();
+      } else {
+        window.SMHRMSNative.stopDutyTracking();
+      }
+    }
   }, [supabase]);
 
   const state = useCallback(async (s: string, reason?: string) => {
