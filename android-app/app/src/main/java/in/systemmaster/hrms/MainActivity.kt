@@ -1,4 +1,4 @@
-package in.systemmaster.hrms
+package `in`.systemmaster.hrms
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -39,7 +39,7 @@ class MainActivity : AppCompatActivity() {
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
         webView.settings.databaseEnabled = true
-        webView.settings.geolocationEnabled = true
+        webView.settings.setGeolocationEnabled(true)
         webView.settings.mediaPlaybackRequiresUserGesture = false
         webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
         webView.settings.setSupportZoom(false)
