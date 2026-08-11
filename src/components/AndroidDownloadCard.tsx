@@ -32,15 +32,19 @@ export default function AndroidDownloadCard({
 
       const total = Number(response.headers.get("content-length") || 0);
       const reader = response.body.getReader();
-      const chunks: Uint8Array[] = [];
+      const chunks: ArrayBuffer[] = [];
       let received = 0;
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         if (value) {
-          chunks.push(value);
-          received += value.length;
+          // Copy into a plain ArrayBuffer so TypeScript/Blob does not inherit
+          // SharedArrayBuffer-compatible ArrayBufferLike from the stream type.
+          const copy = new Uint8Array(value.byteLength);
+          copy.set(value);
+          chunks.push(copy.buffer);
+          received += value.byteLength;
           if (total > 0) setProgress(Math.min(99, Math.round((received / total) * 100)));
         }
       }
