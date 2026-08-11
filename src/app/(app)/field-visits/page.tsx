@@ -64,6 +64,10 @@ export default function FieldVisitsPage() {
   const [liveLocations, setLiveLocations] = useState<LiveLocation[]>([]);
   const [distanceToday, setDistanceToday] = useState<Record<string, number>>({});
   const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
+  const [visitCustomFields, setVisitCustomFields] = useState<any[]>([]);
+  const [customValues, setCustomValues] = useState<Record<string, any>>({});
+  const [nextSyncSeconds, setNextSyncSeconds] = useState(120);
+  const [lastDashboardSync, setLastDashboardSync] = useState<Date | null>(null);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -76,7 +80,8 @@ export default function FieldVisitsPage() {
   const [filter, setFilter] = useState("all");
 
   const [f, setF] = useState({
-    client_name: "", purpose: "", address: "",
+    client_name: "", company_name: "", contact_person: "", contact_number: "", contact_email: "",
+    purpose: "", address: "",
     visit_date: new Date().toISOString().slice(0, 10),
     scheduled_at: "", target_duration_minutes: "60",
     employee_id: "",
@@ -91,6 +96,14 @@ export default function FieldVisitsPage() {
     const { data: p } = await supabase.from("profiles").select("*").eq("id", auth.user.id).single();
     const profile = p as Profile;
     setMe(profile);
+
+    const { data: customDefs } = await supabase
+      .from("visit_custom_fields")
+      .select("*")
+      .eq("is_active", true)
+      .order("sort_order")
+      .order("created_at");
+    setVisitCustomFields(customDefs || []);
 
     const { data: v } = await supabase
       .from("field_visits")
@@ -118,6 +131,8 @@ export default function FieldVisitsPage() {
       for (const row of (dist || []) as any[]) distanceMap[row.employee_id] = Number(row.distance_km || 0);
       setDistanceToday(distanceMap);
     }
+    setLastDashboardSync(new Date());
+    setNextSyncSeconds(120);
     setLoading(false);
   }, [supabase]);
 
@@ -125,7 +140,15 @@ export default function FieldVisitsPage() {
 
   useEffect(() => {
     if (!me?.company_id || !(canManageTeam(me.role) || ["team","company"].includes(me.access_permissions?.live_tracking || "none"))) return;
-    const id = window.setInterval(() => load(true), 2 * 60 * 1000);
+    const id = window.setInterval(() => {
+      setNextSyncSeconds((prev) => {
+        if (prev <= 1) {
+          load(true);
+          return 120;
+        }
+        return prev - 1;
+      });
+    }, 1000);
     return () => window.clearInterval(id);
   }, [load, me?.company_id, me?.role]);
 
@@ -149,6 +172,12 @@ export default function FieldVisitsPage() {
   const create = async () => {
     setError("");
     if (!f.client_name.trim()) return setError("Please enter the client or site name.");
+    const missingCustom = visitCustomFields.find((field: any) => {
+      if (!field.is_required) return false;
+      const value = customValues[field.field_key];
+      return field.field_type === "checkbox" ? value !== true : value == null || String(value).trim() === "";
+    });
+    if (missingCustom) return setError(`${missingCustom.label} is required.`);
     if (!me?.company_id) return;
     setSaving(true);
     const assignee = f.employee_id || me.id;
@@ -157,8 +186,13 @@ export default function FieldVisitsPage() {
       employee_id: assignee,
       assigned_by: me.id,
       client_name: f.client_name.trim(),
+      company_name: f.company_name.trim() || null,
+      contact_person: f.contact_person.trim() || null,
+      contact_number: f.contact_number.trim() || null,
+      contact_email: f.contact_email.trim() || null,
       purpose: f.purpose,
       address: f.address,
+      custom_data: customValues,
       visit_date: f.visit_date,
       scheduled_at: f.scheduled_at ? new Date(f.scheduled_at).toISOString() : null,
       target_duration_minutes: Math.max(5, Number(f.target_duration_minutes || 60)),
@@ -167,7 +201,8 @@ export default function FieldVisitsPage() {
     setSaving(false);
     if (insertError) return setError(insertError.message);
     setOpen(false);
-    setF({ client_name: "", purpose: "", address: "", visit_date: new Date().toISOString().slice(0, 10), scheduled_at: "", target_duration_minutes: "60", employee_id: "" });
+    setF({ client_name: "", company_name: "", contact_person: "", contact_number: "", contact_email: "", purpose: "", address: "", visit_date: new Date().toISOString().slice(0, 10), scheduled_at: "", target_duration_minutes: "60", employee_id: "" });
+    setCustomValues({});
     load(true);
   };
 
@@ -322,6 +357,20 @@ export default function FieldVisitsPage() {
                   <Route className="h-4 w-4" />
                   Route history
                 </Link>
+                <Link
+                  href="/field-visits/form-builder"
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <Settings2 className="h-4 w-4" />
+                  Visit form setup
+                </Link>
+                <button
+                  onClick={() => load(true)}
+                  className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </button>
               </>
             )}
             {admin && (
@@ -343,6 +392,20 @@ export default function FieldVisitsPage() {
           </div>
         }
       />
+
+      {manager && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs text-slate-500 shadow-sm">
+          <div className="flex items-center gap-2">
+            <Wifi className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Realtime enabled</span>
+            <span className="text-slate-300">•</span>
+            <span>Auto refresh in <b className="text-slate-700">{String(Math.floor(nextSyncSeconds / 60)).padStart(2,"0")}:{String(nextSyncSeconds % 60).padStart(2,"0")}</b></span>
+          </div>
+          <div>
+            Last dashboard sync: <b className="text-slate-700">{lastDashboardSync ? lastDashboardSync.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "Waiting…"}</b>
+          </div>
+        </div>
+      )}
 
       {manager && <>
         <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5 xl:grid-cols-9">
@@ -411,7 +474,24 @@ export default function FieldVisitsPage() {
           const isMine = v.employee_id === me?.id; const busy = busyId === v.id; const currentLat = v.last_lat ?? v.check_in_lat; const currentLng = v.last_lng ?? v.check_in_lng;
           return <li key={v.id} className="px-4 py-4"><div className="flex items-start gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700"><MapPin className="h-4 w-4" /></div><div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center justify-between gap-2"><p className="truncate text-sm font-semibold text-slate-900">{v.client_name || "Untitled visit"}</p><Badge value={v.status} /></div>
-            <p className="mt-0.5 text-xs text-slate-500">{v.profiles?.full_name}{v.purpose && ` · ${v.purpose}`}</p>{v.address && <p className="mt-0.5 truncate text-xs text-slate-400">{v.address}</p>}
+            <p className="mt-0.5 text-xs text-slate-500">{v.profiles?.full_name}{v.purpose && ` · ${v.purpose}`}</p>
+            {(v.company_name || v.contact_person || v.contact_number || v.contact_email) && (
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                {v.company_name && <span><b>Company:</b> {v.company_name}</span>}
+                {v.contact_person && <span><b>Contact:</b> {v.contact_person}</span>}
+                {v.contact_number && <span><b>Phone:</b> {v.contact_number}</span>}
+                {v.contact_email && <span><b>Email:</b> {v.contact_email}</span>}
+              </div>
+            )}
+            {v.custom_data && Object.keys(v.custom_data).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {Object.entries(v.custom_data).slice(0,6).map(([key,value]: any) => {
+                  const def = visitCustomFields.find((x:any)=>x.field_key===key);
+                  return <span key={key} className="rounded-md bg-slate-50 px-2 py-1 text-[11px] text-slate-600"><b>{def?.label || key.replaceAll("_"," ")}:</b> {typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}</span>;
+                })}
+              </div>
+            )}
+            {v.address && <p className="mt-0.5 truncate text-xs text-slate-400">{v.address}</p>}
             <p className="mt-1 text-xs text-slate-400">{new Date(v.visit_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}{v.travel_started_at && ` · Travel ${fmtTime(v.travel_started_at)}`}{v.check_in_at && ` · In ${fmtTime(v.check_in_at)}`}{v.check_out_at && ` · Out ${fmtTime(v.check_out_at)}`}</p>
             {currentLat != null && currentLng != null && <div className="mt-2 flex flex-wrap gap-3 text-xs"><button onClick={() => setLiveVisit(v)} className="inline-flex items-center gap-1 font-medium text-brand-700"><LocateFixed className="h-3 w-3" /> Live / latest map</button><span className="text-slate-400">Updated {timeAgo(v.last_location_at)}</span></div>}
             {v.outcome && <p className="mt-2 text-xs text-slate-600"><span className="font-medium">Outcome:</span> {String(v.outcome).replaceAll("_", " ")}{v.person_met ? ` · Met ${v.person_met}` : ""}</p>}
@@ -427,12 +507,49 @@ export default function FieldVisitsPage() {
       </Card>}
 
       <Modal open={open} onClose={() => setOpen(false)} title="New field visit"><div className="space-y-4">
-        <div><label className="text-sm font-medium text-slate-700">Client / site name *</label><input className={`mt-1.5 ${inputCls}`} placeholder="Acme Industries" value={f.client_name} onChange={(e) => set("client_name", e.target.value)} autoFocus /></div>
+        <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+          Visit form fields can be managed by Admin/Manager from <b>Visit form setup</b>.
+        </div>
+        <div><label className="text-sm font-medium text-slate-700">Client / site name *</label><input className={`mt-1.5 ${inputCls}`} placeholder="Client / Site" value={f.client_name} onChange={(e) => set("client_name", e.target.value)} autoFocus /></div>
+        <div><label className="text-sm font-medium text-slate-700">Company name</label><input className={`mt-1.5 ${inputCls}`} placeholder="ABC Industries Pvt Ltd" value={f.company_name} onChange={(e) => set("company_name", e.target.value)} /></div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div><label className="text-sm font-medium text-slate-700">Contact person</label><input className={`mt-1.5 ${inputCls}`} placeholder="Mr. Sharma" value={f.contact_person} onChange={(e) => set("contact_person", e.target.value)} /></div>
+          <div><label className="text-sm font-medium text-slate-700">Contact number</label><input type="tel" className={`mt-1.5 ${inputCls}`} placeholder="9876543210" value={f.contact_number} onChange={(e) => set("contact_number", e.target.value)} /></div>
+        </div>
+        <div><label className="text-sm font-medium text-slate-700">Email</label><input type="email" className={`mt-1.5 ${inputCls}`} placeholder="contact@company.com" value={f.contact_email} onChange={(e) => set("contact_email", e.target.value)} /></div>
         <div><label className="text-sm font-medium text-slate-700">Purpose</label><input className={`mt-1.5 ${inputCls}`} placeholder="Client meeting / Site survey" value={f.purpose} onChange={(e) => set("purpose", e.target.value)} /></div>
         <div><label className="text-sm font-medium text-slate-700">Address</label><input className={`mt-1.5 ${inputCls}`} placeholder="Sector 62, Noida" value={f.address} onChange={(e) => set("address", e.target.value)} /></div>
         <div className="grid gap-3 sm:grid-cols-2"><div><label className="text-sm font-medium text-slate-700">Visit date</label><input type="date" className={`mt-1.5 ${inputCls}`} value={f.visit_date} onChange={(e) => set("visit_date", e.target.value)} /></div><div><label className="text-sm font-medium text-slate-700">Scheduled start</label><input type="datetime-local" className={`mt-1.5 ${inputCls}`} value={f.scheduled_at} onChange={(e) => set("scheduled_at", e.target.value)} /></div></div>
         <div className="grid gap-3 sm:grid-cols-2"><div><label className="text-sm font-medium text-slate-700">Target duration</label><select className={`mt-1.5 ${inputCls}`} value={f.target_duration_minutes} onChange={(e) => set("target_duration_minutes", e.target.value)}><option value="30">30 min</option><option value="60">1 hour</option><option value="90">1.5 hours</option><option value="120">2 hours</option><option value="180">3 hours</option></select></div>{manager && <div><label className="text-sm font-medium text-slate-700">Assign to</label><select className={`mt-1.5 ${inputCls}`} value={f.employee_id} onChange={(e) => set("employee_id", e.target.value)}><option value="">Myself</option>{members.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}</select></div>}</div>
-        {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}<button onClick={create} disabled={saving} className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white">{saving ? "Creating…" : "Create visit"}</button>
+
+        {visitCustomFields.length > 0 && (
+          <div className="space-y-3 rounded-2xl border border-slate-200 p-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Additional visit information</p>
+              <p className="mt-0.5 text-xs text-slate-500">Company-specific fields configured by Admin/Manager.</p>
+            </div>
+            {visitCustomFields.map((field: any) => {
+              const value = customValues[field.field_key];
+              const setCustom = (v: any) => setCustomValues((prev) => ({ ...prev, [field.field_key]: v }));
+              const label = <label className="text-sm font-medium text-slate-700">{field.label}{field.is_required ? " *" : ""}</label>;
+
+              if (field.field_type === "textarea") return <div key={field.id}>{label}<textarea rows={3} className={`mt-1.5 ${inputCls}`} placeholder={field.placeholder || ""} value={value || ""} onChange={(e)=>setCustom(e.target.value)} /></div>;
+              if (field.field_type === "select") return <div key={field.id}>{label}<select className={`mt-1.5 ${inputCls}`} value={value || ""} onChange={(e)=>setCustom(e.target.value)}><option value="">Select</option>{(field.options || []).map((opt:string)=><option key={opt} value={opt}>{opt}</option>)}</select></div>;
+              if (field.field_type === "checkbox") return <label key={field.id} className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-3 text-sm font-medium text-slate-700"><input type="checkbox" checked={value === true} onChange={(e)=>setCustom(e.target.checked)} />{field.label}{field.is_required ? " *" : ""}</label>;
+
+              const htmlType =
+                field.field_type === "number" ? "number" :
+                field.field_type === "email" ? "email" :
+                field.field_type === "phone" ? "tel" :
+                field.field_type === "date" ? "date" :
+                field.field_type === "datetime" ? "datetime-local" : "text";
+
+              return <div key={field.id}>{label}<input type={htmlType} className={`mt-1.5 ${inputCls}`} placeholder={field.placeholder || ""} value={value || ""} onChange={(e)=>setCustom(e.target.value)} /></div>;
+            })}
+          </div>
+        )}
+
+                {error && <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</p>}<button onClick={create} disabled={saving} className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white">{saving ? "Creating…" : "Create visit"}</button>
       </div></Modal>
 
       <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Field tracking setup"><div className="space-y-3">
