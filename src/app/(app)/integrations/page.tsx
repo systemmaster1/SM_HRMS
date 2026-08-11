@@ -28,7 +28,7 @@ function doPost(e) {
     }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const stamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd MMM yyyy HH:mm');
+    const stamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd MMM yyyy HH:mm:ss');
 
     // Each dataset arrives as { name, headers, rows }
     (body.datasets || []).forEach(function (ds) {
@@ -52,7 +52,12 @@ function doPost(e) {
       }
 
       sheet.setFrozenRows(2);
+      if (sheet.getFilter()) sheet.getFilter().remove();
+      if (ds.headers && ds.headers.length) {
+        sheet.getRange(2, 1, Math.max((ds.rows || []).length + 1, 1), ds.headers.length).createFilter();
+      }
       sheet.autoResizeColumns(1, Math.max(ds.headers.length, 1));
+      sheet.getDataRange().setVerticalAlignment('middle');
     });
 
     return reply({ ok: true, sheets: (body.datasets || []).length, at: stamp });
@@ -190,10 +195,20 @@ export default function IntegrationsPage() {
     setTestOk(res.ok);
     setTestMsg(
       res.ok
-        ? `Backup sent — ${json.sheets ?? 0} tabs written to your spreadsheet. Open it to check.`
+        ? `Sync complete — ${json.sheets ?? 0} professional tabs written to your spreadsheet.`
         : json.error || "The backup could not be delivered. Check the URL and try again."
     );
   };
+
+  // Near-live mirror while an administrator has HRMS open. Server cron remains the
+  // reliable background schedule; this gives customers fresher operational sheets.
+  useEffect(() => {
+    if (!ready || !enabled || !url.trim() || !me?.company_id) return;
+    const id = window.setInterval(() => {
+      fetch("/api/integrations/gsheet-backup", { method: "POST" }).catch(() => undefined);
+    }, 15 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, [ready, enabled, url, me?.company_id]);
 
   const admin = isAdminRole(me?.role);
   if (!ready) return <p className="text-sm text-slate-400">Loading…</p>;
@@ -217,7 +232,7 @@ export default function IntegrationsPage() {
       <FadeIn>
         <PageHeader
           title="Integrations"
-          subtitle="Keep a live copy of your HRMS data in your own Google Sheet."
+          subtitle="Migration + professional Google Sheets sync for attendance, visits, activity, GPS routes, tasks, leave and employees."
         />
       </FadeIn>
 
@@ -232,10 +247,7 @@ export default function IntegrationsPage() {
               Google Sheets backup
             </h2>
             <p className="mt-1.5 text-sm leading-relaxed text-slate-500">
-              Every night your checklist tasks, delegations, attendance, leave and
-              employee records are written into a spreadsheet that you own. Each
-              module gets its own tab, and each run replaces the previous contents
-              so the sheet is always a clean, current mirror of your data.
+              Your operational data is written into a spreadsheet that the client owns. Attendance, visit timestamps, GPS route history, tracking activity, tasks, leave and employees are kept in separate professional tabs. Each sync refreshes the mirror without changing the source records in SM HRMS.
             </p>
             <div className="mt-4 flex flex-wrap gap-4 text-xs text-slate-500">
               <span className="flex items-center gap-1.5">
@@ -244,7 +256,7 @@ export default function IntegrationsPage() {
               </span>
               <span className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-emerald-600" />
-                Runs automatically each night
+                Automatic sync + manual sync now
               </span>
               <span className="flex items-center gap-1.5">
                 <Check className="h-3.5 w-3.5 text-emerald-600" />
@@ -378,10 +390,10 @@ export default function IntegrationsPage() {
                 className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand-700" />
               <span>
                 <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                  Run the backup automatically every night
+                  Keep Google Sheets sync enabled
                 </span>
                 <span className="mt-0.5 block text-xs text-slate-500">
-                  Around 1:30 AM IST. You can always run it manually below.
+                  Server scheduled sync can run automatically; while an admin keeps HRMS open, the app also refreshes the connected sheet every 15 minutes. You can sync manually anytime.
                 </span>
               </span>
             </label>
@@ -405,7 +417,7 @@ export default function IntegrationsPage() {
               <button onClick={runTest} disabled={testing || !url}
                 className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-60 dark:border-slate-600 dark:text-slate-300">
                 <PlayCircle className="h-4 w-4" />
-                {testing ? "Sending…" : "Run a backup now"}
+                {testing ? "Syncing…" : "Sync Google Sheet now"}
               </button>
 
               {url && (
