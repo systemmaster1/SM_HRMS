@@ -108,6 +108,9 @@ export interface Profile {
    * Save location history so visit route can be displayed.
    */
   route_history_enabled?: boolean;
+
+  /** Per-module access: none, self, team, company. Owners/admins are company-wide. */
+  access_permissions?: Record<string, "none" | "self" | "team" | "company">;
 }
 
 export interface Invite {
