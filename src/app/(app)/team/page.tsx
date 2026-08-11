@@ -1,10 +1,12 @@
 "use client";
 
+import Link from "next/link";
+
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
-import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2, IdCard, Search } from "lucide-react";
+import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2, IdCard, Search, Trash2, LoaderCircle, Workflow, MapPinned } from "lucide-react";
 import EmployeeDetail from "@/components/EmployeeDetail";
 
 const randomPassword = () => {
@@ -43,6 +45,9 @@ export default function TeamPage() {
   const [q, setQ] = useState("");
   const [loadError, setLoadError] = useState("");
   const [detailFor, setDetailFor] = useState<any>(null);
+  const [removeFor, setRemoveFor] = useState<any>(null);
+  const [removeWorking, setRemoveWorking] = useState(false);
+  const [removeMessage, setRemoveMessage] = useState("");
   const [attFor, setAttFor] = useState<any>(null);
   const [att, setAtt] = useState({
     photo_required: false,
@@ -84,7 +89,7 @@ export default function TeamPage() {
     if (isAdminRole((mine as Profile)?.role)) {
       const { data: list } = await supabase
         .from("profiles")
-        .select("*, manager:manager_id(full_name), branch:branch_id(name)")
+        .select("*, manager:manager_id(full_name), work_manager:work_manager_id(full_name), field_manager:field_manager_id(full_name), branch:branch_id(name)")
         .order("created_at");
       setMembers((list as any[]) || []);
     } else {
@@ -155,6 +160,30 @@ export default function TeamPage() {
     setNewPw(randomPassword());
   };
 
+  const removeEmployee = async () => {
+    if (!removeFor) return;
+    setRemoveWorking(true);
+    setRemoveMessage("Removing employee access…");
+    const res = await fetch("/api/team/remove", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ employee_id: removeFor.id }),
+    });
+    const out = await res.json();
+    if (!res.ok) {
+      setRemoveWorking(false);
+      setRemoveMessage(out.error || "Could not remove employee.");
+      return;
+    }
+    setRemoveMessage(out.message || "Employee removed successfully.");
+    await load();
+    setTimeout(() => {
+      setRemoveFor(null);
+      setRemoveWorking(false);
+      setRemoveMessage("");
+    }, 1200);
+  };
+
   const copy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
@@ -190,12 +219,12 @@ export default function TeamPage() {
         subtitle={`${activeMembers.length} active${leftMembers.length ? ` · ${leftMembers.length} left` : ""}`}
         action={
           admin && (
-            <button
-              onClick={() => { setF((p) => ({ ...p, password: randomPassword() })); setAddOpen(true); }}
+            <Link
+              href="/team/new"
               className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800"
             >
-              <UserPlus className="h-4 w-4" /> Add member
-            </button>
+              <UserPlus className="h-4 w-4" /> Add employee
+            </Link>
           )
         }
       />
@@ -264,11 +293,11 @@ export default function TeamPage() {
                       {m.branch?.name && ` · ${m.branch.name}`}
                       {m.email && ` · ${m.email}`}
                     </p>
-                    {m.manager?.full_name && (
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        Reports to {m.manager.full_name}
-                      </p>
-                    )}
+                    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-400">
+                      {m.manager?.full_name && <span>HRMS: {m.manager.full_name}</span>}
+                      {m.work_manager?.full_name && <span className="inline-flex items-center gap-1"><Workflow className="h-3 w-3" /> Work: {m.work_manager.full_name}</span>}
+                      {m.field_manager?.full_name && <span className="inline-flex items-center gap-1"><MapPinned className="h-3 w-3" /> Field: {m.field_manager.full_name}</span>}
+                    </div>
                   </div>
                   {admin && (
                     <div className="flex shrink-0 gap-2">
@@ -295,6 +324,15 @@ export default function TeamPage() {
                           className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
                         >
                           <KeyRound className="h-3.5 w-3.5" /> Reset
+                        </button>
+                      )}
+                      {tab === "active" && m.role !== "owner" && (
+                        <button
+                          onClick={() => { setRemoveMessage(""); setRemoveFor(m); }}
+                          title="Remove employee"
+                          className="flex items-center gap-1.5 rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
                         </button>
                       )}
                     </div>
@@ -494,6 +532,38 @@ export default function TeamPage() {
             className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
             {saving ? "Saving…" : "Save settings"}
           </button>
+        </div>
+      </Modal>
+
+      {/* ---- Remove employee ---- */}
+      <Modal open={!!removeFor} onClose={() => !removeWorking && setRemoveFor(null)} title="Remove employee">
+        <div className="space-y-4">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4">
+            <p className="text-sm font-semibold text-rose-800">Remove {removeFor?.full_name} from active team?</p>
+            <p className="mt-1 text-xs leading-5 text-rose-700">
+              Login access and field tracking will be disabled. Historical attendance, tasks, visits and reports are preserved for audit/reporting.
+            </p>
+          </div>
+
+          {removeMessage && (
+            <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm ${
+              removeWorking ? "bg-blue-50 text-blue-700" : removeMessage.toLowerCase().includes("success") || removeMessage.toLowerCase().includes("removed") ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
+            }`}>
+              {removeWorking ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {removeMessage}
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button onClick={() => setRemoveFor(null)} disabled={removeWorking}
+              className="flex-1 rounded-lg border border-slate-300 py-2.5 text-sm font-medium text-slate-700 disabled:opacity-50">
+              Cancel
+            </button>
+            <button onClick={removeEmployee} disabled={removeWorking}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-rose-600 py-2.5 text-sm font-medium text-white disabled:opacity-60">
+              {removeWorking ? <><LoaderCircle className="h-4 w-4 animate-spin" /> Working…</> : <><Trash2 className="h-4 w-4" /> Delete employee</>}
+            </button>
+          </div>
         </div>
       </Modal>
 
