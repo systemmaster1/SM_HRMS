@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
-import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2, IdCard, Search, Trash2, LoaderCircle, Workflow, MapPinned } from "lucide-react";
+import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2, IdCard, Search, Trash2, LoaderCircle, Workflow, MapPinned, Pencil } from "lucide-react";
 import EmployeeDetail from "@/components/EmployeeDetail";
 
 const randomPassword = () => {
@@ -307,6 +307,15 @@ export default function TeamPage() {
                         >
                           <Settings2 className="h-3.5 w-3.5" /> Attendance
                         </button>
+                      )}
+                      {admin && (
+                        <Link
+                          href={`/team/${m.id}/edit`}
+                          title="Edit employee"
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Link>
                       )}
                       {tab === "active" && m.role !== "owner" && (
                         <button
