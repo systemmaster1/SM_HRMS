@@ -35,28 +35,43 @@ jobs:
         with:
           gradle-version: "8.10.2"
 
-      - name: Ensure Android SDK 35
+      - name: Android SDK 35
         run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" >/dev/null
 
-      - name: Build installable APK
+      - name: Build fresh APK
         working-directory: android-app
-        run: gradle assembleDebug --stacktrace
+        run: |
+          rm -rf app/build
+          gradle clean assembleDebug --stacktrace
 
-      - name: Prepare direct-download APK
+      - name: Verify modern Android target
+        run: |
+          APK="android-app/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          BADGING="$(aapt dump badging "$APK")"
+          echo "$BADGING" | grep "package: name='in.systemmaster.hrms'"
+          echo "$BADGING" | grep "targetSdkVersion:'35'"
+          echo "$BADGING" | grep "versionName='1.2.0'"
+          sha256sum "$APK"
+
+      - name: Prepare website download
         run: |
           mkdir -p public/downloads
           cp android-app/app/build/outputs/apk/debug/app-debug.apk public/downloads/SM-HRMS.apk
           cp public/downloads/SM-HRMS.apk SM-HRMS.apk
+          SHA=$(sha256sum SM-HRMS.apk | cut -d' ' -f1)
+          SIZE=$(stat -c%s SM-HRMS.apk)
+          printf '{"version":"1.2.0","versionCode":3,"targetSdk":35,"sha256":"%s","size":%s,"builtAt":"%s"}\n' "$SHA" "$SIZE" "$(date -u +%FT%TZ)" > public/downloads/android-build.json
 
-      - name: Publish APK into website
+      - name: Publish fresh APK into website
         run: |
           git config user.name "SM HRMS Android Builder"
           git config user.email "actions@users.noreply.github.com"
-          git add public/downloads/SM-HRMS.apk
+          git add -f public/downloads/SM-HRMS.apk public/downloads/android-build.json
           if git diff --cached --quiet; then
             echo "APK unchanged."
           else
-            git commit -m "Publish latest SM HRMS Android APK [skip ci]"
+            git commit -m "Publish SM HRMS Android v1.2.0 target SDK 35 [skip ci]"
             git pull --rebase origin main
             git push origin HEAD:main
           fi
@@ -65,14 +80,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="android-${GITHUB_RUN_NUMBER}"
-          gh release create "$TAG" SM-HRMS.apk \
-            --title "SM HRMS Android ${GITHUB_RUN_NUMBER}" \
-            --notes "Direct-install Android build. Primary download: https://hrms.systemmaster.in/download/android" \
+          TAG="android-v1.2.0-${GITHUB_RUN_NUMBER}"
+          gh release create "$TAG" SM-HRMS.apk public/downloads/android-build.json \
+            --title "SM HRMS Android v1.2.0 (${GITHUB_RUN_NUMBER})" \
+            --notes "Android target SDK 35. Duty-time foreground location tracking build." \
             --latest
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: SM-HRMS-APK
-          path: SM-HRMS.apk
+          name: SM-HRMS-Android-v1.2.0
+          path: |
+            SM-HRMS.apk
+            public/downloads/android-build.json
