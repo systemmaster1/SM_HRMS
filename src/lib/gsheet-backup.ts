@@ -143,8 +143,8 @@ export async function backupCompany(companyId: string) {
     headers: [
       "Date", "Employee", "Code", "Client / site", "Company",
       "Contact person", "Contact number", "Email", "Purpose",
-      "Address", "Status", "Scheduled", "Travel started",
-      "Checked in", "Meeting started", "Completed",
+      "Address", "Status", "Outcome", "Remarks", "Next Action", "Next Follow-up",
+      "Scheduled", "Travel started", "Checked in", "Meeting started", "Completed",
       ...customHeaders
     ],
     rows: (fv || []).map((r: any) => [
@@ -152,6 +152,7 @@ export async function backupCompany(companyId: string) {
       r.client_name || "", r.company_name || "",
       r.contact_person || "", r.contact_number || "", r.contact_email || "",
       r.purpose || "", r.address || "", r.status || "",
+      r.outcome || "", r.remarks || "", r.next_action || "", fmt(r.next_follow_up_at),
       fmt(r.scheduled_at), fmt(r.travel_started_at), fmt(r.check_in_at),
       fmt(r.meeting_started_at), fmt(r.completed_at),
       ...customKeys.map((key: string) => {
