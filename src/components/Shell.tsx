@@ -21,6 +21,7 @@ interface Leaf {
   label: string;
   icon: React.ReactNode;
   adminOnly?: boolean;
+  accessKey?: string;
 }
 interface Group {
   key: string;
@@ -41,8 +42,8 @@ const nav: NavEntry[] = [
     label: "Attendance & Leave",
     icon: <CalendarCheck className="h-[18px] w-[18px]" />,
     items: [
-      { href: "/attendance", label: "Attendance",  icon: <CalendarCheck className="h-4 w-4" /> },
-      { href: "/leave",      label: "Leave",        icon: <Plane className="h-4 w-4" /> },
+      { href: "/attendance", label: "Attendance",  icon: <CalendarCheck className="h-4 w-4" />, accessKey: "attendance" },
+      { href: "/leave",      label: "Leave",        icon: <Plane className="h-4 w-4" />, accessKey: "leave" },
       { href: "/leave/team", label: "Team balances", icon: <Users className="h-4 w-4" />, adminOnly: true },
       { href: "/holidays",   label: "Holidays",     icon: <CalendarDays className="h-4 w-4" /> },
     ],
@@ -52,15 +53,15 @@ const nav: NavEntry[] = [
     label: "Work",
     icon: <ListChecks className="h-[18px] w-[18px]" />,
     items: [
-      { href: "/field-visits", label: "Field visits", icon: <MapPin className="h-4 w-4" /> },
-      { href: "/field-reports", label: "Field reports", icon: <BarChart3 className="h-4 w-4" /> },
-      { href: "/tasks",        label: "Tasks",         icon: <ListChecks className="h-4 w-4" /> },
+      { href: "/field-visits", label: "Field visits", icon: <MapPin className="h-4 w-4" />, accessKey: "field_visits" },
+      { href: "/field-reports", label: "Field reports", icon: <BarChart3 className="h-4 w-4" />, accessKey: "field_reports" },
+      { href: "/tasks",        label: "Tasks",         icon: <ListChecks className="h-4 w-4" />, accessKey: "tasks" },
       { href: "/em-report",    label: "EM Report",     icon: <BarChart3 className="h-4 w-4" /> },
       { href: "/upcoming-features", label: "Upcoming features", icon: <Sparkles className="h-4 w-4" /> },
     ],
   },
-  { href: "/payroll", label: "Payroll", icon: <Wallet className="h-[18px] w-[18px]" /> },
-  { href: "/team", label: "Team", icon: <Users className="h-[18px] w-[18px]" /> },
+  { href: "/payroll", label: "Payroll", icon: <Wallet className="h-[18px] w-[18px]" />, accessKey: "payroll" },
+  { href: "/team", label: "Team", icon: <Users className="h-[18px] w-[18px]" />, accessKey: "team" },
   {
     key: "support",
     label: "Support",
@@ -108,6 +109,7 @@ export default function Shell({
   const [open, setOpen] = useState(false);
 
   const admin = isAdminRole(profile.role);
+  const hasAccess = (key?: string) => admin || !key || (profile.access_permissions?.[key] && profile.access_permissions[key] !== "none");
 
   // Auto-expand whichever group contains the current page.
   const initialExpanded = new Set<string>();
@@ -178,6 +180,7 @@ export default function Shell({
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {nav.map((entry) => {
           if (entry.adminOnly && !admin) return null;
+          if (!isGroup(entry) && !hasAccess(entry.accessKey)) return null;
 
           if (!isGroup(entry)) {
             const active = pathname === entry.href;
@@ -189,7 +192,7 @@ export default function Shell({
             );
           }
 
-          const items = entry.items.filter((i) => !i.adminOnly || admin);
+          const items = entry.items.filter((i) => (!i.adminOnly || admin) && hasAccess(i.accessKey));
           if (items.length === 0) return null;
           const groupActive = items.some((i) => i.href === pathname);
           const isOpen = expanded.has(entry.key) || groupActive;
