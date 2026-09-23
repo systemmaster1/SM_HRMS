@@ -2,6 +2,9 @@ package `in`.systemmaster.hrms
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
@@ -23,6 +26,30 @@ class MainActivity : AppCompatActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { /* WebView/native tracker re-checks permissions */ }
+
+    // ---- <input type="file"> support (photo, logo, documents, CSV import) ----
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val callback = filePathCallback
+        filePathCallback = null
+        callback?.onReceiveValue(parseChosenFiles(result.resultCode, result.data))
+    }
+
+    // ---- Camera for the web selfie screen (getUserMedia) ----
+    private var pendingWebPermission: PermissionRequest? = null
+
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        val req = pendingWebPermission
+        pendingWebPermission = null
+        if (req != null) {
+            if (granted) req.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) else req.deny()
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -103,7 +130,31 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPermissionRequest(request: PermissionRequest?) {
-                runOnUiThread { request?.grant(request.resources) }
+                runOnUiThread { handleWebPermission(request) }
+            }
+
+            override fun onShowFileChooser(
+                view: WebView?,
+                callback: ValueCallback<Array<Uri>>?,
+                params: FileChooserParams?
+            ): Boolean {
+                // Cancel any chooser that is still open.
+                filePathCallback?.onReceiveValue(null)
+                filePathCallback = callback
+                return try {
+                    val pick = params?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "*/*"
+                    }
+                    if (params?.mode == FileChooserParams.MODE_OPEN_MULTIPLE) {
+                        pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+                    }
+                    fileChooserLauncher.launch(Intent.createChooser(pick, "Choose file"))
+                    true
+                } catch (e: ActivityNotFoundException) {
+                    filePathCallback = null
+                    false
+                }
             }
 
             override fun onGeolocationPermissionsShowPrompt(
@@ -123,8 +174,45 @@ class MainActivity : AppCompatActivity() {
         return if (url.startsWith(BuildConfig.WEB_APP_URL)) {
             false
         } else {
-            startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse(url)))
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (_: ActivityNotFoundException) {
+                // No app can open this link (e.g. unknown scheme) - stay in the app.
+            }
             true
+        }
+    }
+
+    /** Returns the file(s) the user picked, or null if they cancelled. */
+    private fun parseChosenFiles(resultCode: Int, data: Intent?): Array<Uri>? {
+        if (resultCode != Activity.RESULT_OK || data == null) return null
+        val clip = data.clipData
+        if (clip != null && clip.itemCount > 0) {
+            return Array(clip.itemCount) { i -> clip.getItemAt(i).uri }
+        }
+        return data.data?.let { arrayOf(it) }
+    }
+
+    /**
+     * Web pages may use the camera only on our own domain, and only the
+     * camera (no microphone, no other resources).
+     */
+    private fun handleWebPermission(request: PermissionRequest?) {
+        if (request == null) return
+        val origin = request.origin?.toString() ?: ""
+        val wantsCamera = request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
+        if (!origin.startsWith(BuildConfig.WEB_APP_URL) || !wantsCamera) {
+            request.deny()
+            return
+        }
+        val hasCamera = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (hasCamera) {
+            request.grant(arrayOf(PermissionRequest.RESOURCE_VIDEO_CAPTURE))
+        } else {
+            pendingWebPermission?.deny()
+            pendingWebPermission = request
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
         }
     }
 

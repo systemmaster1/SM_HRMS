@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { fetchAll } from "@/lib/supabase/fetch-all";
+import { todayYMD, addDaysYMD } from "@/lib/date";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
 import { exportCsv } from "@/lib/export";
 import { type Profile, isAdminRole } from "@/lib/types";
@@ -12,6 +14,9 @@ import {
   Download, Upload, BarChart3, ChevronDown,
   MessageSquare, CalendarClock, Send, X,
 } from "lucide-react";
+
+/** Completed tasks older than this are not loaded on the Tasks screen. */
+const HISTORY_DAYS = 90;
 
 const FREQ_LABELS: Record<string, string> = {
   daily: "Daily", weekly: "Weekly", monthly: "Monthly",
@@ -230,7 +235,7 @@ export default function TasksPage() {
   const [cf, setCf] = useState({
     title: "", kra_id: "", department: "", description: "", assigned_to: "",
     priority: "medium", frequency: "weekly",
-    start_date: new Date().toISOString().slice(0, 10), start_time: "09:00", end_date: "",
+    start_date: todayYMD(), start_time: "09:00", end_date: "",
   });
   const setC = (k: string, v: string) => setCf((p) => ({ ...p, [k]: v }));
 
@@ -254,26 +259,38 @@ export default function TasksPage() {
     // Catch up any due checklist occurrences (safe to call every visit)
     await supabase.rpc("generate_checklist_instances");
 
+    // Supabase returns max 1000 rows per request. Previously the oldest 1000
+    // rows came back and TODAY's tasks silently disappeared once a company
+    // crossed that. Now: every open task + everything from the last
+    // HISTORY_DAYS days, paged until all rows are read.
+    const since = addDaysYMD(todayYMD(), -HISTORY_DAYS);
+    const recentOrOpen = `completed_at.is.null,due_date.gte.${since}`;
+
     const [d, t, i, st, cm, ex] = await Promise.all([
-      supabase.from("delegations")
+      fetchAll((from, to) => supabase.from("delegations")
         .select("*, assignee:assigned_to(full_name), assigner:assigned_by(full_name)")
-        .order("due_date", { ascending: true }),
-      supabase.from("checklist_templates")
+        .or(recentOrOpen)
+        .order("due_date", { ascending: true }).order("id").range(from, to)),
+      fetchAll((from, to) => supabase.from("checklist_templates")
         .select("*, assignee:assigned_to(full_name)")
-        .order("created_at", { ascending: false }),
-      supabase.from("checklist_instances")
+        .order("created_at", { ascending: false }).order("id").range(from, to)),
+      fetchAll((from, to) => supabase.from("checklist_instances")
         .select("*, template:template_id(title, description, frequency), assignee:assigned_to(full_name)")
-        .order("due_date", { ascending: true }),
-      supabase.from("delegation_subtasks")
+        .or(recentOrOpen)
+        .order("due_date", { ascending: true }).order("id").range(from, to)),
+      fetchAll((from, to) => supabase.from("delegation_subtasks")
         .select("*")
-        .order("sort", { ascending: true }),
-      supabase.from("task_comments")
+        .order("sort", { ascending: true }).order("id").range(from, to)),
+      fetchAll((from, to) => supabase.from("task_comments")
         .select("*, author:user_id(full_name)")
-        .order("created_at", { ascending: true }),
-      supabase.from("task_extensions")
+        .order("created_at", { ascending: true }).order("id").range(from, to)),
+      fetchAll((from, to) => supabase.from("task_extensions")
         .select("*, requester:requested_by(full_name)")
-        .order("created_at", { ascending: false }),
-    ]);
+        .order("created_at", { ascending: false }).order("id").range(from, to)),
+    ].map((p) => p.then((data) => ({ data })).catch((e) => {
+      console.error("Tasks load failed:", e);
+      return { data: [] as any[] };
+    })));
 
     setDelegations(d.data || []);
     setTemplates(t.data || []);
@@ -478,12 +495,12 @@ export default function TasksPage() {
     setCOpen(false);
     setCf({ title: "", kra_id: "", department: "", description: "", assigned_to: "",
             priority: "medium", frequency: "weekly",
-            start_date: new Date().toISOString().slice(0, 10), start_time: "09:00", end_date: "" });
+            start_date: todayYMD(), start_time: "09:00", end_date: "" });
     load();
   };
 
   const toggleInstanceDone = async (inst: any) => {
-    const todayLocal = new Date().toLocaleDateString("en-CA");
+    const todayLocal = todayYMD();
 
     // Re-opening a completed occurrence is admin-only and needs a reason.
     if (inst.completed_at) {
@@ -617,7 +634,7 @@ export default function TasksPage() {
   });
 
   /* ---- Today / Upcoming / Delayed windows ---- */
-  const todayStr = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD, local
+  const todayStr = todayYMD(); // YYYY-MM-DD, IST
 
   const iToday     = iList.filter((i) => i.due_date === todayStr);
   const iUpcoming  = iList.filter((i) => i.due_date > todayStr);
@@ -637,7 +654,7 @@ export default function TasksPage() {
     <div>
       <PageHeader
         title="Tasks"
-        subtitle="Delegation and recurring checklists."
+        subtitle={`Delegation and recurring checklists. Open tasks plus the last ${HISTORY_DAYS} days are shown — older history is in Export and the Google Sheet.`}
         action={
           admin && (
             <div className="flex shrink-0 flex-wrap gap-2">

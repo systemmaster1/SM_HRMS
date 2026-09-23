@@ -1,25 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
 import { FadeIn } from "@/components/motion";
 import { type Profile, isAdminRole } from "@/lib/types";
+import { fmtStampIST } from "@/lib/date";
 import {
   Sheet, Copy, Check, AlertTriangle, Save, PlayCircle,
   ShieldCheck, Clock, ExternalLink,
 } from "lucide-react";
 
+const SCRIPT_VERSION = "2.0";
+
 const buildScript = (secret: string) => String.raw`/**
- * SM HRMS -> Google Sheets backup receiver
+ * SM HRMS -> Google Sheets sync receiver  (v${SCRIPT_VERSION})
  * Built by SystemMaster Automations
  *
  * Nothing in this file needs editing. Paste it in as-is.
+ *
+ * v2: safe writes (old data is restored if a write fails), one sync at a
+ * time (lock), mobile numbers / codes kept as text, IST timestamps.
  */
 
 const SHARED_SECRET = '${secret}';
 
 function doPost(e) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(120000)) {
+    return reply({ ok: false, error: 'Another sync is still running. Try again in a minute.' });
+  }
   try {
     const body = JSON.parse(e.postData.contents);
 
@@ -28,46 +38,80 @@ function doPost(e) {
     }
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const stamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd MMM yyyy HH:mm:ss');
+    const stamp = Utilities.formatDate(new Date(), 'Asia/Kolkata', 'dd MMM yyyy, hh:mm a');
+    let written = 0;
 
-    // Each dataset arrives as { name, headers, rows }
     (body.datasets || []).forEach(function (ds) {
-      let sheet = ss.getSheetByName(ds.name);
-      if (!sheet) sheet = ss.insertSheet(ds.name);
-
-      sheet.clear();
-      sheet.getRange(1, 1).setValue('Last updated: ' + stamp);
-      sheet.getRange(1, 1).setFontColor('#888888').setFontSize(9);
-
-      if (ds.headers && ds.headers.length) {
-        sheet.getRange(2, 1, 1, ds.headers.length)
-             .setValues([ds.headers])
-             .setFontWeight('bold')
-             .setBackground('#053A6E')
-             .setFontColor('#FFFFFF');
-      }
-
-      if (ds.rows && ds.rows.length) {
-        sheet.getRange(3, 1, ds.rows.length, ds.headers.length).setValues(ds.rows);
-      }
-
-      sheet.setFrozenRows(2);
-      if (sheet.getFilter()) sheet.getFilter().remove();
-      if (ds.headers && ds.headers.length) {
-        sheet.getRange(2, 1, Math.max((ds.rows || []).length + 1, 1), ds.headers.length).createFilter();
-      }
-      sheet.autoResizeColumns(1, Math.max(ds.headers.length, 1));
-      sheet.getDataRange().setVerticalAlignment('middle');
+      writeTab(ss, ds, stamp);
+      written += (ds.rows || []).length;
     });
 
-    return reply({ ok: true, sheets: (body.datasets || []).length, at: stamp });
+    SpreadsheetApp.flush();
+    return reply({ ok: true, sheets: (body.datasets || []).length, rows: written, at: stamp });
   } catch (err) {
     return reply({ ok: false, error: String(err) });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function writeTab(ss, ds, stamp) {
+  const headers = ds.headers || [];
+  const rows = ds.rows || [];
+  const width = Math.max(headers.length, 1);
+
+  let sheet = ss.getSheetByName(ds.name);
+  if (!sheet) sheet = ss.insertSheet(ds.name);
+
+  // Keep a copy of what is there now, so a failed write never leaves the tab empty.
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  const previous = lastRow > 0 && lastCol > 0
+    ? sheet.getRange(1, 1, lastRow, lastCol).getValues()
+    : null;
+
+  try {
+    if (sheet.getFilter()) sheet.getFilter().remove();
+    sheet.clear();
+
+    sheet.getRange(1, 1).setValue('Last synced: ' + stamp + ' IST  ·  ' + rows.length + ' rows')
+         .setFontColor('#888888').setFontSize(9);
+
+    if (headers.length) {
+      sheet.getRange(2, 1, 1, headers.length)
+           .setValues([headers])
+           .setFontWeight('bold')
+           .setBackground('#053A6E')
+           .setFontColor('#FFFFFF');
+    }
+
+    if (rows.length) {
+      // Mobile numbers, employee codes and KRA IDs must stay text
+      // (otherwise Sheets drops leading zeros).
+      (ds.textCols || []).forEach(function (c) {
+        sheet.getRange(3, c + 1, rows.length, 1).setNumberFormat('@');
+      });
+      const clean = rows.map(function (r) {
+        const out = [];
+        for (let i = 0; i < width; i++) out.push(r[i] === null || r[i] === undefined ? '' : r[i]);
+        return out;
+      });
+      sheet.getRange(3, 1, clean.length, width).setValues(clean);
+    }
+
+    sheet.setFrozenRows(2);
+    sheet.getRange(2, 1, Math.max(rows.length + 1, 1), width).createFilter();
+    if (rows.length <= 5000) sheet.autoResizeColumns(1, width);
+  } catch (err) {
+    // Put the old data back, then report the problem.
+    sheet.clear();
+    if (previous) sheet.getRange(1, 1, previous.length, previous[0].length).setValues(previous);
+    throw new Error('Tab "' + ds.name + '": ' + err);
   }
 }
 
 function doGet() {
-  return reply({ ok: true, message: 'SM HRMS backup endpoint is live.' });
+  return reply({ ok: true, message: 'SM HRMS sync endpoint is live.', version: '${SCRIPT_VERSION}' });
 }
 
 function reply(obj) {
@@ -79,8 +123,11 @@ function reply(obj) {
 /** Creates a long, readable, random passphrase. */
 function makeSecret() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const block = () =>
-    Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  const block = () => {
+    const bytes = new Uint32Array(5);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+  };
   return `SMHRMS-${block()}-${block()}-${block()}`;
 }
 
@@ -132,6 +179,18 @@ export default function IntegrationsPage() {
   const [testMsg, setTestMsg] = useState("");
   const [testOk, setTestOk] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [logs, setLogs] = useState<any[]>([]);
+
+  const loadLogs = useCallback(async (companyId: string) => {
+    const { data } = await supabase
+      .from("gsheet_sync_logs")
+      .select("id, trigger, started_at, finished_at, ok, tabs, rows_written, error")
+      .eq("company_id", companyId)
+      .order("started_at", { ascending: false })
+      .limit(8);
+    setLogs(data || []);
+  }, [supabase]);
 
   useEffect(() => {
     (async () => {
@@ -144,23 +203,49 @@ export default function IntegrationsPage() {
       const { data: c } = await supabase
         .from("companies").select("*").eq("id", (p as Profile).company_id).single();
       setCompany(c);
-      setUrl(c?.gsheet_webhook_url || "");
       setEnabled(!!c?.gsheet_backup_enabled);
 
+      // URL + secret live in an admin-only table (employees cannot read them).
+      const { data: integ } = await supabase
+        .from("company_integrations")
+        .select("gsheet_webhook_url, gsheet_secret")
+        .eq("company_id", (p as Profile).company_id)
+        .maybeSingle();
+
+      setUrl(integ?.gsheet_webhook_url || "");
       // A secret the customer never has to invent or type
-      setSecret(c?.gsheet_secret || makeSecret());
+      setSecret(integ?.gsheet_secret || makeSecret());
+      if (isAdminRole((p as Profile)?.role)) loadLogs((p as Profile).company_id!);
       setReady(true);
     })();
-  }, [supabase]);
+  }, [supabase, loadLogs]);
+
+  /** Saves the settings. Returns an error message, or "" on success. */
+  const persist = async (): Promise<string> => {
+    const companyId = me!.company_id!;
+    const trimmed = url.trim();
+    if (trimmed && !/^https:\/\/script\.google\.com\/(a\/[^/]+\/)?macros\/s\/[^/]+\/exec\/?$/.test(trimmed)) {
+      return "The web app URL should look like https://script.google.com/macros/s/…/exec";
+    }
+    const { error: e1 } = await supabase.from("company_integrations").upsert({
+      company_id: companyId,
+      gsheet_webhook_url: trimmed || null,
+      gsheet_secret: secret.trim(),
+      updated_at: new Date().toISOString(),
+    });
+    if (e1) return e1.message;
+    const { error: e2 } = await supabase.from("companies")
+      .update({ gsheet_backup_enabled: enabled }).eq("id", companyId);
+    if (e2) return e2.message;
+    return "";
+  };
 
   const save = async () => {
     setSaving(true);
-    await supabase.from("companies").update({
-      gsheet_webhook_url: url.trim(),
-      gsheet_secret: secret.trim(),
-      gsheet_backup_enabled: enabled,
-    }).eq("id", me!.company_id);
+    setSaveError("");
+    const err = await persist();
     setSaving(false);
+    if (err) { setSaveError(err); return; }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -183,13 +268,19 @@ export default function IntegrationsPage() {
 
     // Always save first, so the secret in the database matches the one
     // shown in the code block above.
-    await supabase.from("companies").update({
-      gsheet_webhook_url: url.trim(),
-      gsheet_secret: secret.trim(),
-      gsheet_backup_enabled: enabled,
-    }).eq("id", me!.company_id);
+    const saveErr = await persist();
+    if (saveErr) {
+      setTesting(false);
+      setTestOk(false);
+      setTestMsg(saveErr);
+      return;
+    }
 
-    const res = await fetch("/api/integrations/gsheet-backup", { method: "POST" });
+    const res = await fetch("/api/integrations/gsheet-backup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ trigger: "manual" }),
+    });
     const json = await res.json().catch(() => ({}));
     setTesting(false);
     setTestOk(res.ok);
@@ -198,6 +289,7 @@ export default function IntegrationsPage() {
         ? `Sync complete — ${json.sheets ?? 0} professional tabs written to your spreadsheet.`
         : json.error || "The backup could not be delivered. Check the URL and try again."
     );
+    if (me?.company_id) loadLogs(me.company_id);
   };
 
   // Near-live mirror while an administrator has HRMS open. Server cron remains the
@@ -205,7 +297,12 @@ export default function IntegrationsPage() {
   useEffect(() => {
     if (!ready || !enabled || !url.trim() || !me?.company_id) return;
     const id = window.setInterval(() => {
-      fetch("/api/integrations/gsheet-backup", { method: "POST" }).catch(() => undefined);
+      if (document.visibilityState !== "visible") return;
+      fetch("/api/integrations/gsheet-backup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ trigger: "auto" }),
+      }).catch(() => undefined);
     }, 15 * 60 * 1000);
     return () => window.clearInterval(id);
   }, [ready, enabled, url, me?.company_id]);
@@ -256,7 +353,7 @@ export default function IntegrationsPage() {
               </span>
               <span className="flex items-center gap-1.5">
                 <Clock className="h-3.5 w-3.5 text-emerald-600" />
-                Automatic sync + manual sync now
+                Auto-sync every night at 12:00 AM + sync now
               </span>
               <span className="flex items-center gap-1.5">
                 <Check className="h-3.5 w-3.5 text-emerald-600" />
@@ -393,7 +490,7 @@ export default function IntegrationsPage() {
                   Keep Google Sheets sync enabled
                 </span>
                 <span className="mt-0.5 block text-xs text-slate-500">
-                  Server scheduled sync can run automatically; while an admin keeps HRMS open, the app also refreshes the connected sheet every 15 minutes. You can sync manually anytime.
+                  Syncs automatically every night at 12:00 AM (IST). While an admin keeps this page open, it also refreshes every 15 minutes. You can sync manually anytime.
                 </span>
               </span>
             </label>
@@ -402,7 +499,7 @@ export default function IntegrationsPage() {
               <p className="text-xs text-slate-500">
                 Last backup:{" "}
                 <strong className="text-slate-700 dark:text-slate-300">
-                  {new Date(company.gsheet_last_backup).toLocaleString("en-IN")}
+                  {fmtStampIST(company.gsheet_last_backup)}
                 </strong>
               </p>
             )}
@@ -428,6 +525,12 @@ export default function IntegrationsPage() {
               )}
             </div>
 
+            {saveError && (
+              <p className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                {saveError}
+              </p>
+            )}
+
             {testMsg && (
               <p className={`rounded-lg border px-4 py-3 text-sm ${
                 testOk
@@ -438,6 +541,48 @@ export default function IntegrationsPage() {
               </p>
             )}
           </div>
+        </Card>
+      </FadeIn>
+
+      {/* Sync history */}
+      <FadeIn delay={0.1}>
+        <h2 className="mb-4 mt-8 text-sm font-semibold uppercase tracking-wide text-slate-400">
+          Sync history
+        </h2>
+        <Card>
+          {logs.length === 0 ? (
+            <p className="p-6 text-sm text-slate-500">
+              No syncs yet. The first automatic sync runs tonight at 12:00 AM, or click
+              “Sync Google Sheet now”.
+            </p>
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+              {logs.map((l) => {
+                const running = l.ok === null && !l.finished_at;
+                return (
+                  <li key={l.id} className="flex items-start gap-3 px-5 py-3.5 text-sm">
+                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                      running ? "bg-amber-400" : l.ok ? "bg-emerald-500" : "bg-rose-500"}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-slate-800 dark:text-slate-200">
+                        {fmtStampIST(l.started_at)}
+                        <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-slate-500 dark:bg-slate-700 dark:text-slate-300">
+                          {l.trigger === "cron" ? "Nightly" : l.trigger === "auto" ? "Auto" : "Manual"}
+                        </span>
+                      </p>
+                      <p className={`mt-0.5 text-xs ${l.ok === false ? "text-rose-600" : "text-slate-500"}`}>
+                        {running
+                          ? "Running…"
+                          : l.ok
+                            ? `${l.tabs} tabs · ${Number(l.rows_written || 0).toLocaleString("en-IN")} rows written`
+                            : l.error || "Failed"}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </Card>
       </FadeIn>
 

@@ -10,6 +10,8 @@ import {
   Download, CalendarCheck, Plane, Scale, ListChecks, ClipboardList,
   MapPin, Users, LifeBuoy, Wallet, AlertTriangle, Check, Loader2,
 } from "lucide-react";
+import { todayYMD, addDaysYMD, monthRangeYMD, fmtStampIST } from "@/lib/date";
+import { fetchAll } from "@/lib/supabase/fetch-all";
 
 type ModuleKey =
   | "attendance" | "leaves" | "leave_balances" | "checklist" | "delegation"
@@ -35,22 +37,15 @@ const MODULES: ModuleDef[] = [
   { key: "salary",         label: "Salary master",   desc: "Salary structure per employee",         icon: Wallet,        dated: false },
 ];
 
-const fmt = (ts: string | null) =>
-  ts ? new Date(ts).toLocaleString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit", hour12: true,
-  }) : "";
+const fmt = (ts: string | null | undefined) => fmtStampIST(ts);
 
 export default function ExportPage() {
   const supabase = createClient();
   const [me, setMe] = useState<Profile | null>(null);
   const [ready, setReady] = useState(false);
 
-  const firstOfMonth = new Date();
-  firstOfMonth.setDate(1);
-
-  const [from, setFrom] = useState(firstOfMonth.toISOString().slice(0, 10));
-  const [to, setTo] = useState(new Date().toISOString().slice(0, 10));
+  const [from, setFrom] = useState(monthRangeYMD(0).from);
+  const [to, setTo] = useState(todayYMD());
   const [picked, setPicked] = useState<ModuleKey[]>(["attendance"]);
   const [busy, setBusy] = useState<ModuleKey | "all" | null>(null);
   const [done, setDone] = useState<ModuleKey[]>([]);
@@ -71,19 +66,15 @@ export default function ExportPage() {
     setPicked((p) => (p.includes(k) ? p.filter((x) => x !== k) : [...p, k]));
 
   const preset = (days: number) => {
-    const t = new Date();
-    const f = new Date();
-    f.setDate(t.getDate() - days);
-    setFrom(f.toISOString().slice(0, 10));
-    setTo(t.toISOString().slice(0, 10));
+    const t = todayYMD();
+    setFrom(addDaysYMD(t, -days));
+    setTo(t);
   };
 
   const presetMonth = (offset: number) => {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-    const end = new Date(now.getFullYear(), now.getMonth() + offset + 1, 0);
-    setFrom(start.toISOString().slice(0, 10));
-    setTo(end.toISOString().slice(0, 10));
+    const r = monthRangeYMD(offset);
+    setFrom(r.from);
+    setTo(r.to);
   };
 
   const suffix = `${from}_to_${to}`;
@@ -92,11 +83,12 @@ export default function ExportPage() {
   const runOne = async (key: ModuleKey): Promise<boolean> => {
     try {
       if (key === "attendance") {
-        const { data } = await supabase
+        const data = await fetchAll((pgFrom, pgTo) => supabase
           .from("attendance")
           .select("*, profiles:employee_id(full_name, employee_code, department, designation)")
           .gte("work_date", from).lte("work_date", to)
-          .order("work_date");
+          .order("work_date")
+          .order("id").range(pgFrom, pgTo));
 
         exportCsv(`Attendance_${suffix}`,
           ["Date", "Employee", "Code", "Department", "Designation", "Status",
@@ -104,20 +96,21 @@ export default function ExportPage() {
           (data || []).map((r: any) => [
             r.work_date, r.profiles?.full_name || "", r.profiles?.employee_code || "",
             r.profiles?.department || "", r.profiles?.designation || "",
-            r.status || "", fmt(r.check_in_at), fmt(r.check_out_at),
+            r.status || "", fmt(r.check_in ?? r.check_in_at), fmt(r.check_out ?? r.check_out_at),
             r.is_late ? "Yes" : "No",
-            r.out_of_office === null || r.out_of_office === undefined ? "" : r.out_of_office ? "No" : "Yes",
-            r.distance_m ?? "", r.check_in_address || "",
+            (r.check_in_outside ?? r.out_of_office) == null ? "" : (r.check_in_outside ?? r.out_of_office) ? "No" : "Yes",
+            r.check_in_distance_m ?? r.distance_m ?? "", r.check_in_address || "",
           ]));
         return true;
       }
 
       if (key === "leaves") {
-        const { data } = await supabase
+        const data = await fetchAll((pgFrom, pgTo) => supabase
           .from("leaves")
           .select("*, profiles:employee_id(full_name, employee_code, department), leave_types:leave_type_id(code, name), decider:decided_by(full_name)")
           .gte("from_date", from).lte("from_date", to)
-          .order("from_date");
+          .order("from_date")
+          .order("id").range(pgFrom, pgTo));
 
         exportCsv(`Leave_requests_${suffix}`,
           ["From", "To", "Employee", "Code", "Department", "Type", "Duration",
@@ -147,18 +140,19 @@ export default function ExportPage() {
           }
         }
 
-        exportCsv(`Leave_balances_${new Date().toISOString().slice(0, 10)}`,
+        exportCsv(`Leave_balances_${todayYMD()}`,
           ["Employee", "Code", "Department", "Leave type", "Quota", "Used", "Balance"],
           rows);
         return true;
       }
 
       if (key === "checklist") {
-        const { data } = await supabase
+        const data = await fetchAll((pgFrom, pgTo) => supabase
           .from("checklist_instances")
           .select("*, template:template_id(title, description, frequency, kra_id, priority), assignee:assigned_to(full_name, employee_code, department)")
           .gte("due_date", from).lte("due_date", to)
-          .order("due_date");
+          .order("due_date")
+          .order("id").range(pgFrom, pgTo));
 
         exportCsv(`Checklist_tasks_${suffix}`,
           ["Due date", "Due time", "KRA ID", "Title", "Description", "Frequency",
@@ -181,11 +175,12 @@ export default function ExportPage() {
       }
 
       if (key === "delegation") {
-        const { data } = await supabase
+        const data = await fetchAll((pgFrom, pgTo) => supabase
           .from("delegations")
           .select("*, assignee:assigned_to(full_name, employee_code, department), assigner:assigned_by(full_name)")
           .gte("due_date", from).lte("due_date", to)
-          .order("due_date");
+          .order("due_date")
+          .order("id").range(pgFrom, pgTo));
 
         exportCsv(`Delegation_tasks_${suffix}`,
           ["Due date", "Due time", "KRA ID", "Title", "Description", "Priority",
@@ -208,11 +203,12 @@ export default function ExportPage() {
       }
 
       if (key === "field_visits") {
-        const { data } = await supabase
+        const data = await fetchAll((pgFrom, pgTo) => supabase
           .from("field_visits")
           .select("*, profiles:employee_id(full_name, employee_code, department)")
           .gte("visit_date", from).lte("visit_date", to)
-          .order("visit_date");
+          .order("visit_date")
+          .order("id").range(pgFrom, pgTo));
 
         exportCsv(`Field_visits_${suffix}`,
           ["Date", "Employee", "Code", "Department", "Client / site", "Purpose",
@@ -220,32 +216,34 @@ export default function ExportPage() {
           (data || []).map((r: any) => [
             r.visit_date, r.profiles?.full_name || "", r.profiles?.employee_code || "",
             r.profiles?.department || "", r.client_name || "", r.purpose || "",
-            r.address || "", r.status || "", fmt(r.check_in_at), fmt(r.check_out_at),
+            r.address || "", r.status || "", fmt(r.check_in_at), fmt(r.check_out_at ?? r.completed_at),
           ]));
         return true;
       }
 
       if (key === "employees") {
-        const { data } = await supabase
-          .from("profiles").select("*").order("full_name");
+        const data = await fetchAll((pgFrom, pgTo) => supabase
+          .from("profiles").select("*").order("full_name")
+          .order("id").range(pgFrom, pgTo));
 
-        exportCsv(`Employees_${new Date().toISOString().slice(0, 10)}`,
+        exportCsv(`Employees_${todayYMD()}`,
           ["Name", "Code", "Email", "Mobile", "Role", "Department", "Designation",
            "Branch", "Status", "Date of joining"],
           (data || []).map((r: any) => [
             r.full_name || "", r.employee_code || "", r.email || "", r.phone || "",
             r.role || "", r.department || "", r.designation || "", r.branch || "",
-            r.status || "", r.date_of_joining || "",
+            r.status || "", r.joined_on ?? r.date_of_joining ?? "",
           ]));
         return true;
       }
 
       if (key === "tickets") {
-        const { data } = await supabase
+        const data = await fetchAll((pgFrom, pgTo) => supabase
           .from("tickets")
           .select("*, raiser:raised_by(full_name, department), assignee:assigned_to(full_name)")
           .gte("created_at", `${from}T00:00:00`).lte("created_at", `${to}T23:59:59`)
-          .order("created_at");
+          .order("created_at")
+          .order("id").range(pgFrom, pgTo));
 
         exportCsv(`Helpdesk_tickets_${suffix}`,
           ["Raised on", "Raised by", "Department", "Category", "Priority",
@@ -260,11 +258,12 @@ export default function ExportPage() {
       }
 
       if (key === "salary") {
-        const { data } = await supabase
+        const data = await fetchAll((pgFrom, pgTo) => supabase
           .from("salary_master")
-          .select("*, profiles:employee_id(full_name, employee_code, department, designation)");
+          .select("*, profiles:employee_id(full_name, employee_code, department, designation)")
+          .order("employee_id").range(pgFrom, pgTo));
 
-        exportCsv(`Salary_master_${new Date().toISOString().slice(0, 10)}`,
+        exportCsv(`Salary_master_${todayYMD()}`,
           ["Employee", "Code", "Department", "Designation", "Monthly salary",
            "Basic", "HRA", "Allowance", "PF", "Other deduction"],
           (data || []).map((r: any) => [

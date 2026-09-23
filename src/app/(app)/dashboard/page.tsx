@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { MapPin, Users, CalendarCheck, Plane } from "lucide-react";
 import { canManageTeam, isAdminRole, type Role } from "@/lib/types";
 import DashboardClient from "@/components/DashboardClient";
+import { todayYMD } from "@/lib/date";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function DashboardPage() {
   const admin = isAdminRole(profile?.role as Role);
   const manager = profile?.role === "manager";
   const teamView = canManageTeam(profile?.role as Role);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayYMD(); // server runs in UTC - always use IST
 
   let teamQuery = supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active");
   if (manager) teamQuery = teamQuery.eq("manager_id", user!.id);

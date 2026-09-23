@@ -71,6 +71,27 @@ jobs:
           echo "Installed Android packages:"
           "$SDKMANAGER" --list_installed | grep -E "platforms;android-35|build-tools;35.0.0|platform-tools" || true
 
+      - name: Load release signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          # Every APK must be signed with the SAME permanent key, otherwise
+          # employees cannot update the app ("App not installed").
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then
+            echo "::error::Release signing secrets are missing. Add ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD in GitHub → Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          KS="$RUNNER_TEMP/smhrms-release.jks"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$KS"
+          echo "SMHRMS_KEYSTORE_PATH=$KS" >> "$GITHUB_ENV"
+          echo "SMHRMS_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "SMHRMS_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "SMHRMS_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
+
       - name: Clean Android build
         working-directory: android-app
         run: |
@@ -79,12 +100,12 @@ jobs:
       - name: Build fresh APK
         working-directory: android-app
         run: |
-          gradle assembleDebug --stacktrace
+          gradle assembleRelease --stacktrace
 
       - name: Verify APK exists
         shell: bash
         run: |
-          APK="android-app/app/build/outputs/apk/debug/app-debug.apk"
+          APK="android-app/app/build/outputs/apk/release/app-release.apk"
 
           if [ ! -f "$APK" ]; then
             echo "APK was not generated."
@@ -105,7 +126,7 @@ jobs:
       - name: Verify modern Android target
         shell: bash
         run: |
-          APK="android-app/app/build/outputs/apk/debug/app-debug.apk"
+          APK="android-app/app/build/outputs/apk/release/app-release.apk"
 
           AAPT="$(find "$SDK_ROOT/build-tools" -type f -name aapt 2>/dev/null | sort -V | tail -n 1)"
 
@@ -126,11 +147,23 @@ jobs:
 
           echo "Verified targetSdkVersion 35."
 
+      - name: Show signing certificate (for assetlinks.json)
+        shell: bash
+        run: |
+          APK="android-app/app/build/outputs/apk/release/app-release.apk"
+          APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/certs.txt
+          if ! grep -q "Signer #1" /tmp/certs.txt; then
+            echo "::error::APK is not signed."
+            exit 1
+          fi
+          echo "Put the SHA-256 digest above (with colons) into public/.well-known/assetlinks.json"
+
       - name: Prepare direct-download APK
         shell: bash
         run: |
           mkdir -p public/downloads
-          cp android-app/app/build/outputs/apk/debug/app-debug.apk public/downloads/SM-HRMS.apk
+          cp android-app/app/build/outputs/apk/release/app-release.apk public/downloads/SM-HRMS.apk
           cp public/downloads/SM-HRMS.apk SM-HRMS.apk
 
           echo "Direct-download APK:"

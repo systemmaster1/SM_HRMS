@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { CalendarDays, Plus, Trash2 } from "lucide-react";
+import { todayYMD } from "@/lib/date";
 
 export default function HolidaysPage() {
   const supabase = createClient();
@@ -56,7 +57,7 @@ export default function HolidaysPage() {
   };
 
   const admin = isAdminRole(me?.role);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayYMD();
   const upcoming = rows.filter((r) => r.holiday_date >= today);
   const past = rows.filter((r) => r.holiday_date < today);
 

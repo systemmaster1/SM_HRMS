@@ -1,15 +1,19 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export const dynamic = "force-dynamic";
+
 /**
- * Runs auto-attendance for every employee marked "auto_attendance" in
- * Team -> Attendance settings. Triggered by Vercel Cron every 15 minutes
- * (see vercel.json). Protected by CRON_SECRET so it can't be called by
- * anyone else.
+ * Runs auto-attendance for every employee marked "auto_attendance".
+ *
+ * NOTE: Vercel's Hobby plan allows cron jobs only once a day, so this is NOT
+ * listed in vercel.json. It is scheduled every 15 minutes inside Supabase
+ * with pg_cron instead (see supabase/migrations/20260923_phase1_optional_pg_cron.sql).
+ * The route is kept so it can still be triggered manually or from Vercel Pro.
  */
 export async function GET(req: Request) {
-  const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

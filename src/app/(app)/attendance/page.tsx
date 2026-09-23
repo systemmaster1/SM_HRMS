@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, EmptyState, Modal, inputCls } from "@/components/ui";
 import { FadeIn, StaggerGroup, StaggerItem, MotionButton, SkeletonRows, motion } from "@/components/motion";
 import CameraCapture from "@/components/CameraCapture";
+import { PrivateImage } from "@/components/PrivateFile";
 import { exportCsv, printReport } from "@/lib/export";
 import {
   getPositionStrict, reverseGeocode, getPublicIp,
@@ -173,7 +174,9 @@ export default function AttendancePage() {
         setSubmitting(false);
         return setError(`Photo upload failed: ${upErr.message}`);
       }
-      photoUrl = supabase.storage.from("attendance-photos").getPublicUrl(path).data.publicUrl;
+      // Private bucket: store only the path. The photo is shown through a
+      // short-lived signed URL to the employee, admins and their manager.
+      photoUrl = path;
     }
 
     const { error: rpcErr } = await supabase.rpc(mode === "in" ? "check_in" : "check_out", {
@@ -315,8 +318,7 @@ export default function AttendancePage() {
 
           <div className="flex items-center gap-3">
             {today?.check_in_photo && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={today.check_in_photo} alt="Check-in"
+              <PrivateImage bucket="attendance-photos" value={today.check_in_photo} alt="Check-in"
                 className="h-14 w-14 rounded-lg border border-slate-200 object-cover" />
             )}
             {!checkedIn && (
@@ -442,8 +444,10 @@ export default function AttendancePage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {r.check_in_photo && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={r.check_in_photo} alt="" className="h-7 w-7 rounded object-cover" />
+                            <span onClick={(e) => e.stopPropagation()}>
+                              <PrivateImage bucket="attendance-photos" value={r.check_in_photo}
+                                className="h-7 w-7 rounded object-cover" />
+                            </span>
                           )}
                           <span className="tabular-nums text-slate-600">{fmtTime(r.check_in)}</span>
                           {r.is_late && <span className="text-[10px] font-semibold text-amber-600">LATE</span>}
@@ -653,9 +657,13 @@ function Leg({
 
       <div className="mt-3 flex gap-3">
         {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={photo} alt=""
-            className="h-24 w-24 shrink-0 rounded-lg border border-slate-200 object-cover" />
+          <PrivateImage bucket="attendance-photos" value={photo}
+            className="h-24 w-24 shrink-0 rounded-lg border border-slate-200 object-cover"
+            fallback={
+              <div className="grid h-24 w-24 shrink-0 place-items-center rounded-lg bg-slate-50 text-center text-[10px] text-slate-400">
+                Photo unavailable
+              </div>
+            } />
         ) : (
           <div className="grid h-24 w-24 shrink-0 place-items-center rounded-lg bg-slate-50 text-[10px] text-slate-300">
             No photo

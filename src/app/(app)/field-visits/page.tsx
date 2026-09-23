@@ -11,6 +11,7 @@ import {
   Eye, LocateFixed, MapPin, Navigation, Plus, Route, Settings2, ShieldAlert,
   Users, UserCheck, XCircle, LogIn, LogOut, Download, BarChart3, RefreshCw, Wifi, WifiOff,
 } from "lucide-react";
+import { todayYMD } from "@/lib/date";
 
 const activeStatuses = ["accepted", "on_the_way", "reached", "checked_in", "meeting"];
 const travellingStatuses = ["accepted", "on_the_way", "reached"];
@@ -89,7 +90,7 @@ export default function FieldVisitsPage() {
   const [f, setF] = useState({
     client_name: "", company_name: "", contact_person: "", contact_number: "", contact_email: "",
     purpose: "", address: "",
-    visit_date: new Date().toISOString().slice(0, 10),
+    visit_date: todayYMD(),
     scheduled_at: "", target_duration_minutes: "60",
     employee_id: "",
   });
@@ -208,7 +209,7 @@ export default function FieldVisitsPage() {
     setSaving(false);
     if (insertError) return setError(insertError.message);
     setOpen(false);
-    setF({ client_name: "", company_name: "", contact_person: "", contact_number: "", contact_email: "", purpose: "", address: "", visit_date: new Date().toISOString().slice(0, 10), scheduled_at: "", target_duration_minutes: "60", employee_id: "" });
+    setF({ client_name: "", company_name: "", contact_person: "", contact_number: "", contact_email: "", purpose: "", address: "", visit_date: todayYMD(), scheduled_at: "", target_duration_minutes: "60", employee_id: "" });
     setCustomValues({});
     load(true);
   };
@@ -245,7 +246,7 @@ export default function FieldVisitsPage() {
 
   const manager = canManageTeam(me?.role) || ["team","company"].includes(me?.access_permissions?.live_tracking || "none") || ["team","company"].includes(me?.access_permissions?.field_visits || "none");
   const admin = isAdminRole(me?.role);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayYMD();
   const trackedMembers = members.filter((m) => m.field_tracking_enabled);
   const totalDistanceToday = trackedMembers.reduce((sum, m) => sum + (distanceToday[m.id] || 0), 0);
 

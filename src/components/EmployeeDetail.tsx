@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Modal, inputCls, Badge } from "@/components/ui";
 import { MotionButton } from "@/components/motion";
+import { PrivateLink } from "@/components/PrivateFile";
 import {
   User, CreditCard, FileText, Upload, Trash2, Download,
   ShieldOff, ShieldCheck, UserMinus, UserCheck, AlertTriangle,
@@ -87,7 +88,8 @@ export default function EmployeeDetail({
     const { error: upErr } = await supabase.storage.from("employee-docs").upload(path, file);
     if (upErr) { setUploading(false); return setError(upErr.message); }
 
-    const url = supabase.storage.from("employee-docs").getPublicUrl(path).data.publicUrl;
+    // Private bucket: keep only the path; files open through a signed URL.
+    const url = path;
     const { error: dbErr } = await supabase.from("employee_documents").insert({
       company_id: employee.company_id,
       employee_id: employee.id,
@@ -290,10 +292,10 @@ export default function EmployeeDetail({
                         {CATEGORIES.find((c) => c.v === d.category)?.l} · {d.file_name}
                       </p>
                     </div>
-                    <a href={d.file_url} target="_blank" rel="noreferrer"
+                    <PrivateLink bucket="employee-docs" value={d.file_url}
                       className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 dark:border-slate-600 text-slate-500 transition hover:border-brand-600 hover:text-brand-700">
                       <Download className="h-4 w-4" />
-                    </a>
+                    </PrivateLink>
                     <button onClick={() => removeDoc(d.id)}
                       className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 transition hover:border-rose-300 hover:text-rose-600">
                       <Trash2 className="h-4 w-4" />

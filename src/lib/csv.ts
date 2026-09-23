@@ -1,3 +1,5 @@
+import { ymd, todayYMD, addDaysYMD } from "@/lib/date";
+
 /* ------------------------------------------------------------------ *
  *  CSV helpers for bulk task import                                    *
  * ------------------------------------------------------------------ */
@@ -105,9 +107,7 @@ export function sampleCsv(kind: "checklist" | "delegation", assignees: string[] 
     assignees[i % Math.max(assignees.length, 1)] || "employee@yourcompany.com";
 
   const d = (daysAhead: number) => {
-    const x = new Date();
-    x.setDate(x.getDate() + daysAhead);
-    return x.toISOString().slice(0, 10);
+    return addDaysYMD(todayYMD(), daysAhead);
   };
 
   if (kind === "checklist") {
@@ -143,7 +143,7 @@ export function normDate(v: string): string {
   }
 
   const parsed = new Date(s);
-  if (!isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
+  if (!isNaN(parsed.getTime())) return ymd(parsed);
   return "";
 }
 

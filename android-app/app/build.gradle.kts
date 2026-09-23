@@ -11,15 +11,31 @@ android {
         applicationId = "in.systemmaster.hrms"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 4
+        versionName = "1.3.0"
         buildConfigField("String", "WEB_APP_URL", "\"https://hrms.systemmaster.in\"")
     }
 
     buildFeatures { buildConfig = true }
 
+    // One permanent release key. Every APK must be signed with the SAME key,
+    // otherwise Android refuses to update the installed app ("App not installed").
+    // The key comes from GitHub Secrets (see .github/workflows/android-apk.yml).
+    signingConfigs {
+        create("release") {
+            val ks = System.getenv("SMHRMS_KEYSTORE_PATH")
+            if (!ks.isNullOrBlank()) {
+                storeFile = file(ks)
+                storePassword = System.getenv("SMHRMS_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("SMHRMS_KEY_ALIAS")
+                keyPassword = System.getenv("SMHRMS_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }

@@ -30,11 +30,15 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const publicRoutes = ["/login", "/signup", "/forgot-password", "/privacy", "/terms", "/"];
+  const publicRoutes = [
+    "/login", "/signup", "/forgot-password", "/privacy", "/terms", "/",
+    "/download/android",
+  ];
   const isAuthRoute = path === "/login" || path === "/signup";
   const isPublic =
     publicRoutes.includes(path) ||
     path.startsWith("/api/auth") ||
+    path.startsWith("/api/cron") ||
     path.startsWith("/auth");
 
   // Not logged in and trying to reach a protected page -> login

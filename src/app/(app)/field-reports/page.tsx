@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
 import { canManageTeam, type Profile } from "@/lib/types";
 import { ArrowLeft, Download, FileText, Printer, RefreshCw, ShieldCheck, Radio, AlertTriangle } from "lucide-react";
+import { todayYMD, addDaysYMD } from "@/lib/date";
 
 type VisitRow = { id:string; employee_id:string; client_name:string; visit_date:string; scheduled_at:string|null; travel_started_at:string|null; check_in_at:string|null; completed_at:string|null; status:string; outcome:string|null; profiles?:{full_name?:string|null;designation?:string|null}|null };
 type Compliance = { employee_id:string; full_name:string; designation:string; tracking_mode:string; duty_minutes:number; gps_points:number; expected_points:number; interruptions:number; gps_blocked:number; stale_events:number; restored_events:number; compliance_percent:number; last_interruption:string|null; last_restored:string|null };
@@ -16,8 +17,8 @@ function fmtTs(v?:string|null){ return v ? new Date(v).toLocaleString("en-IN",{t
 
 export default function FieldReportsPage(){
   const supabase=createClient();
-  const today=new Date().toISOString().slice(0,10); const first=new Date(); first.setDate(first.getDate()-30);
-  const [from,setFrom]=useState(first.toISOString().slice(0,10)); const [to,setTo]=useState(today);
+  const today=todayYMD();
+  const [from,setFrom]=useState(addDaysYMD(today,-30)); const [to,setTo]=useState(today);
   const [me,setMe]=useState<Profile|null>(null); const [rows,setRows]=useState<VisitRow[]>([]); const [compliance,setCompliance]=useState<Compliance[]>([]); const [loading,setLoading]=useState(true);
 
   const load=useCallback(async()=>{ setLoading(true); const {data:auth}=await supabase.auth.getUser(); if(!auth.user)return;
