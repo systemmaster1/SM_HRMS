@@ -168,7 +168,7 @@ export default function SettingsForm({
     router.refresh();
   };
 
-  const monthly = activeUsers * (company?.price_per_user ?? 19);
+  const monthly = activeUsers * (company?.price_per_user ?? 29);
 
   return (
     <div>
