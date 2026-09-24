@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Users, CalendarCheck, Plane, ArrowUpRight, Activity, WifiOff, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { MapPin, Users, CalendarCheck, CalendarPlus, Plane, ArrowUpRight, Activity, WifiOff, AlertTriangle, CheckCircle2 } from "lucide-react";
 import TodayUpdates from "@/components/TodayUpdates";
 import { FadeIn, StaggerGroup, StaggerItem, HoverLift } from "@/components/motion";
 import { useEntitlements } from "@/lib/features/client";
@@ -40,7 +40,7 @@ export default function DashboardClient({
 
   const quickActions = [
     { href: "/attendance", label: "Mark attendance", icon: CalendarCheck },
-    { href: "/leave", label: "Apply for leave", icon: Plane },
+    { href: "/leave", label: "Apply for leave", icon: CalendarPlus },
     { href: "/field-visits", label: "Log a visit", icon: MapPin },
     { href: "/helpdesk", label: "Raise a ticket", icon: Users },
   ].filter((a) => moduleOn(a.href));
@@ -119,7 +119,7 @@ export default function DashboardClient({
         ))}
       </StaggerGroup>
 
-      {visitsOn && <FadeIn delay={0.15}>
+      {admin && visitsOn && <FadeIn delay={0.15}>
         <div className="mt-7">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Today&apos;s field visits</h2>
