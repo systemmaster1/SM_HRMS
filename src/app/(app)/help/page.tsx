@@ -112,6 +112,14 @@ export default function HelpPage() {
           subtitle="A quick walkthrough for everyone on SM HRMS."
           action={
             <a href="/SM_HRMS_User_Guide.pdf" download
+              onClick={(e) => {
+                // Keep the in-app guide useful even if an older deployment has
+                // not published the PDF asset yet.
+                if (!navigator.onLine) {
+                  e.preventDefault();
+                  window.print();
+                }
+              }}
               className="flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800">
               <Download className="h-4 w-4" /> Download PDF guide
             </a>
