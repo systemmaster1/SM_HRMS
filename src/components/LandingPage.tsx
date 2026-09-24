@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import AndroidDownloadCard from "@/components/AndroidDownloadCard";
 
+const LOGIN_URL = "https://hrms.systemmaster.in/login";
+
 const employeeFeatures = [
   { icon: CalendarCheck, title: "GPS + selfie attendance", desc: "Check in with a live photo and location — no buddy punching, no disputes." },
   { icon: Plane, title: "Apply for leave in seconds", desc: "Casual, sick, earned, short leave, work-from-home — balance updates instantly." },
@@ -135,9 +137,9 @@ export default function LandingPage() {
             <a href="#pricing" className="transition hover:text-brand-600 dark:hover:text-brand-300">Pricing</a>
           </nav>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="hidden text-sm font-medium text-slate-600 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-300 sm:block">
+            <a href={LOGIN_URL} className="hidden text-sm font-medium text-slate-600 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-300 sm:block">
               Sign in
-            </Link>
+            </a>
             <Link href="/signup"
               className="rounded-lg bg-accent-gradient px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90">
               Start free trial
@@ -304,10 +306,10 @@ export default function LandingPage() {
                 className="flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-brand-700 shadow-sm transition hover:bg-slate-100">
                 <Globe className="h-4 w-4" /> Open web app
               </Link>
-              <Link href="/login"
+              <a href={LOGIN_URL}
                 className="flex items-center gap-2 rounded-lg border border-white/25 px-6 py-3 font-medium text-white transition hover:bg-white/10">
                 Sign in <ArrowRight className="h-4 w-4" />
-              </Link>
+              </a>
             </div>
             <p className="mt-3 text-xs text-white/50">Android app ready · Google Play release in progress.</p>
           </FadeIn>
@@ -418,47 +420,53 @@ export default function LandingPage() {
       </section>
 
       {/* Pricing */}
-      <section id="pricing" className="mx-auto max-w-3xl px-5 py-20 text-center">
+      <section id="pricing" className="mx-auto max-w-6xl px-5 py-20 text-center">
         <FadeIn>
           <p className="text-sm font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-300">Pricing</p>
-          <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            Flexible plans for every team
-          </h2>
-          <p className="mt-3 text-slate-500 dark:text-slate-400">
-            Start with HR essentials and upgrade when your organization needs more automation, field operations or advanced controls.
+          <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Choose the plan that fits your team</h2>
+          <p className="mx-auto mt-3 max-w-2xl text-slate-500 dark:text-slate-400">
+            Transparent per-user pricing. Start with core HR and add field operations, automation and enterprise controls as you grow.
           </p>
-
         </FadeIn>
+        <div className="mt-10 grid gap-5 text-left md:grid-cols-2 xl:grid-cols-4">
+          {[
+            {name:"Starter",price:"₹29",tag:"HR essentials",features:["Attendance + GPS/selfie","Leave & employee self-service","Directory & documents","App + Web","Notifications"]},
+            {name:"Business",price:"₹79",tag:"Growing teams",features:["Everything in Starter","Tasks + subtasks + comments","Recurring checklists","Payroll & payslips","Reports + CSV export"],popular:true},
+            {name:"Pro",price:"₹99",tag:"Field & sales teams",features:["Everything in Business","Live field tracking","Client visit workflow","Manager team visibility","Google Sheets backup"]},
+            {name:"Enterprise",price:"From ₹149",tag:"Advanced control",features:["Everything in Pro","Multi-branch controls","Advanced role permissions","Priority onboarding/support","Custom integrations & workflows"]},
+          ].map((p) => (
+            <div key={p.name} className={`relative rounded-2xl border bg-white p-6 shadow-card dark:bg-slate-800 ${p.popular ? "border-2 border-brand-600" : "border-slate-200 dark:border-slate-700"}`}>
+              {p.popular && <span className="absolute -top-3 left-5 rounded-full bg-brand-600 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Popular</span>}
+              <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{p.name}</p>
+              <p className="mt-1 text-xs text-slate-500">{p.tag}</p>
+              <p className="mt-5"><span className="text-4xl font-bold">{p.price}</span><span className="text-xs text-slate-400"> / user / month</span></p>
+              <ul className="mt-5 space-y-2.5 text-sm text-slate-600 dark:text-slate-300">
+                {p.features.map(f => <li key={f} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"/>{f}</li>)}
+              </ul>
+              <Link href="/signup" className="mt-6 flex w-full items-center justify-center rounded-lg bg-accent-gradient py-2.5 text-sm font-semibold text-white">Start 7-day trial</Link>
+            </div>
+          ))}
+        </div>
+        <p className="mt-5 text-xs text-slate-400">Taxes, onboarding scope and custom integrations may vary by organization. Final commercial terms are confirmed before activation.</p>
+      </section>
 
-        <FadeIn delay={0.05}>
-          <div className="mx-auto mt-8 max-w-sm rounded-2xl border-2 border-brand-600 bg-white p-8 shadow-card-hover dark:bg-slate-800">
-            <p className="text-xs font-semibold uppercase tracking-wide text-accent-500">Launch offer</p>
-            <p className="mt-3 flex items-end justify-center gap-1">
-              <span className="text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100">₹29</span>
-              <span className="pb-1.5 text-sm text-slate-400">/ user / month</span>
-            </p>
-            <ul className="mt-6 space-y-2.5 text-left text-sm text-slate-600 dark:text-slate-300">
-              {[
-                "Attendance, leave & employee self-service",
-                "GPS geofencing & selfie check-in",
-                "Team & organization management",
-                "On-time performance scoring",
-                "Employee directory & documents",
-                "Notifications & reminders",
-                "App + Web · Upgrade anytime",
-              ].map((f) => (
-                <li key={f} className="flex items-center gap-2.5">
-                  <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" /> {f}
-                </li>
-              ))}
-            </ul>
-            <Link href="/signup"
-              className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg bg-accent-gradient py-3 font-semibold text-white shadow-sm transition hover:opacity-90">
-              Start your 7-day trial <ArrowRight className="h-4 w-4" />
-            </Link>
-            <p className="mt-3 text-xs text-slate-400">Starter ₹29/user/month · Business ₹79 · Pro ₹99 · Enterprise from ₹149/custom</p>
+      {/* Roadmap */}
+      <section className="border-y border-slate-100 bg-slate-50 py-16 dark:border-slate-800 dark:bg-slate-900/40">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="text-center">
+            <p className="text-sm font-semibold uppercase tracking-wide text-brand-600">Product roadmap</p>
+            <h2 className="mt-2 text-3xl font-bold">Built for the next stage of HR operations</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-slate-500">These are roadmap items, not promises in the current plan. We will release them after validation and testing.</p>
           </div>
-        </FadeIn>
+          <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              ["AI attendance & HR insights","Exception summaries, trends and manager-ready insights."],
+              ["Smart shift & roster planning","Better shift scheduling for multi-branch and field teams."],
+              ["Expense & travel claims","Employee claims, approvals and supporting documents."],
+              ["Recruitment & onboarding","Candidate pipeline, joining checklist and employee onboarding."],
+            ].map(([t,d]) => <div key={t} className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-700 dark:bg-slate-800"><p className="font-semibold">{t}</p><p className="mt-2 text-sm leading-6 text-slate-500">{d}</p></div>)}
+          </div>
+        </div>
       </section>
 
       {/* Get in touch */}
@@ -497,7 +505,7 @@ export default function LandingPage() {
             <span>© {new Date().getFullYear()} SystemMaster Automations · SM HRMS</span>
           </div>
           <div className="flex items-center gap-6">
-            <Link href="/login" className="hover:text-slate-600 dark:hover:text-slate-200">Sign in</Link>
+            <a href={LOGIN_URL} className="hover:text-slate-600 dark:hover:text-slate-200">Sign in</a>
             <Link href="/signup" className="hover:text-slate-600 dark:hover:text-slate-200">Create account</Link>
             <Link href="/privacy" className="hover:text-slate-600 dark:hover:text-slate-200">Privacy</Link>
             <a href="https://www.systemmaster.in" target="_blank" rel="noreferrer" className="hover:text-slate-600 dark:hover:text-slate-200">
