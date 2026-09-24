@@ -108,14 +108,19 @@ jobs:
           fi
           echo "google-services.json written."
 
-      - name: Configure Android launcher icon
+      - name: Configure official SM HRMS launcher icon
         shell: bash
         run: |
-          # Keep the repository's tested native launcher resource for this release.
-          # Branding assets can be converted to Android raster resources separately
-          # without blocking the signed APK/AAB release.
-          sed -i 's|@mipmap/ic_launcher|@drawable/ic_launcher|g' android-app/app/src/main/AndroidManifest.xml
-          echo "Using repository Android launcher resource."
+          # Decode the official user-supplied SM HRMS emblem. The image is stored
+          # losslessly as base64 so GitHub text tooling never redraws/recolors it.
+          base64 --decode android-app/branding/sm-hrms-launcher.png.b64 > android-app/app/src/main/res/drawable/sm_hrms_launcher.png
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path("android-app/app/src/main/res/drawable/sm_hrms_launcher.png")
+          if p.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+              raise SystemExit("Official SM HRMS launcher PNG is invalid")
+          print("Official SM HRMS launcher branding ready:", p.stat().st_size, "bytes")
+          PY
 
       - name: Clean Android build
         working-directory: android-app
