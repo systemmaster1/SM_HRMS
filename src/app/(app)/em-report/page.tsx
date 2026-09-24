@@ -241,153 +241,118 @@ export default function EMReportPage() {
         </div>
       </Card>
 
-      {/* The matrix */}
+      {/* Scorecard — cards on phones, matrix on larger screens */}
       <FadeIn delay={0.03}>
-        <div className="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
-          <table className="w-full border-separate border-spacing-2">
-            <thead>
-              <tr>
-                <th className="w-44" />
-                {METRICS.map((m) => (
-                  <th key={m.key} className="min-w-[150px]">
-                    <div className="rounded-lg bg-gradient-to-br from-brand-800 to-brand-600 px-3 py-3 text-center">
-                      <p className="text-[11px] font-bold leading-tight text-white">
-                        {m.l1}
-                      </p>
-                      <p className="text-[11px] font-bold leading-tight text-white">
-                        {m.l2}
-                      </p>
+        <Card>
+          <div className="p-4 sm:p-5">
+            <div className="mb-4">
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Weekly performance</h2>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
+                Planned limit, actual result and task count for each task category.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:hidden">
+              {METRICS.map((m) => {
+                const row = rowFor(m.key);
+                const has = Number(row?.no_of_task || 0) > 0;
+                const actualPct = Number(row?.actual_pct || 0);
+                return (
+                  <div key={m.key} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{m.l1}</p>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          {m.l2 === "% WORK NOT DONE OT" ? "Work not done on time" : "Work not done"}
+                        </p>
+                      </div>
+                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${!has ? "bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300" : actualPct <= Math.abs(Number(row?.planned || 0)) ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400" : "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400"}`}>
+                        {has ? `${actualPct.toFixed(1)}%` : "No tasks"}
+                      </span>
                     </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
 
-            <tbody>
-              {/* This Week Planned */}
-              <tr>
-                <td>
-                  <div className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-3">
-                    <p className="text-sm font-semibold text-white">This Week Planned</p>
-                  </div>
-                </td>
-                {METRICS.map((m) => {
-                  const r = rowFor(m.key);
-                  return (
-                    <td key={m.key}>
-                      <div className="rounded-lg border border-slate-200 dark:border-slate-600 py-3 text-center">
-                        <span className="font-bold text-slate-900 dark:text-slate-100">
-                          {r?.planned ?? 0}
-                        </span>
+                    <div className="mt-4 grid grid-cols-3 gap-2">
+                      <div className="rounded-xl bg-slate-50 p-3 text-center dark:bg-slate-900/40">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Plan</p>
+                        <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">{row?.planned ?? 0}%</p>
                       </div>
-                    </td>
-                  );
-                })}
-              </tr>
-
-              {/* Actual Score */}
-              <tr>
-                <td>
-                  <div className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-3">
-                    <p className="text-sm font-semibold text-white">Actual Score</p>
-                  </div>
-                </td>
-                {METRICS.map((m) => {
-                  const r = rowFor(m.key);
-                  const has = (r?.no_of_task ?? 0) > 0;
-                  const score = Number(r?.actual_score ?? 0);
-                  const target = Number(r?.planned ?? 0);
-                  const ok = Number(r?.actual_pct ?? 0) <= Math.abs(target);
-                  return (
-                    <td key={m.key}>
-                      <div className="rounded-lg border border-slate-200 dark:border-slate-600 py-3 text-center">
-                        {!has ? (
-                          <span className="font-bold text-slate-400">–</span>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center gap-1 font-bold ${
-                              ok ? "text-emerald-600" : "text-rose-600"
-                            }`}
-                          >
-                            {ok ? (
-                              <TrendingUp className="h-3.5 w-3.5" />
-                            ) : (
-                              <TrendingDown className="h-3.5 w-3.5" />
-                            )}
-                            {score}
-                          </span>
-                        )}
+                      <div className="rounded-xl bg-slate-50 p-3 text-center dark:bg-slate-900/40">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Actual</p>
+                        <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">{has ? `${actualPct.toFixed(1)}%` : "—"}</p>
                       </div>
-                    </td>
-                  );
-                })}
-              </tr>
-
-              {/* No. Of Task */}
-              <tr>
-                <td>
-                  <div className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-3">
-                    <p className="text-sm font-semibold text-white">No. Of Task</p>
-                  </div>
-                </td>
-                {METRICS.map((m) => {
-                  const r = rowFor(m.key);
-                  return (
-                    <td key={m.key}>
-                      <div className="rounded-lg border border-slate-200 dark:border-slate-600 py-3 text-center">
-                        <span className="font-bold text-slate-900 dark:text-slate-100">
-                          {r?.no_of_task ?? 0}
-                        </span>
-                        {(r?.affected ?? 0) > 0 && (
-                          <span className="ml-1.5 text-xs font-medium text-rose-500">
-                            ({r?.affected} affected)
-                          </span>
-                        )}
+                      <div className="rounded-xl bg-slate-50 p-3 text-center dark:bg-slate-900/40">
+                        <p className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Tasks</p>
+                        <p className="mt-1 text-base font-semibold text-slate-900 dark:text-slate-100">{row?.no_of_task ?? 0}</p>
                       </div>
-                    </td>
-                  );
-                })}
-              </tr>
+                    </div>
 
-              {/* Next Week Planned */}
-              <tr>
-                <td>
-                  <div className="rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 px-4 py-3">
-                    <p className="text-sm font-semibold text-white">Next Week Planned</p>
-                  </div>
-                </td>
-                {METRICS.map((m) => (
-                  <td key={m.key}>
+                    <label className="mt-4 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                      Next week plan · max not-done %
+                    </label>
                     <input
                       type="number"
+                      min="0"
+                      max="100"
                       placeholder="10"
                       value={nextPlanned[m.key] ?? ""}
-                      onChange={(e) =>
-                        setNextPlanned((p) => ({ ...p, [m.key]: e.target.value }))
-                      }
-                      className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent py-3 text-center font-bold text-slate-900 dark:text-slate-100 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10"
+                      onChange={(e) => setNextPlanned((p) => ({ ...p, [m.key]: e.target.value }))}
+                      className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-900 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                     />
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
+                  </div>
+                );
+              })}
+            </div>
 
-          <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-slate-500">
-              Plan is the maximum acceptable not-done percentage. Example: <strong>10</strong> means
-              &ldquo;no more than 10% of my work should remain undone&rdquo;.
-            </p>
-            <button
-              onClick={saveTargets}
-              disabled={saving}
-              className="flex items-center gap-2 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-brand-800 disabled:opacity-60"
-            >
-              {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
-              {saving ? "Saving…" : saved ? "Saved" : "Save next week plan"}
-            </button>
+            <div className="hidden overflow-x-auto md:block">
+              <table className="w-full min-w-[760px] text-sm">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-700">
+                    <th className="px-3 py-3 text-left text-xs font-medium uppercase tracking-wide text-slate-400">Metric</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">This week plan</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Actual</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Tasks</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Affected</th>
+                    <th className="px-3 py-3 text-center text-xs font-medium uppercase tracking-wide text-slate-400">Next week plan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                  {METRICS.map((m) => {
+                    const row = rowFor(m.key);
+                    const has = Number(row?.no_of_task || 0) > 0;
+                    return (
+                      <tr key={m.key}>
+                        <td className="px-3 py-4">
+                          <p className="font-semibold text-slate-900 dark:text-slate-100">{m.l1}</p>
+                          <p className="text-xs text-slate-500">{m.l2 === "% WORK NOT DONE OT" ? "Work not done on time" : "Work not done"}</p>
+                        </td>
+                        <td className="px-3 py-4 text-center font-medium">{row?.planned ?? 0}%</td>
+                        <td className="px-3 py-4 text-center font-semibold">{has ? `${Number(row?.actual_pct || 0).toFixed(1)}%` : "—"}</td>
+                        <td className="px-3 py-4 text-center">{row?.no_of_task ?? 0}</td>
+                        <td className="px-3 py-4 text-center">{row?.affected ?? 0}</td>
+                        <td className="px-3 py-4">
+                          <input type="number" min="0" max="100" placeholder="10" value={nextPlanned[m.key] ?? ""}
+                            onChange={(e) => setNextPlanned((p) => ({ ...p, [m.key]: e.target.value }))}
+                            className="mx-auto block w-28 rounded-lg border border-slate-300 bg-transparent px-3 py-2 text-center font-semibold outline-none focus:border-brand-600 dark:border-slate-600" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 border-t border-slate-100 pt-4 dark:border-slate-700">
+              <p className="mb-3 text-xs leading-relaxed text-slate-500">
+                Plan is the maximum acceptable not-done percentage. Example: <strong>10</strong> means no more than 10% of work should remain undone.
+              </p>
+              <button onClick={saveTargets} disabled={saving}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-brand-800 disabled:opacity-60 sm:ml-auto sm:w-auto">
+                {saved ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+                {saving ? "Saving…" : saved ? "Saved" : "Save next week plan"}
+              </button>
+            </div>
           </div>
-        </div>
+        </Card>
       </FadeIn>
 
       {/* Admin: everyone at a glance */}
