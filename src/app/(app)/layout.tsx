@@ -4,6 +4,7 @@ import Shell from "@/components/Shell";
 import AccountLocked from "@/components/AccountLocked";
 import type { Profile, Company } from "@/lib/types";
 import ActiveVisitTracker from "@/components/ActiveVisitTracker";
+import PushRegistrar from "@/components/PushRegistrar";
 import ContextBackButton from "@/components/ContextBackButton";
 
 export default async function AppLayout({
@@ -78,6 +79,7 @@ export default async function AppLayout({
     <Shell profile={profile as Profile} company={company as Company | null}>
       <><ContextBackButton />{children}</>
       <ActiveVisitTracker />
+      <PushRegistrar />
     </Shell>
   );
 }

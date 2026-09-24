@@ -92,6 +92,22 @@ jobs:
           echo "SMHRMS_KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
           echo "SMHRMS_KEY_PASSWORD=${KEY_PASSWORD:-$KEYSTORE_PASSWORD}" >> "$GITHUB_ENV"
 
+      - name: Load Firebase config (push notifications)
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "::error::GOOGLE_SERVICES_JSON secret is missing. Firebase Console → Project settings → Your apps → Android (in.systemmaster.hrms) → download google-services.json, then paste its whole content as the GOOGLE_SERVICES_JSON secret."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android-app/app/google-services.json
+          if ! grep -q '"in.systemmaster.hrms"' android-app/app/google-services.json; then
+            echo "::error::google-services.json is not for package in.systemmaster.hrms. Add an Android app with exactly that package name in Firebase and download the file again."
+            exit 1
+          fi
+          echo "google-services.json written."
+
       - name: Clean Android build
         working-directory: android-app
         run: |

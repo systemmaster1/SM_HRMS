@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
 import NotificationBell from "@/components/NotificationBell";
+import { unregisterThisDevice } from "@/components/PushRegistrar";
 import ThemeToggle from "@/components/ThemeToggle";
 import LiveClock from "@/components/LiveClock";
 import { RouteTransition } from "@/components/motion";
@@ -127,6 +128,7 @@ export default function Shell({
   };
 
   const doLogout = async () => {
+    await unregisterThisDevice();
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
@@ -275,7 +277,6 @@ export default function Shell({
               </p>
             </div>
           </Link>
-          <NotificationBell />
           <button
             onClick={doLogout}
             title="Sign out"
@@ -328,6 +329,7 @@ export default function Shell({
               <HelpCircle className="h-[18px] w-[18px]" />
             </Link>
             <ThemeToggle className="text-slate-400 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" />
+            <NotificationBell userId={profile.id} companyId={profile.company_id} />
           </div>
         </header>
         <main className="mx-auto max-w-6xl p-5 sm:p-7 lg:p-9">

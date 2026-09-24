@@ -2,6 +2,7 @@ package `in`.systemmaster.hrms
 
 import android.app.Activity
 import android.content.Intent
+import android.provider.Settings
 import android.webkit.JavascriptInterface
 import org.json.JSONObject
 
@@ -36,6 +37,23 @@ class NativeBridge(private val activity: Activity) {
         }
         activity.startService(intent)
         return "stopped"
+    }
+
+    /** Firebase token of this phone ("" until Firebase has issued one). */
+    @JavascriptInterface
+    fun getPushToken(): String = NativePrefs.pushToken(activity)
+
+    /** False if the user switched off notifications for SM HRMS. */
+    @JavascriptInterface
+    fun notificationsEnabled(): Boolean = PushNotifications.enabled(activity)
+
+    @JavascriptInterface
+    fun openNotificationSettings() {
+        activity.runOnUiThread {
+            val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, activity.packageName)
+            try { activity.startActivity(intent) } catch (_: Exception) { }
+        }
     }
 
     @JavascriptInterface

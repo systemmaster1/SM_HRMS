@@ -13,7 +13,8 @@ export const config = {
      *  - public assets: APK, PDF user guide, service worker, manifest, icons
      *  - /.well-known (Android app-link verification)
      *  - /api/cron (Vercel Cron has no login cookie; protected by CRON_SECRET)
+     *  - /api/hooks (called by the database; protected by PUSH_WEBHOOK_SECRET)
      */
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|robots.txt|sitemap.xml|\\.well-known|downloads/|api/cron|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|pdf|apk|sha256|txt|xml|json)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|robots.txt|sitemap.xml|\\.well-known|downloads/|api/cron|api/hooks|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|pdf|apk|sha256|txt|xml|json)$).*)",
   ],
 };

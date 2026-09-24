@@ -16,6 +16,7 @@ import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import com.google.firebase.messaging.FirebaseMessaging
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
@@ -62,6 +63,8 @@ class MainActivity : AppCompatActivity() {
         loadingText = findViewById(R.id.loadingText)
 
         requestRuntimePermissions()
+        PushNotifications.createChannel(this)
+        refreshPushToken()
 
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
@@ -165,9 +168,53 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        val initial = intent?.dataString?.takeIf { it.startsWith(BuildConfig.WEB_APP_URL) }
+        val initial = linkFrom(intent)
+            ?: intent?.dataString?.takeIf { it.startsWith(BuildConfig.WEB_APP_URL) }
             ?: BuildConfig.WEB_APP_URL
         webView.loadUrl(initial)
+    }
+
+    /** A notification was tapped while the app was already open. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        val url = linkFrom(intent)
+            ?: intent.dataString?.takeIf { it.startsWith(BuildConfig.WEB_APP_URL) }
+        if (url != null && ::webView.isInitialized) webView.loadUrl(url)
+    }
+
+    /** "/tasks" from a push notification -> full app URL. Only in-app paths are accepted. */
+    private fun linkFrom(intent: Intent?): String? {
+        val link = intent?.getStringExtra(PushNotifications.EXTRA_LINK) ?: return null
+        return if (link.startsWith("/") && !link.startsWith("//")) BuildConfig.WEB_APP_URL + link else null
+    }
+
+    /** Gets this phone's Firebase token and tells the web page it is available. */
+    private fun refreshPushToken() {
+        try {
+            FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+                if (!token.isNullOrBlank()) {
+                    NativePrefs.setPushToken(this, token)
+                    if (::webView.isInitialized) {
+                        webView.post {
+                            webView.evaluateJavascript(
+                                "window.dispatchEvent(new Event('smhrms-push-token'));", null
+                            )
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            // Firebase not configured in this build - the app still works without push.
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Re-check after the user returns from notification settings.
+        if (::webView.isInitialized) {
+            webView.evaluateJavascript("window.dispatchEvent(new Event('smhrms-push-token'));", null)
+        }
     }
 
     private fun openExternalIfNeeded(url: String): Boolean {

@@ -26,6 +26,8 @@ object NativePrefs {
     fun lastUploadAt(c: Context) = str(c, "lastUploadAt")
     fun setError(c: Context, v: String) = p(c).edit().putString("lastError", v).apply()
     fun lastError(c: Context) = str(c, "lastError")
+    fun setPushToken(c: Context, v: String) = p(c).edit().putString("pushToken", v).apply()
+    fun pushToken(c: Context) = str(c, "pushToken")
     fun updateTokens(c: Context, access: String, refresh: String?) {
         val e=p(c).edit().putString("accessToken", access)
         if (!refresh.isNullOrBlank()) e.putString("refreshToken", refresh)

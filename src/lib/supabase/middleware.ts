@@ -39,6 +39,7 @@ export async function updateSession(request: NextRequest) {
     publicRoutes.includes(path) ||
     path.startsWith("/api/auth") ||
     path.startsWith("/api/cron") ||
+    path.startsWith("/api/hooks") ||
     path.startsWith("/auth");
 
   // Not logged in and trying to reach a protected page -> login

@@ -1,0 +1,24 @@
+# dependencies / builds
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# env files - secrets live in Vercel, never in git
+.env
+.env.*
+!.env.example
+
+# Android
+android-app/.gradle/
+android-app/build/
+android-app/app/build/
+android-app/local.properties
+android-app/app/google-services.json
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+Thumbs.db
