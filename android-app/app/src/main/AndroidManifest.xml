@@ -14,8 +14,8 @@
         android:usesCleartextTraffic="false"
         android:label="SM HRMS"
         android:theme="@style/Theme.SMHRMS"
-        android:icon="@drawable/ic_launcher"
-        android:roundIcon="@drawable/ic_launcher">
+        android:icon="@drawable/sm_hrms_launcher"
+        android:roundIcon="@drawable/sm_hrms_launcher">
 
         <activity
             android:name=".MainActivity"
