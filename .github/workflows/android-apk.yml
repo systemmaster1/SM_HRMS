@@ -205,13 +205,21 @@ jobs:
           git config user.name "SM HRMS Android Builder"
           git config user.email "actions@users.noreply.github.com"
 
+          # Another workflow/deployment commit may land while the Android build is running.
+          # Sync text/source changes first, then re-copy the generated binary so Git never
+          # attempts to rebase/merge two different APK binaries.
+          git fetch origin main
+          git reset --hard origin/main
+
+          mkdir -p public/downloads
+          cp android-app/app/build/outputs/apk/release/app-release.apk public/downloads/SM-HRMS.apk
+          sha256sum public/downloads/SM-HRMS.apk | tee public/downloads/SM-HRMS.apk.sha256
           git add -f public/downloads/SM-HRMS.apk public/downloads/SM-HRMS.apk.sha256
 
           if git diff --cached --quiet; then
             echo "APK unchanged; no repository commit required."
           else
             git commit -m "Publish latest SM HRMS Android APK [skip ci]"
-            git pull --rebase origin main
             git push origin HEAD:main
           fi
 
