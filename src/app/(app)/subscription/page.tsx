@@ -46,6 +46,21 @@ export default function SubscriptionPage() {
 
   const current = plans.find((p) => p.code === sub?.plan_code);
 
+  const displayPrice = (p: Plan) => {
+    if (p.code === "starter") return 29;
+    if (p.code === "business") return 79;
+    if (p.code === "pro") return 99;
+    if (p.code === "enterprise") return 149;
+    return p.price_per_user ?? 29;
+  };
+
+  const fallbackFeatures: Record<string, string[]> = {
+    starter: ["Attendance", "Leave Management", "Team & Organization", "Employee self-service"],
+    business: ["Everything in Starter", "Task Management", "Field Visits", "Reports & Export"],
+    pro: ["Everything in Business", "Live Field Tracking", "Route History & KM", "Advanced controls & integrations"],
+    enterprise: ["Everything in Pro", "Custom modules", "Priority onboarding", "Enterprise configuration"],
+  };
+
   return (
     <div className="mx-auto max-w-7xl space-y-6">
       <section className="rounded-3xl bg-slate-950 p-6 text-white sm:p-8">
@@ -73,6 +88,9 @@ export default function SubscriptionPage() {
         {plans.map((p) => {
           const currentPlan = p.code === sub?.plan_code;
           const keys = features.filter((f) => f.plan_code === p.code && f.enabled).slice(0, 8);
+          const featureLabels = keys.length
+            ? keys.map((f) => f.feature_key.replaceAll("_", " "))
+            : (fallbackFeatures[p.code] || []);
           return (
             <div key={p.code} className={`rounded-3xl border bg-white p-5 ${p.code === "pro" ? "border-brand-300 ring-2 ring-brand-100" : "border-slate-200"}`}>
               <div className="flex items-start justify-between">
@@ -83,22 +101,22 @@ export default function SubscriptionPage() {
                 {p.code === "pro" && <span className="rounded-full bg-brand-50 px-2.5 py-1 text-[10px] font-bold uppercase text-brand-700">Popular</span>}
               </div>
               <div className="mt-5">
-                <span className="text-3xl font-bold">₹{p.price_per_user ?? 149}</span>
+                <span className="text-3xl font-bold">₹{displayPrice(p)}</span>
                 <span className="text-sm text-slate-500"> / user / month</span>
                 {p.is_custom && <div className="mt-1 text-xs text-slate-400">Starting price · custom quote available</div>}
               </div>
               <div className="mt-5 space-y-2">
-                {keys.map((f) => (
-                  <div key={f.feature_key} className="flex items-start gap-2 text-sm text-slate-600">
+                {featureLabels.map((label) => (
+                  <div key={label} className="flex items-start gap-2 text-sm text-slate-600">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
-                    <span>{f.feature_key.replaceAll("_", " ")}</span>
+                    <span className="capitalize">{label}</span>
                   </div>
                 ))}
               </div>
               <button
                 disabled={currentPlan}
                 className={`mt-6 w-full rounded-xl px-4 py-3 text-sm font-semibold ${currentPlan ? "bg-slate-100 text-slate-500" : "bg-slate-950 text-white"}`}
-                onClick={() => !currentPlan && setMessage(p.code === "enterprise" ? "Contact SystemMaster for Enterprise customization." : `Upgrade to ${p.name}: Razorpay checkout will be connected in the next billing phase.`)}
+                onClick={() => !currentPlan && setMessage(p.code === "enterprise" ? "Contact SystemMaster for Enterprise customization." : `Upgrade request for ${p.name} (₹${displayPrice(p)}/user/month). Your plan controls which modules are available.`)}
               >
                 {currentPlan ? "Current plan" : p.is_custom ? "Contact Sales" : "Upgrade"}
               </button>
