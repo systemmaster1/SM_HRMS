@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -15,6 +15,7 @@ import {
   LayoutDashboard, Users, CalendarCheck, Plane,
   ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
   Contact, LifeBuoy, Wallet, WalletCards, ChevronDown, HelpCircle, BarChart3, Download, Sheet, Sparkles,
+  Home, MoreHorizontal,
 } from "lucide-react";
 
 interface Leaf {
@@ -58,7 +59,6 @@ const nav: NavEntry[] = [
       { href: "/field-reports", label: "Field reports", icon: <BarChart3 className="h-4 w-4" />, accessKey: "field_reports" },
       { href: "/tasks",        label: "Tasks",         icon: <ListChecks className="h-4 w-4" />, accessKey: "tasks" },
       { href: "/em-report",    label: "EM Report",     icon: <BarChart3 className="h-4 w-4" /> },
-      { href: "/upcoming-features", label: "Upcoming features", icon: <Sparkles className="h-4 w-4" /> },
     ],
   },
   { href: "/payroll", label: "Payroll", icon: <Wallet className="h-[18px] w-[18px]" />, accessKey: "payroll" },
@@ -71,6 +71,7 @@ const nav: NavEntry[] = [
       { href: "/helpdesk", label: "Help desk", icon: <LifeBuoy className="h-4 w-4" /> },
       { href: "/policies", label: "Policies",  icon: <FileText className="h-4 w-4" /> },
       { href: "/help",     label: "User guide", icon: <HelpCircle className="h-4 w-4" /> },
+      { href: "/upcoming-features", label: "Product roadmap", icon: <Sparkles className="h-4 w-4" /> },
     ],
   },
   {
@@ -95,6 +96,21 @@ const roleLabel: Record<Role, string> = {
   employee: "Employee",
 };
 
+/** Mobile bottom bar: the four screens field staff use every day, plus "More". */
+const bottomNav: { href: string; label: string; icon: React.ElementType; accessKey?: string }[] = [
+  { href: "/dashboard",    label: "Home",       icon: Home },
+  { href: "/attendance",   label: "Attendance", icon: CalendarCheck, accessKey: "attendance" },
+  { href: "/tasks",        label: "Tasks",      icon: ListChecks,    accessKey: "tasks" },
+  { href: "/field-visits", label: "Visits",     icon: MapPin,        accessKey: "field_visits" },
+];
+
+const isActivePath = (pathname: string, href: string) =>
+  pathname === href || pathname.startsWith(`${href}/`);
+
+/** Every sidebar link, used to find the single most specific match. */
+const allNavHrefs = (): string[] =>
+  nav.flatMap((e) => (isGroup(e) ? e.items.map((i) => i.href) : [e.href]));
+
 export default function Shell({
   profile,
   company,
@@ -109,13 +125,28 @@ export default function Shell({
   const supabase = createClient();
   const [open, setOpen] = useState(false);
 
+  useEffect(() => { setOpen(false); }, [pathname]);
+
+  // e.g. on /leave/team only "Team balances" is highlighted, not "Leave" too.
+  const bestMatch = allNavHrefs()
+    .filter((h) => isActivePath(pathname, h))
+    .sort((a, b) => b.length - a.length)[0];
+
+  // Lock background scrolling while the mobile menu is open.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
   const admin = isAdminRole(profile.role);
   const hasAccess = (key?: string) => admin || !key || (profile.access_permissions?.[key] && profile.access_permissions[key] !== "none");
 
   // Auto-expand whichever group contains the current page.
   const initialExpanded = new Set<string>();
   nav.forEach((e) => {
-    if (isGroup(e) && e.items.some((i) => i.href === pathname)) initialExpanded.add(e.key);
+    if (isGroup(e) && e.items.some((i) => isActivePath(pathname, i.href))) initialExpanded.add(e.key);
   });
   const [expanded, setExpanded] = useState<Set<string>>(initialExpanded);
 
@@ -185,7 +216,7 @@ export default function Shell({
           if (!isGroup(entry) && !hasAccess(entry.accessKey)) return null;
 
           if (!isGroup(entry)) {
-            const active = pathname === entry.href;
+            const active = entry.href === bestMatch;
             return (
               <Link key={entry.href} href={entry.href} onClick={() => setOpen(false)} className={leafCls(active)}>
                 {entry.icon}
@@ -196,7 +227,7 @@ export default function Shell({
 
           const items = entry.items.filter((i) => (!i.adminOnly || admin) && hasAccess(i.accessKey));
           if (items.length === 0) return null;
-          const groupActive = items.some((i) => i.href === pathname);
+          const groupActive = items.some((i) => isActivePath(pathname, i.href));
           const isOpen = expanded.has(entry.key) || groupActive;
 
           return (
@@ -217,7 +248,7 @@ export default function Shell({
               {isOpen && (
                 <div className="mt-0.5 space-y-0.5 border-l border-white/[0.08] pl-4">
                   {items.map((item) => {
-                    const active = pathname === item.href;
+                    const active = item.href === bestMatch;
                     return (
                       <Link
                         key={item.href}
@@ -299,10 +330,11 @@ export default function Shell({
             className="absolute inset-0 bg-brand-900/60 backdrop-blur-sm"
             onClick={() => setOpen(false)}
           />
-          <aside className="absolute inset-y-0 left-0 w-64">
+          <aside className="absolute inset-y-0 left-0 w-[82vw] max-w-[18rem] pb-[env(safe-area-inset-bottom)] shadow-2xl">
             <button
               onClick={() => setOpen(false)}
-              className="absolute -right-11 top-4 rounded-lg bg-white/10 p-2 text-white"
+              aria-label="Close menu"
+              className="absolute -right-12 top-[calc(env(safe-area-inset-top)+0.75rem)] rounded-lg bg-white/15 p-2 text-white"
             >
               <X className="h-5 w-5" />
             </button>
@@ -312,12 +344,14 @@ export default function Shell({
       )}
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-3 border-b border-slate-200/70 bg-white/70 px-4 backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-900/70 sm:px-6">
-          <div className="flex items-center gap-3 lg:hidden">
-            <button onClick={() => setOpen(true)} className="text-slate-600 dark:text-slate-300">
+        <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-900/80">
+         <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3 lg:hidden">
+            <button onClick={() => setOpen(true)} aria-label="Open menu"
+              className="-ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-slate-600 active:bg-slate-100 dark:text-slate-300 dark:active:bg-slate-800">
               <Menu className="h-6 w-6" />
             </button>
-            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            <span className="truncate text-[15px] font-semibold text-slate-900 dark:text-slate-100">
               {company?.name || "SM HRMS"}
             </span>
           </div>
@@ -331,11 +365,38 @@ export default function Shell({
             <ThemeToggle className="text-slate-400 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" />
             <NotificationBell userId={profile.id} companyId={profile.company_id} />
           </div>
+         </div>
         </header>
-        <main className="mx-auto max-w-6xl p-5 sm:p-7 lg:p-9">
+        <main className="mx-auto max-w-6xl px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-5 sm:px-7 sm:pt-7 lg:p-9">
           <RouteTransition routeKey={pathname}>{children}</RouteTransition>
         </main>
       </div>
+
+      {/* Mobile bottom navigation */}
+      <nav aria-label="Primary"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/95 lg:hidden">
+        <div className="mx-auto flex max-w-md items-stretch justify-around">
+          {bottomNav.filter((b) => hasAccess(b.accessKey)).map((b) => {
+            const active = isActivePath(pathname, b.href);
+            const Icon = b.icon;
+            return (
+              <Link key={b.href} href={b.href}
+                aria-current={active ? "page" : undefined}
+                className={`relative flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium transition active:scale-95 ${
+                  active ? "text-brand-700 dark:text-brand-300" : "text-slate-500 dark:text-slate-400"}`}>
+                {active && <span className="absolute top-0 h-[3px] w-8 rounded-b-full bg-accent-500" />}
+                <Icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.3 : 1.8} />
+                {b.label}
+              </Link>
+            );
+          })}
+          <button onClick={() => setOpen(true)}
+            className="flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 transition active:scale-95 dark:text-slate-400">
+            <MoreHorizontal className="h-[22px] w-[22px]" strokeWidth={1.8} />
+            More
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }

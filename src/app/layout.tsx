@@ -15,7 +15,10 @@ export const viewport: Viewport = {
   themeColor: "#1A4B9F",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // Pinch-zoom stays available (accessibility). iOS input auto-zoom is
+  // prevented in globals.css by using a 16px font size on form fields.
+  maximumScale: 5,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

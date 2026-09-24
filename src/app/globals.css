@@ -77,3 +77,32 @@ html.dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
     background-image: linear-gradient(92deg, #7BA5CE 0%, #AFC9E3 55%, #F08A3C 100%);
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Mobile ergonomics
+--------------------------------------------------------------------------- */
+html {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (max-width: 1023px) {
+  /* 16px form fields stop iPhone/Android zooming in when a field is tapped */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  /* Comfortable touch targets for buttons */
+  button, [role="button"] {
+    touch-action: manipulation;
+  }
+  /* Wide tables scroll inside their card instead of stretching the page */
+  table {
+    font-size: 13px;
+  }
+}
+
+body {
+  overscroll-behavior-y: none;
+}
