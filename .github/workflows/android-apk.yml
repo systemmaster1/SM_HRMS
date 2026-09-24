@@ -108,6 +108,41 @@ jobs:
           fi
           echo "google-services.json written."
 
+      - name: Generate branded Android launcher icon from SM HRMS logo
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+
+          src = Path("public/icon.png")
+          if not src.exists():
+              raise SystemExit("public/icon.png (SM HRMS logo) is missing")
+
+          img = Image.open(src).convert("RGBA")
+          sizes = {
+              "mipmap-mdpi": 48,
+              "mipmap-hdpi": 72,
+              "mipmap-xhdpi": 96,
+              "mipmap-xxhdpi": 144,
+              "mipmap-xxxhdpi": 192,
+          }
+          res = Path("android-app/app/src/main/res")
+          for folder, px in sizes.items():
+              out = res / folder
+              out.mkdir(parents=True, exist_ok=True)
+              canvas = Image.new("RGBA", (px, px), (255, 255, 255, 255))
+              mark = img.copy()
+              mark.thumbnail((int(px * 0.86), int(px * 0.86)), Image.Resampling.LANCZOS)
+              x = (px - mark.width) // 2
+              y = (px - mark.height) // 2
+              canvas.alpha_composite(mark, (x, y))
+              canvas.convert("RGB").save(out / "ic_launcher.png", "PNG", optimize=True)
+          PY
+
+          # AndroidManifest now resolves the real SM HRMS PNG launcher icon.
+          sed -i 's|@drawable/ic_launcher|@mipmap/ic_launcher|g' android-app/app/src/main/AndroidManifest.xml
+
       - name: Clean Android build
         working-directory: android-app
         run: |
