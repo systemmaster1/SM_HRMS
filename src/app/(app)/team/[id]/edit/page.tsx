@@ -67,6 +67,8 @@ export default function EditEmployeePage() {
     field_manager_id: "",
     photo_required: false,
     auto_attendance: false,
+    weekly_off_mode: "company",
+    weekly_off_days: [] as number[],
     auto_in_time: "09:30",
     auto_out_time: "18:30",
     field_tracking_enabled: false,
@@ -123,6 +125,8 @@ export default function EditEmployeePage() {
         field_manager_id: employee.field_manager_id || "",
         photo_required: !!employee.photo_required,
         auto_attendance: !!employee.auto_attendance,
+        weekly_off_mode: Array.isArray(employee.weekly_off_days) ? "custom" : "company",
+        weekly_off_days: Array.isArray(employee.weekly_off_days) ? employee.weekly_off_days : [],
         auto_in_time: (employee.auto_in_time || "09:30").slice(0,5),
         auto_out_time: (employee.auto_out_time || "18:30").slice(0,5),
         field_tracking_enabled: !!employee.field_tracking_enabled,
@@ -338,6 +342,34 @@ export default function EditEmployeePage() {
               <label className="text-sm font-medium">Auto IN<input type="time" className={fieldCls} value={f.auto_in_time} onChange={(e)=>set("auto_in_time",e.target.value)}/></label>
               <label className="text-sm font-medium">Auto OUT<input type="time" className={fieldCls} value={f.auto_out_time} onChange={(e)=>set("auto_out_time",e.target.value)}/></label>
             </div>}
+            <div className="rounded-xl border border-slate-200 p-3.5">
+              <span className="block text-sm font-medium">Weekly off</span>
+              <span className="block text-xs text-slate-500">Used for the attendance register and recurring task dates.</span>
+              <div className="mt-3 flex gap-2">
+                {[["company", "Company default"], ["custom", "Custom for this employee"]].map(([v, l]) => (
+                  <button key={v} type="button" onClick={() => set("weekly_off_mode", v)}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${f.weekly_off_mode === v ? "border-brand-700 bg-brand-700 text-white" : "border-slate-300 text-slate-600"}`}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+              {f.weekly_off_mode === "custom" && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => {
+                    const on = (f.weekly_off_days || []).includes(i);
+                    return (
+                      <button key={d} type="button" aria-pressed={on}
+                        onClick={() => set("weekly_off_days", on
+                          ? f.weekly_off_days.filter((x: number) => x !== i)
+                          : [...(f.weekly_off_days || []), i].sort())}
+                        className={`min-w-[3rem] rounded-lg border px-2.5 py-1.5 text-xs font-medium ${on ? "border-accent-500 bg-accent-500 text-white" : "border-slate-300 text-slate-600"}`}>
+                        {d}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

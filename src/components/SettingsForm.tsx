@@ -64,6 +64,16 @@ export default function SettingsForm({
     office_radius_m: String(company?.office_radius_m ?? 200),
     office_label: company?.office_label || "",
   });
+
+  // Work calendar: 0 = Sunday … 6 = Saturday
+  const [weeklyOff, setWeeklyOff] = useState<number[]>(
+    Array.isArray(company?.weekly_off_days) ? company.weekly_off_days : [0]
+  );
+  const [satWeeks, setSatWeeks] = useState<number[]>(
+    Array.isArray(company?.saturday_off_weeks) ? company.saturday_off_weeks : []
+  );
+  const toggleIn = (list: number[], v: number) =>
+    list.includes(v) ? list.filter((x) => x !== v) : [...list, v].sort();
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   const [logoUrl, setLogoUrl] = useState<string | null>(company?.logo_url || null);
@@ -104,8 +114,14 @@ export default function SettingsForm({
   const save = async () => {
     setSaving(true);
     setError("");
+    if (weeklyOff.length === 7) {
+      setSaving(false);
+      return setError("At least one day of the week must be a working day.");
+    }
     const payload = {
       ...f,
+      weekly_off_days: weeklyOff,
+      saturday_off_weeks: weeklyOff.includes(6) ? [] : satWeeks,
       grace_minutes: parseInt(f.grace_minutes) || 0,
       half_day_minutes: parseInt(f.half_day_minutes) || 240,
       casual_leave_annual: parseFloat(f.casual_leave_annual) || 0,
@@ -269,6 +285,55 @@ export default function SettingsForm({
                 <label className="text-sm font-medium text-slate-700">Work end</label>
                 <input type="time" className={`mt-1.5 ${inputCls}`} value={f.work_end} onChange={(e) => set("work_end", e.target.value)} />
               </div>
+            </div>
+
+            {/* Weekly off */}
+            <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+              <p className="text-sm font-medium text-slate-700 dark:text-slate-200">Weekly off</p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Used for the daily attendance register and for scheduling recurring tasks.
+                Individual employees can have a different weekly off (Team → Edit employee).
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d, i) => {
+                  const on = weeklyOff.includes(i);
+                  return (
+                    <button key={d} type="button" onClick={() => setWeeklyOff(toggleIn(weeklyOff, i))}
+                      aria-pressed={on}
+                      className={`min-w-[3.25rem] rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                        on ? "border-brand-700 bg-brand-700 text-white"
+                           : "border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700/50"}`}>
+                      {d}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {!weeklyOff.includes(6) && (
+                <div className="mt-4">
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                    Saturdays off (optional)
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {[1, 2, 3, 4, 5].map((w) => {
+                      const on = satWeeks.includes(w);
+                      const label = ["1st", "2nd", "3rd", "4th", "5th"][w - 1];
+                      return (
+                        <button key={w} type="button" onClick={() => setSatWeeks(toggleIn(satWeeks, w))}
+                          aria-pressed={on}
+                          className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                            on ? "border-accent-500 bg-accent-500 text-white"
+                               : "border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700/50"}`}>
+                          {label} Sat
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1.5 text-[11px] text-slate-400">
+                    Example: select 2nd and 4th for &ldquo;alternate Saturdays off&rdquo;.
+                  </p>
+                </div>
+              )}
             </div>
 
             {error && (

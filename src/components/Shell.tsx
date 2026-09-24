@@ -45,6 +45,7 @@ const nav: NavEntry[] = [
     icon: <CalendarCheck className="h-[18px] w-[18px]" />,
     items: [
       { href: "/attendance", label: "Attendance",  icon: <CalendarCheck className="h-4 w-4" />, accessKey: "attendance" },
+      { href: "/attendance/register", label: "Attendance register", icon: <CalendarDays className="h-4 w-4" />, accessKey: "attendance" },
       { href: "/leave",      label: "Leave",        icon: <Plane className="h-4 w-4" />, accessKey: "leave" },
       { href: "/leave/team", label: "Team balances", icon: <Users className="h-4 w-4" />, adminOnly: true },
       { href: "/holidays",   label: "Holidays",     icon: <CalendarDays className="h-4 w-4" /> },

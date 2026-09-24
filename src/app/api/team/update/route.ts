@@ -101,6 +101,15 @@ export async function POST(req: Request) {
 
     photo_required: !!body.photo_required,
     auto_attendance: !!body.auto_attendance,
+    // null = follow the company weekly off; otherwise days 0 (Sun) … 6 (Sat)
+    ...(body.weekly_off_mode !== undefined ? {
+      weekly_off_days: body.weekly_off_mode === "custom" && Array.isArray(body.weekly_off_days)
+        ? body.weekly_off_days
+            .map((d: unknown) => Number(d))
+            .filter((d: number) => Number.isInteger(d) && d >= 0 && d <= 6)
+            .slice(0, 6)
+        : null,
+    } : {}),
     auto_in_time: body.auto_in_time || "09:30",
     auto_out_time: body.auto_out_time || "18:30",
 

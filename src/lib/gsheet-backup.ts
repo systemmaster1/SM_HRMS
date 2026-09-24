@@ -46,6 +46,24 @@ const taskStatus = (dueDate: string, dueTime: string | null, done: string | null
   return due < new Date() ? "Not done" : "Pending";
 };
 
+/** Completed / In progress / Planned / Missed — based on actual timestamps, never edited. */
+function planStatus(r: any): string {
+  const st = String(r.status || "").toLowerCase();
+  if (r.completed_at || st === "completed") return "Completed";
+  if (["cancelled", "rejected"].includes(st)) return st === "cancelled" ? "Cancelled" : "Rejected";
+  if (r.travel_started_at || r.reached_at || r.check_in_at || r.meeting_started_at) return "In progress";
+  const planned = r.scheduled_at ? new Date(r.scheduled_at) : r.visit_date ? istDateTime(r.visit_date, "23:59") : null;
+  if (planned && planned < new Date()) return "Missed / pending";
+  return "Planned";
+}
+
+/** Minutes between the planned time and the actual arrival (+ = late, – = early). */
+function arrivalDelay(r: any): string | number {
+  const arrived = r.reached_at || r.check_in_at;
+  if (!r.scheduled_at || !arrived) return "";
+  return Math.round((new Date(arrived).getTime() - new Date(r.scheduled_at).getTime()) / 60000);
+}
+
 /** All rows of a table for one company, newest first, paged past the 1000-row cap. */
 function rowsOf(db: SupabaseClient, table: string, companyId: string, orderCol: string) {
   return fetchAll((from, to) =>
@@ -76,6 +94,12 @@ async function buildDatasets(db: SupabaseClient, companyId: string): Promise<Dat
     db.from("visit_custom_fields").select("field_key,label,sort_order")
       .eq("company_id", companyId).order("sort_order").then((r) => r.data || []),
   ]);
+
+  // Daily register (Phase 2B). Skipped quietly if that update is not installed yet.
+  const register = await fetchAll((from, to) =>
+    db.from("attendance_daily_log").select("*").eq("company_id", companyId)
+      .order("work_date", { ascending: false }).order("employee_id").range(from, to))
+    .catch(() => null);
 
   const tmpl = new Map<string, any>(ct.map((t: any) => [t.id, t]));
   const types = new Map<string, any>(lt.map((t: any) => [t.id, t]));
@@ -133,6 +157,27 @@ async function buildDatasets(db: SupabaseClient, companyId: string): Promise<Dat
     }),
   });
 
+  /* ---------- Attendance register ---------- */
+  if (register) {
+    const label: Record<string, string> = {
+      present: "Present", late: "Late", half_day: "Half day", on_leave: "On leave",
+      holiday: "Holiday", weekly_off: "Weekly off", absent: "Absent", pending: "Not yet marked",
+    };
+    datasets.push({
+      name: "Attendance Register",
+      headers: ["Date", "Day", "Employee", "Code", "Department", "Status", "Check in", "Check out",
+        "Work hours", "Note", "Day closed"],
+      textCols: [3],
+      rows: register.map((r: any) => [
+        s(r.work_date),
+        new Date(`${r.work_date}T00:00:00+05:30`).toLocaleDateString("en-IN", { weekday: "short", timeZone: "Asia/Kolkata" }),
+        who(r.employee_id), code(r.employee_id), dept(r.employee_id),
+        label[r.status] || s(r.status), fmt(r.check_in), fmt(r.check_out), mins(r.work_minutes),
+        s(r.note), r.finalized ? "Yes" : "No",
+      ]),
+    });
+  }
+
   /* ---------- Leave ---------- */
   datasets.push({
     name: "Leave",
@@ -157,7 +202,8 @@ async function buildDatasets(db: SupabaseClient, companyId: string): Promise<Dat
       "Contact person", "Contact number", "Email", "Purpose",
       "Address", "Status", "Person met", "Outcome", "Completion notes", "Remarks",
       "Next action", "Next follow-up",
-      "Scheduled", "Travel started", "Reached", "Checked in", "Meeting started", "Completed",
+      "Planned for", "Originally planned", "Times rescheduled", "Plan status", "Arrival delay (min)",
+      "Travel started", "Reached", "Checked in", "Meeting started", "Completed",
       ...customHeaders,
     ],
     textCols: [2, 6],
@@ -168,7 +214,9 @@ async function buildDatasets(db: SupabaseClient, companyId: string): Promise<Dat
       s(r.purpose), s(r.address), s(r.status).replace(/_/g, " "),
       s(r.person_met), s(r.outcome), s(r.completion_notes), s(r.remarks),
       s(r.next_action), fmt(r.next_followup_at ?? r.next_follow_up_at),
-      fmt(r.scheduled_at), fmt(r.travel_started_at), fmt(r.reached_at), fmt(r.check_in_at),
+      fmt(r.scheduled_at), fmt(r.original_scheduled_at ?? r.scheduled_at), n(r.reschedule_count ?? 0),
+      planStatus(r), arrivalDelay(r),
+      fmt(r.travel_started_at), fmt(r.reached_at), fmt(r.check_in_at),
       fmt(r.meeting_started_at), fmt(r.completed_at),
       ...customKeys.map((key: string) => {
         const value = r.custom_data?.[key];

@@ -256,8 +256,11 @@ export default function TasksPage() {
       setDepts(dpts || []);
     }
 
-    // Catch up any due checklist occurrences (safe to call every visit)
-    await supabase.rpc("generate_checklist_instances");
+    // Recurring checklists are created by the server every night. This call
+    // only catches up the caller's company right away (e.g. a new checklist).
+    // Falls back to the old generator if the Phase 2B SQL has not been run yet.
+    const gen = await supabase.rpc("generate_my_company_tasks");
+    if (gen.error) await supabase.rpc("generate_checklist_instances");
 
     // Supabase returns max 1000 rows per request. Previously the oldest 1000
     // rows came back and TODAY's tasks silently disappeared once a company
@@ -1291,11 +1294,11 @@ export default function TasksPage() {
           <p className="text-xs text-slate-500 dark:text-slate-400">
             {cf.frequency === "daily" && "Repeats every working day, skipping holidays and weekly offs."}
             {cf.frequency === "weekly" && "Repeats on the same weekday every week."}
-            {cf.frequency === "monthly" && "Repeats on the same date every month."}
-            {cf.frequency === "quarterly" && "Repeats every 90 days from the start date."}
-            {cf.frequency === "half_yearly" && "Repeats every 180 days from the start date."}
+            {cf.frequency === "monthly" && "Repeats on the same date every month (31st becomes the last day in shorter months)."}
+            {cf.frequency === "quarterly" && "Repeats every 3 months on the same date."}
+            {cf.frequency === "half_yearly" && "Repeats every 6 months on the same date."}
             {cf.frequency === "yearly" && "Repeats on the same date every year."}
-            {" "}If an occurrence falls on a holiday or weekly off, it shifts to the next working day.
+            {" "}If an occurrence falls on a holiday or weekly off, it shifts to the next working day. Due times are kept within company working hours, and tasks are created automatically up to 7 days ahead.
           </p>
 
           <div className="grid grid-cols-3 gap-3">

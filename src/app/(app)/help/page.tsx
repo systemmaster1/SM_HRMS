@@ -43,7 +43,7 @@ const adminFaqs = [
   { q: "How do I stop a leave type or department from being used?", a: "Departments, designations and leave types can be renamed or removed from Organization at any time." },
   { q: "An employee left the company — what do I do?", a: "Open their profile from Team and choose 'Mark as left'. Their history stays on record under the Left tab." },
   { q: "Can I control who sees the employee directory?", a: "Yes — Settings → Directory & visibility lets you turn it off, scope it to department, and hide email/phone." },
-  { q: "How does the recurring checklist scheduling work?", a: "Daily repeats every working day; weekly the same weekday; monthly the same date; quarterly/half-yearly every 90/180 days; yearly the same date next year. A holiday or weekly off automatically shifts the date to the next working day." },
+  { q: "How does the recurring checklist scheduling work?", a: "Daily repeats every working day; weekly the same weekday; monthly the same date; quarterly/half-yearly every 3/6 months; yearly the same date next year. A holiday or weekly off automatically shifts the date to the next working day." },
 ];
 
 function StepFlow({ steps }: { steps: Step[] }) {
