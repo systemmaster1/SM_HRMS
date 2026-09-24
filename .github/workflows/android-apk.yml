@@ -113,13 +113,23 @@ jobs:
         run: |
           # Decode the official user-supplied SM HRMS emblem. The image is stored
           # losslessly as base64 so GitHub text tooling never redraws/recolors it.
-          base64 --decode android-app/branding/sm-hrms-launcher.png.b64 > android-app/app/src/main/res/drawable/sm_hrms_launcher.png
+          RAW="$RUNNER_TEMP/sm_hrms_launcher_raw.png"
+          OUT="android-app/app/src/main/res/drawable/sm_hrms_launcher.png"
+          base64 --decode android-app/branding/sm-hrms-launcher.png.b64 > "$RAW"
+
+          # AAPT2 can crash on some indexed/paletted PNGs even when the PNG is
+          # otherwise valid. Normalize the official artwork to standard RGBA
+          # PNG before Android resource compilation. Pixels/branding stay the same.
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+          convert "$RAW" -alpha on -type TrueColorAlpha PNG32:"$OUT"
+
           python3 - <<'PY'
           from pathlib import Path
           p=Path("android-app/app/src/main/res/drawable/sm_hrms_launcher.png")
           if p.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
               raise SystemExit("Official SM HRMS launcher PNG is invalid")
-          print("Official SM HRMS launcher branding ready:", p.stat().st_size, "bytes")
+          print("Official SM HRMS launcher RGBA branding ready:", p.stat().st_size, "bytes")
           PY
 
       - name: Clean Android build
