@@ -269,3 +269,26 @@ body {
   input, select, textarea { line-height: 1.4; }
   .mobile-safe-card { border-radius: var(--sm-mobile-radius); }
 }
+
+
+/* ---------------------------------------------------------------------------
+   Mobile layout guardrails · release 1.8
+   Prevent long labels, action rows and page controls from overlapping inside
+   the Android WebView. Individual desktop/table layouts remain unchanged.
+--------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  main { overflow-x: hidden; }
+  main p, main span, main h1, main h2, main h3 { overflow-wrap: anywhere; }
+  main .flex { min-width: 0; }
+  main .grid { min-width: 0; }
+  main [class*="overflow-x-auto"] {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  main button, main a {
+    line-height: 1.25;
+  }
+  main [class*="whitespace-nowrap"] {
+    flex-shrink: 0;
+  }
+}
