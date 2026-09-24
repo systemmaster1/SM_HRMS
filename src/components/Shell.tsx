@@ -75,7 +75,7 @@ const nav: NavEntry[] = [
       { href: "/helpdesk", label: "Help desk", icon: <LifeBuoy className="h-4 w-4" /> },
       { href: "/policies", label: "Policies",  icon: <FileText className="h-4 w-4" /> },
       { href: "/help",     label: "User guide", icon: <HelpCircle className="h-4 w-4" /> },
-      { href: "/upcoming-features", label: "Product roadmap", icon: <Sparkles className="h-4 w-4" /> },
+      { href: "/upcoming-features", label: "What's Next", icon: <Sparkles className="h-4 w-4" /> },
     ],
   },
   {
@@ -302,7 +302,7 @@ export default function Shell({
           <p className="text-xs font-medium text-amber-300">
             Trial · {trialDaysLeft} days left
           </p>
-          <p className="mt-0.5 text-[11px] text-amber-400/70">₹{company?.price_per_user ?? 19} / user / month · launch offer</p>
+          <p className="mt-0.5 text-[11px] text-amber-400/70">₹29 / user / month · launch offer</p>
         </div>
       )}
 
