@@ -155,11 +155,13 @@ export default function EMReportPage() {
 
   const rowFor = (key: string) => rows.find((r) => r.metric === key);
 
-  const overall = rows.length
-    ? Math.round(
-        (100 -
-          rows.reduce((a, r) => a + Number(r.actual_pct || 0), 0) / rows.length) * 10
-      ) / 10
+  // Overall score is based only on metrics that actually had tasks this week.
+  // Empty categories must not inflate the employee's score.
+  const activeRows = rows.filter((r) => Number(r.no_of_task || 0) > 0);
+  const overall = activeRows.length
+    ? Math.max(0, Math.min(100, Math.round(
+        (100 - activeRows.reduce((a, r) => a + Number(r.actual_pct || 0), 0) / activeRows.length) * 10
+      ) / 10))
     : 0;
 
   const isCurrentWeek = year === today.year && week === today.week;
@@ -295,7 +297,7 @@ export default function EMReportPage() {
                   const has = (r?.no_of_task ?? 0) > 0;
                   const score = Number(r?.actual_score ?? 0);
                   const target = Number(r?.planned ?? 0);
-                  const ok = score >= target;
+                  const ok = Number(r?.actual_pct ?? 0) <= Math.abs(target);
                   return (
                     <td key={m.key}>
                       <div className="rounded-lg border border-slate-200 dark:border-slate-600 py-3 text-center">
@@ -358,7 +360,7 @@ export default function EMReportPage() {
                   <td key={m.key}>
                     <input
                       type="number"
-                      placeholder="-10"
+                      placeholder="10"
                       value={nextPlanned[m.key] ?? ""}
                       onChange={(e) =>
                         setNextPlanned((p) => ({ ...p, [m.key]: e.target.value }))
@@ -371,10 +373,10 @@ export default function EMReportPage() {
             </tbody>
           </table>
 
-          <div className="mt-4 flex items-center justify-between border-t border-slate-100 dark:border-slate-700 pt-4">
+          <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-xs text-slate-500">
-              Targets are set as negative numbers — e.g. <strong>-10</strong> means
-              &ldquo;no more than 10% of my work will be left undone&rdquo;.
+              Plan is the maximum acceptable not-done percentage. Example: <strong>10</strong> means
+              &ldquo;no more than 10% of my work should remain undone&rdquo;.
             </p>
             <button
               onClick={saveTargets}
