@@ -111,28 +111,43 @@ jobs:
       - name: Configure official SM HRMS launcher icon
         shell: bash
         run: |
-          # Decode the official SM HRMS artwork and validate the PNG checksum.
+          # Decode the official artwork, repair corrupt PNG chunk CRC metadata
+          # without changing image pixels/colors, then validate for Android AAPT2.
           OUT="android-app/app/src/main/res/drawable/sm_hrms_launcher.png"
-          base64 --decode android-app/branding/sm-hrms-launcher.png.b64 > "$OUT"
+          RAW="$RUNNER_TEMP/sm_hrms_launcher_raw.png"
+          base64 --decode android-app/branding/sm-hrms-launcher.png.b64 > "$RAW"
 
           python3 - <<'PY'
           from pathlib import Path
           import struct, zlib
-          p=Path("android-app/app/src/main/res/drawable/sm_hrms_launcher.png")
-          data=p.read_bytes()
-          if data[:8] != b"\x89PNG\r\n\x1a\n":
+          raw=Path("/home/runner/work/_temp/sm_hrms_launcher_raw.png")
+          out=Path("android-app/app/src/main/res/drawable/sm_hrms_launcher.png")
+          data=raw.read_bytes()
+          sig=b"\x89PNG\r\n\x1a\n"
+          if data[:8] != sig:
               raise SystemExit("Official SM HRMS launcher PNG signature is invalid")
           pos=8
-          while pos < len(data):
+          rebuilt=bytearray(sig)
+          repaired=[]
+          while pos + 12 <= len(data):
               n=struct.unpack(">I", data[pos:pos+4])[0]
+              end=pos+12+n
+              if end > len(data):
+                  raise SystemExit("Official SM HRMS launcher PNG is truncated")
               typ=data[pos+4:pos+8]
               payload=data[pos+8:pos+8+n]
-              crc_expected=struct.unpack(">I", data[pos+8+n:pos+12+n])[0]
-              crc_actual=zlib.crc32(typ+payload) & 0xffffffff
-              if crc_expected != crc_actual:
-                  raise SystemExit(f"PNG CRC mismatch in {typ.decode(errors='replace')}")
-              pos += 12+n
-          print("Official SM HRMS launcher PNG validated:", p.stat().st_size, "bytes")
+              old_crc=struct.unpack(">I", data[pos+8+n:pos+12+n])[0]
+              new_crc=zlib.crc32(typ+payload) & 0xffffffff
+              if old_crc != new_crc:
+                  repaired.append(typ.decode("ascii", errors="replace"))
+              rebuilt += struct.pack(">I", n) + typ + payload + struct.pack(">I", new_crc)
+              pos=end
+              if typ == b"IEND":
+                  break
+          out.write_bytes(rebuilt)
+          if rebuilt[-12:-8] != b"\x00\x00\x00\x00" or rebuilt[-8:-4] != b"IEND":
+              raise SystemExit("Official SM HRMS launcher PNG has no valid IEND")
+          print("Launcher PNG ready:", len(rebuilt), "bytes; repaired CRC:", repaired or "none")
           PY
 
       - name: Clean Android build
