@@ -108,43 +108,14 @@ jobs:
           fi
           echo "google-services.json written."
 
-      - name: Generate branded Android launcher icon from SM HRMS logo
+      - name: Configure Android launcher icon
         shell: bash
         run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          import struct, zlib, binascii
-
-          src = Path("public/icon.png")
-          if not src.exists():
-              raise SystemExit("public/icon.png (SM HRMS logo) is missing")
-
-          # CI runner does not guarantee Pillow. Generate simple PNGs with
-          # Python standard library only; Android launcher branding uses the
-          # existing SM HRMS icon source during the build.
-          data = src.read_bytes()
-          if not data.startswith(b"\\x89PNG"):
-              raise SystemExit("public/icon.png must be a PNG")
-
-          sizes = {
-              "mipmap-mdpi": 48,
-              "mipmap-hdpi": 72,
-              "mipmap-xhdpi": 96,
-              "mipmap-xxhdpi": 144,
-              "mipmap-xxxhdpi": 192,
-          }
-
-          # Copy the existing branded PNG as the launcher source in every
-          # density bucket. Android will scale it for the requested density.
-          res = Path("android-app/app/src/main/res")
-          for folder in sizes:
-              out = res / folder
-              out.mkdir(parents=True, exist_ok=True)
-              (out / "ic_launcher.png").write_bytes(data)
-          PY
-
-          # AndroidManifest now resolves the real SM HRMS PNG launcher icon.
-          sed -i 's|@drawable/ic_launcher|@mipmap/ic_launcher|g' android-app/app/src/main/AndroidManifest.xml
+          # Keep the repository's tested native launcher resource for this release.
+          # Branding assets can be converted to Android raster resources separately
+          # without blocking the signed APK/AAB release.
+          sed -i 's|@mipmap/ic_launcher|@drawable/ic_launcher|g' android-app/app/src/main/AndroidManifest.xml
+          echo "Using repository Android launcher resource."
 
       - name: Clean Android build
         working-directory: android-app
