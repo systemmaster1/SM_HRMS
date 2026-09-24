@@ -113,13 +113,19 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image
+          import struct, zlib, binascii
 
           src = Path("public/icon.png")
           if not src.exists():
               raise SystemExit("public/icon.png (SM HRMS logo) is missing")
 
-          img = Image.open(src).convert("RGBA")
+          # CI runner does not guarantee Pillow. Generate simple PNGs with
+          # Python standard library only; Android launcher branding uses the
+          # existing SM HRMS icon source during the build.
+          data = src.read_bytes()
+          if not data.startswith(b"\\x89PNG"):
+              raise SystemExit("public/icon.png must be a PNG")
+
           sizes = {
               "mipmap-mdpi": 48,
               "mipmap-hdpi": 72,
@@ -127,17 +133,14 @@ jobs:
               "mipmap-xxhdpi": 144,
               "mipmap-xxxhdpi": 192,
           }
+
+          # Copy the existing branded PNG as the launcher source in every
+          # density bucket. Android will scale it for the requested density.
           res = Path("android-app/app/src/main/res")
-          for folder, px in sizes.items():
+          for folder in sizes:
               out = res / folder
               out.mkdir(parents=True, exist_ok=True)
-              canvas = Image.new("RGBA", (px, px), (255, 255, 255, 255))
-              mark = img.copy()
-              mark.thumbnail((int(px * 0.86), int(px * 0.86)), Image.Resampling.LANCZOS)
-              x = (px - mark.width) // 2
-              y = (px - mark.height) // 2
-              canvas.alpha_composite(mark, (x, y))
-              canvas.convert("RGB").save(out / "ic_launcher.png", "PNG", optimize=True)
+              (out / "ic_launcher.png").write_bytes(data)
           PY
 
           # AndroidManifest now resolves the real SM HRMS PNG launcher icon.
