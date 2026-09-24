@@ -152,18 +152,26 @@ export default function LeavePage() {
 
     if (err) { setSaving(false); return setError(err.message); }
 
-    // Notify the reporting manager, or admins if none is set
-    const notifyTargets: string[] = [];
-    if (me!.manager_id) {
-      notifyTargets.push(me!.manager_id);
+    // Notify the reporting manager. If none is configured, fall back to
+    // active company admins/owners only. Keep recipients company-scoped and
+    // deduplicated so a leave request never alerts another organization.
+    const notifyTargets = new Set<string>();
+    if (me!.manager_id && me!.manager_id !== me!.id) {
+      notifyTargets.add(me!.manager_id);
     } else {
       const { data: admins } = await supabase
-        .from("profiles").select("id").in("role", ["owner", "admin"]);
-      admins?.forEach((a: any) => notifyTargets.push(a.id));
+        .from("profiles")
+        .select("id")
+        .eq("company_id", me!.company_id)
+        .eq("status", "active")
+        .in("role", ["owner", "admin"]);
+      admins?.forEach((a: any) => {
+        if (a.id && a.id !== me!.id) notifyTargets.add(a.id);
+      });
     }
-    if (notifyTargets.length) {
+    if (notifyTargets.size) {
       await supabase.from("notifications").insert(
-        notifyTargets.map((uidTarget) => ({
+        Array.from(notifyTargets).map((uidTarget) => ({
           company_id: me!.company_id,
           user_id: uidTarget,
           title: "New leave request",
