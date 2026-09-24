@@ -7,14 +7,14 @@ plugins {
 
 android {
     namespace = "in.systemmaster.hrms"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "in.systemmaster.hrms"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 7
-        versionName = "1.6.0"
+        targetSdk = 36
+        versionCode = 8
+        versionName = "1.7.0"
         buildConfigField("String", "WEB_APP_URL", "\"https://hrms.systemmaster.in\"")
     }
 

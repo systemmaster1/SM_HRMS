@@ -62,7 +62,8 @@ class MainActivity : AppCompatActivity() {
         pageProgress = findViewById(R.id.pageProgress)
         loadingText = findViewById(R.id.loadingText)
 
-        requestRuntimePermissions()
+        // Permissions are requested contextually when a feature needs them.
+        // Do not show camera/location permission dialogs on first launch.
         PushNotifications.createChannel(this)
         refreshPushToken()
 
@@ -275,17 +276,6 @@ class MainActivity : AppCompatActivity() {
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
-    private fun requestRuntimePermissions() {
-        val permissions = mutableListOf(
-            Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION,
-            Manifest.permission.CAMERA
-        )
-        if (android.os.Build.VERSION.SDK_INT >= 33) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
-        permissionLauncher.launch(permissions.toTypedArray())
-    }
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {

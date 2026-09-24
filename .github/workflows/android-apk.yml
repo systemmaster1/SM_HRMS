@@ -1,4 +1,4 @@
-name: Build & Publish Android APK
+name: Build Android APK + Play Store AAB
 
 on:
   workflow_dispatch:
@@ -62,14 +62,14 @@ jobs:
           echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
           echo "SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
 
-      - name: Android SDK 35
+      - name: Android SDK 36
         shell: bash
         run: |
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
 
           echo "Installed Android packages:"
-          "$SDKMANAGER" --list_installed | grep -E "platforms;android-35|build-tools;35.0.0|platform-tools" || true
+          "$SDKMANAGER" --list_installed | grep -E "platforms;android-36|build-tools;36.0.0|platform-tools" || true
 
       - name: Load release signing key
         shell: bash
@@ -116,7 +116,7 @@ jobs:
       - name: Build fresh APK
         working-directory: android-app
         run: |
-          gradle assembleRelease --stacktrace
+          gradle assembleRelease bundleRelease --stacktrace
 
       - name: Verify APK exists
         shell: bash
@@ -156,12 +156,24 @@ jobs:
 
           TARGET="$(echo "$BADGING" | sed -n "s/.*targetSdkVersion:'\([^']*\)'.*/\1/p" | head -n 1)"
 
-          if [ "$TARGET" != "35" ]; then
-            echo "Expected targetSdkVersion 35, got: $TARGET"
+          if [ "$TARGET" != "36" ]; then
+            echo "Expected targetSdkVersion 36, got: $TARGET"
             exit 1
           fi
 
-          echo "Verified targetSdkVersion 35."
+          echo "Verified targetSdkVersion 36."
+
+      - name: Verify Play Store AAB exists
+        shell: bash
+        run: |
+          AAB="android-app/app/build/outputs/bundle/release/app-release.aab"
+          if [ ! -f "$AAB" ]; then
+            echo "AAB was not generated."
+            find android-app/app/build/outputs -maxdepth 6 -type f || true
+            exit 1
+          fi
+          cp "$AAB" SM-HRMS-PlayStore.aab
+          ls -lh SM-HRMS-PlayStore.aab
 
       - name: Show signing certificate (for assetlinks.json)
         shell: bash
@@ -219,4 +231,11 @@ jobs:
         with:
           name: SM-HRMS-APK
           path: SM-HRMS.apk
+          if-no-files-found: error
+
+      - name: Upload Play Store AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SM-HRMS-PlayStore-AAB
+          path: SM-HRMS-PlayStore.aab
           if-no-files-found: error
