@@ -13,6 +13,7 @@ import {
   visitArrival, fmtMins, fmtClock,
 } from "@/lib/tracking";
 import { downloadVisitLogPdf, type DaySummary } from "@/lib/visit-pdf";
+import { useFeature } from "@/lib/features/client";
 import type { LivePin, VisitPin } from "@/components/TrackingMap";
 import {
   Radar, Route as RouteIcon, MapPin, Clock, PauseCircle, WifiOff, FileDown, RefreshCw,
@@ -41,6 +42,8 @@ const STATE_CHIP: Record<string, string> = {
 
 export default function TrackingPage() {
   const supabase = createClient();
+  // Visits-only organizations (no GPS module) still get visits, timeline and PDF.
+  const trackingOn = useFeature("field.tracking");
   const [me, setMe] = useState<Profile | null>(null);
   const [company, setCompany] = useState<any>(null);
   const [people, setPeople] = useState<Profile[]>([]);
@@ -99,7 +102,7 @@ export default function TrackingPage() {
 
   /* ---------- Live positions + today's km ---------- */
   const loadLive = useCallback(async () => {
-    if (!manager || people.length === 0) return;
+    if (!manager || !trackingOn || people.length === 0) return;
     setLiveLoading(true);
     const ids = people.map((p) => p.id);
     const [{ data: ll }, hist] = await Promise.all([
@@ -118,7 +121,7 @@ export default function TrackingPage() {
     setKmToday(km);
     setLastSync(new Date());
     setLiveLoading(false);
-  }, [supabase, manager, people]);
+  }, [supabase, manager, people, trackingOn]);
 
   useEffect(() => {
     if (!ready) return;
@@ -153,7 +156,7 @@ export default function TrackingPage() {
     if (!emp) return;
     setDayLoading(true);
     const [hist, { data: v }] = await Promise.all([
-      fetchAll((from, to) => supabase.from("employee_location_history")
+      !trackingOn ? Promise.resolve([] as any[]) : fetchAll((from, to) => supabase.from("employee_location_history")
         .select("latitude, longitude, accuracy_m, captured_at")
         .eq("employee_id", emp)
         .gte("captured_at", dayStart(date)).lt("captured_at", dayEnd(date))
@@ -165,7 +168,7 @@ export default function TrackingPage() {
     setDayRows(hist);
     setDayVisits(v || []);
     setDayLoading(false);
-  }, [supabase, emp, date]);
+  }, [supabase, emp, date, trackingOn]);
 
   useEffect(() => { if (ready) loadDay(); }, [ready, loadDay]);
 
@@ -226,7 +229,7 @@ export default function TrackingPage() {
         fetchAll((from, to) => supabase.from("field_visits").select("*")
           .eq("employee_id", emp).gte("visit_date", pdfFrom).lte("visit_date", pdfTo)
           .order("visit_date").order("id").range(from, to)),
-        fetchAll((from, to) => supabase.from("employee_location_history")
+        !trackingOn ? Promise.resolve([] as any[]) : fetchAll((from, to) => supabase.from("employee_location_history")
           .select("latitude, longitude, accuracy_m, captured_at")
           .eq("employee_id", emp)
           .gte("captured_at", dayStart(pdfFrom)).lt("captured_at", dayEnd(pdfTo))
@@ -286,7 +289,7 @@ export default function TrackingPage() {
       />
 
       {/* ================= LIVE (managers) ================= */}
-      {manager && (
+      {manager && trackingOn && (
         <section className="mb-8">
           <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
             <div>
@@ -411,7 +414,12 @@ export default function TrackingPage() {
 
         <div className="grid gap-3 lg:grid-cols-[1fr_360px]">
           <div>
-            {!dayLoading && day.track.length === 0 && visitPins.length === 0 ? (
+            {!trackingOn ? (
+              <Card>
+                <EmptyState icon={MapPin} title="GPS tracking is not part of your plan"
+                  hint="Visits, timings and the PDF visit log work without it. Add Field Tracking to see routes and distance." />
+              </Card>
+            ) : !dayLoading && day.track.length === 0 && visitPins.length === 0 ? (
               <Card>
                 <EmptyState icon={MapPin} title="No GPS data for this day"
                   hint="Tracking was off, the phone had no signal, or this person did not go on duty." />

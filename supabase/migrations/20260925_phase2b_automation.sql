@@ -13,6 +13,16 @@
 
 begin;
 
+-- Module switch (Phase A). Until Phase A is installed every module counts as ON.
+do $$
+begin
+  if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                 where n.nspname = 'public' and p.proname = 'org_feature_enabled') then
+    execute $f$create function public.org_feature_enabled(p_company uuid, p_key text)
+              returns boolean language sql stable as 'select true'$f$;
+  end if;
+end $$;
+
 -- =============================================================================
 -- 1) WORK CALENDAR
 --    Weekly off days: 0 = Sunday … 6 = Saturday.
@@ -133,6 +143,7 @@ begin
       and p.company_id is not null
       and (p_company is null or p.company_id = p_company)
       and coalesce(nullif(to_jsonb(p)->>'joined_on', '')::date, p_date) <= p_date
+      and public.org_feature_enabled(p.company_id, 'attendance')
   ),
   att as (
     select distinct on (a.employee_id)
@@ -277,6 +288,7 @@ begin
       and ct.next_due_date <= horizon
       and coalesce((to_jsonb(ct)->>'active')::boolean, true)
       and (p_company is null or ct.company_id = p_company)
+      and public.org_feature_enabled(ct.company_id, 'tasks.checklist')
     for update of ct skip locked
   loop
     occ    := t.next_due_date;
@@ -499,6 +511,7 @@ begin
       and v.reminder_sent_at is null
       and v.travel_started_at is null
       and coalesce(v.status, '') not in ('completed', 'cancelled', 'rejected', 'missed')
+      and public.org_feature_enabled(v.company_id, 'field.visits')
     returning v.company_id, v.employee_id, v.client_name, v.address, v.scheduled_at
   ), ins as (
     insert into public.notifications (company_id, user_id, title, body, kind, link)
@@ -521,6 +534,7 @@ begin
       and i.reminder_sent_at is null
       and i.due_date = v_today
       and i.due_time is not null
+      and public.org_feature_enabled(i.company_id, 'tasks.checklist')
       and ((i.due_date + i.due_time::time) at time zone 'Asia/Kolkata') > v_now
       and ((i.due_date + i.due_time::time) at time zone 'Asia/Kolkata') <= v_now + interval '30 minutes'
     returning i.company_id, i.assigned_to, t.title, i.due_time
@@ -538,6 +552,7 @@ begin
     where d.completed_at is null
       and d.reminder_sent_at is null
       and d.due_date = v_today
+      and public.org_feature_enabled(d.company_id, 'tasks.delegation')
       and d.due_time is not null
       and ((d.due_date + d.due_time::time) at time zone 'Asia/Kolkata') > v_now
       and ((d.due_date + d.due_time::time) at time zone 'Asia/Kolkata') <= v_now + interval '30 minutes'
@@ -564,13 +579,16 @@ begin
                       and v_today between l.from_date and coalesce(l.to_date, l.from_date))
   ), counts as (
     select emp.id, emp.company_id,
-      (select count(*) from public.checklist_instances i
-        where i.assigned_to = emp.id and i.due_date = v_today and i.completed_at is null)
-      + (select count(*) from public.delegations d
-        where d.assigned_to = emp.id and d.due_date <= v_today and d.completed_at is null) as tasks,
-      (select count(*) from public.field_visits v
-        where v.employee_id = emp.id and v.visit_date = v_today
-          and coalesce(v.status, '') not in ('completed', 'cancelled', 'rejected')) as visits
+      (case when public.org_feature_enabled(emp.company_id, 'tasks.checklist') then
+        (select count(*) from public.checklist_instances i
+          where i.assigned_to = emp.id and i.due_date = v_today and i.completed_at is null) else 0 end)
+      + (case when public.org_feature_enabled(emp.company_id, 'tasks.delegation') then
+        (select count(*) from public.delegations d
+          where d.assigned_to = emp.id and d.due_date <= v_today and d.completed_at is null) else 0 end) as tasks,
+      (case when public.org_feature_enabled(emp.company_id, 'field.visits') then
+        (select count(*) from public.field_visits v
+          where v.employee_id = emp.id and v.visit_date = v_today
+            and coalesce(v.status, '') not in ('completed', 'cancelled', 'rejected')) else 0 end) as visits
     from emp
   ), logged as (
     insert into public.daily_digest_log (employee_id, day)
@@ -600,6 +618,7 @@ begin
     set overdue_notified_at = v_now
     where d.completed_at is null
       and d.overdue_notified_at is null
+      and public.org_feature_enabled(d.company_id, 'tasks.delegation')
       and d.assigned_by is not null
       and d.assigned_by <> d.assigned_to
       and ((d.due_date + coalesce(d.due_time::time, '23:59'::time)) at time zone 'Asia/Kolkata') < v_now

@@ -19,6 +19,8 @@ import {
   Workflow,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useEntitlements } from "@/lib/features/client";
+import { ACCESS_KEY_FEATURE, isFeatureOn } from "@/lib/features/registry";
 
 const fieldCls =
   "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10";
@@ -39,6 +41,9 @@ const accessModules = [
 ] as const;
 
 export default function EditEmployeePage() {
+  // Only offer permissions for modules this organization has.
+  const entitlementsForAccess = useEntitlements();
+  const accessKeyOn = (k: string) => isFeatureOn(entitlementsForAccess, ACCESS_KEY_FEATURE[k] ?? null);
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -302,7 +307,7 @@ export default function EditEmployeePage() {
               <tr><th className="rounded-l-xl px-4 py-3">Module</th><th className="px-4 py-3">Access level</th><th className="rounded-r-xl px-4 py-3">Meaning</th></tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {accessModules.map(([key,label]) => {
+              {accessModules.filter(([key]) => accessKeyOn(key)).map(([key,label]) => {
                 const level = accessLevel(key);
                 return (
                   <tr key={key}>

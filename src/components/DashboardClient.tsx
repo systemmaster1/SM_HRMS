@@ -4,6 +4,8 @@ import Link from "next/link";
 import { MapPin, Users, CalendarCheck, Plane, ArrowUpRight, Activity, WifiOff, AlertTriangle, CheckCircle2 } from "lucide-react";
 import TodayUpdates from "@/components/TodayUpdates";
 import { FadeIn, StaggerGroup, StaggerItem, HoverLift } from "@/components/motion";
+import { useEntitlements } from "@/lib/features/client";
+import { featureForPath, isFeatureOn } from "@/lib/features/registry";
 
 const statusStyles: Record<string, string> = {
   planned: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
@@ -30,12 +32,19 @@ export default function DashboardClient({
   visits: any[];
   fieldSummary?: { tracked: number; liveNow: number; onVisit: number; completed: number; gpsBlocked: number; stale: number };
 }) {
+  // Only show shortcuts and widgets for modules this organization has.
+  const entitlements = useEntitlements();
+  const moduleOn = (href: string) => isFeatureOn(entitlements, featureForPath(href));
+  const trackingOn = isFeatureOn(entitlements, "field.tracking");
+  const visitsOn = isFeatureOn(entitlements, "field.visits");
+
   const quickActions = [
     { href: "/attendance", label: "Mark attendance", icon: CalendarCheck },
     { href: "/leave", label: "Apply for leave", icon: Plane },
     { href: "/field-visits", label: "Log a visit", icon: MapPin },
     { href: "/helpdesk", label: "Raise a ticket", icon: Users },
-  ];
+  ].filter((a) => moduleOn(a.href));
+  const visibleStats = stats.filter((s) => moduleOn(s.href));
 
   return (
     <div>
@@ -51,7 +60,7 @@ export default function DashboardClient({
       </FadeIn>
 
       <StaggerGroup className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {stats.map((s) => {
+        {visibleStats.map((s) => {
           const Icon = iconMap[s.icon] || Users;
           return (
             <StaggerItem key={s.label}>
@@ -72,7 +81,7 @@ export default function DashboardClient({
         })}
       </StaggerGroup>
 
-      {admin && fieldSummary && <FadeIn delay={0.08}>
+      {admin && fieldSummary && trackingOn && <FadeIn delay={0.08}>
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-700">
             <div><h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Live field operations</h2><p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Sales-team tracking, GPS health and today&apos;s field progress.</p></div>
@@ -110,7 +119,7 @@ export default function DashboardClient({
         ))}
       </StaggerGroup>
 
-      <FadeIn delay={0.15}>
+      {visitsOn && <FadeIn delay={0.15}>
         <div className="mt-7">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Today&apos;s field visits</h2>
@@ -156,7 +165,7 @@ export default function DashboardClient({
             )}
           </div>
         </div>
-      </FadeIn>
+      </FadeIn>}
     </div>
   );
 }

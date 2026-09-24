@@ -21,6 +21,8 @@ import {
   Workflow,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useEntitlements } from "@/lib/features/client";
+import { ACCESS_KEY_FEATURE, isFeatureOn } from "@/lib/features/registry";
 
 const randomPassword = () => {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -31,6 +33,9 @@ const fieldCls =
   "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10";
 
 export default function NewEmployeePage() {
+  // Only offer permissions for modules this organization has.
+  const entitlementsForAccess = useEntitlements();
+  const accessKeyOn = (k: string) => isFeatureOn(entitlementsForAccess, ACCESS_KEY_FEATURE[k] ?? null);
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const [depts, setDepts] = useState<any[]>([]);
@@ -291,7 +296,7 @@ export default function NewEmployeePage() {
             ["live_tracking","Live Team Tracking","View field employee GPS"], ["route_history","Route History","Historical route and daily KM"],
             ["field_reports","Field Reports","Field performance reports/export"], ["payroll","Payroll","Salary/payroll module"],
             ["team","Team Management","Employee directory/control"], ["reports","Management Reports","Cross-module reporting"],
-          ].map(([key,title,desc]) => <label key={key} className="rounded-2xl border border-slate-200 p-4 text-sm"><span className="font-semibold text-slate-900">{title}</span><span className="mt-1 block text-xs text-slate-500">{desc}</span><select className={fieldCls} value={f.access_permissions[key]} onChange={(e)=>setAccess(key,e.target.value as any)}><option value="none">No access</option><option value="self">Own / Self</option><option value="team">Assigned Team</option><option value="company">All Company</option></select></label>)}
+          ].filter(([key]) => accessKeyOn(key)).map(([key,title,desc]) => <label key={key} className="rounded-2xl border border-slate-200 p-4 text-sm"><span className="font-semibold text-slate-900">{title}</span><span className="mt-1 block text-xs text-slate-500">{desc}</span><select className={fieldCls} value={f.access_permissions[key]} onChange={(e)=>setAccess(key,e.target.value as any)}><option value="none">No access</option><option value="self">Own / Self</option><option value="team">Assigned Team</option><option value="company">All Company</option></select></label>)}
         </div>
         <div className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800"><b>Privacy rule:</b> Giving Live Team Tracking permission lets this user view authorized field employees; it does not turn on this user&apos;s own GPS. Own GPS is controlled separately below.</div>
       </section>

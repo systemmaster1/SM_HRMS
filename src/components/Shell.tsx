@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useEntitlements } from "@/lib/features/client";
+import { featureForPath, isFeatureOn } from "@/lib/features/registry";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -144,6 +146,11 @@ export default function Shell({
 
   const admin = isAdminRole(profile.role);
   const hasAccess = (key?: string) => admin || !key || (profile.access_permissions?.[key] && profile.access_permissions[key] !== "none");
+  // Organization modules (plan + SystemMaster settings): a menu entry is shown
+  // only when its route's feature is enabled. Routes are mapped in one place:
+  // src/lib/features/registry.ts
+  const entitlements = useEntitlements();
+  const moduleOn = (href: string) => isFeatureOn(entitlements, featureForPath(href));
 
   // Auto-expand whichever group contains the current page.
   const initialExpanded = new Set<string>();
@@ -215,7 +222,7 @@ export default function Shell({
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {nav.map((entry) => {
           if (entry.adminOnly && !admin) return null;
-          if (!isGroup(entry) && !hasAccess(entry.accessKey)) return null;
+          if (!isGroup(entry) && (!hasAccess(entry.accessKey) || !moduleOn(entry.href))) return null;
 
           if (!isGroup(entry)) {
             const active = entry.href === bestMatch;
@@ -227,7 +234,7 @@ export default function Shell({
             );
           }
 
-          const items = entry.items.filter((i) => (!i.adminOnly || admin) && hasAccess(i.accessKey));
+          const items = entry.items.filter((i) => (!i.adminOnly || admin) && hasAccess(i.accessKey) && moduleOn(i.href));
           if (items.length === 0) return null;
           const groupActive = items.some((i) => isActivePath(pathname, i.href));
           const isOpen = expanded.has(entry.key) || groupActive;
@@ -378,7 +385,7 @@ export default function Shell({
       <nav aria-label="Primary"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/95 lg:hidden">
         <div className="mx-auto flex max-w-md items-stretch justify-around">
-          {bottomNav.filter((b) => hasAccess(b.accessKey)).map((b) => {
+          {bottomNav.filter((b) => hasAccess(b.accessKey) && moduleOn(b.href)).map((b) => {
             const active = isActivePath(pathname, b.href);
             const Icon = b.icon;
             return (

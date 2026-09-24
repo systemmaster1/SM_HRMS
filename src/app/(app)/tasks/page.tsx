@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { confirmDialog, promptDialog, alertDialog, toast } from "@/components/Dialogs";
 import { PageLoader } from "@/components/ui";
+import { useFeature } from "@/lib/features/client";
+import ModuleLocked from "@/components/ModuleLocked";
 
 /** Completed tasks older than this are not loaded on the Tasks screen. */
 const HISTORY_DAYS = 90;
@@ -201,7 +203,10 @@ export default function TasksPage() {
   const [members, setMembers] = useState<Profile[]>([]);
   const [depts, setDepts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"delegation" | "checklist">("delegation");
+  // Organization modules: Delegation only, Checklist only, or both.
+  const delegationOn = useFeature("tasks.delegation");
+  const checklistOn = useFeature("tasks.checklist");
+  const [tab, setTab] = useState<"delegation" | "checklist">(delegationOn || !checklistOn ? "delegation" : "checklist");
 
   /* ---------------- Delegation state ---------------- */
   const [delegations, setDelegations] = useState<any[]>([]);
@@ -703,6 +708,11 @@ export default function TasksPage() {
         }
       />
 
+      {!delegationOn && !checklistOn && (
+        <ModuleLocked name="Task Management" description="Delegation and checklist tasks" />
+      )}
+
+      {delegationOn && checklistOn && (
       <div className="mb-5 flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-800 p-1">
         <button onClick={() => setTab("delegation")}
           className={`flex-1 rounded-md px-4 py-2 text-sm font-medium transition ${
@@ -717,9 +727,10 @@ export default function TasksPage() {
           Checklist {iPendingCount > 0 && `(${iPendingCount})`}
         </button>
       </div>
+      )}
 
       {/* ================= DELEGATION ================= */}
-      {tab === "delegation" && (
+      {tab === "delegation" && delegationOn && (
         <div>
           <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-700 p-1">
             <ScopeBtn on={dScope === "mine"} onClick={() => setDScope("mine")}>Assigned to me</ScopeBtn>
@@ -1002,7 +1013,7 @@ export default function TasksPage() {
       )}
 
       {/* ================= CHECKLIST ================= */}
-      {tab === "checklist" && (
+      {tab === "checklist" && checklistOn && (
         <div className="space-y-6">
           {admin && (
             <div>

@@ -18,6 +18,7 @@ import {
 import { useEffect } from "react";
 import { confirmDialog } from "@/components/Dialogs";
 import { PageLoader } from "@/components/ui";
+import { useFeature } from "@/lib/features/client";
 
 type Kind = "checklist" | "delegation";
 type Source = "sheet" | "file";
@@ -30,7 +31,9 @@ export default function TaskImportPage() {
   const [ready, setReady] = useState(false);
 
   const [step, setStep] = useState(1);
-  const [kind, setKind] = useState<Kind>("checklist");
+  const checklistOn = useFeature("tasks.checklist");
+  const delegationOn = useFeature("tasks.delegation");
+  const [kind, setKind] = useState<Kind>(checklistOn || !delegationOn ? "checklist" : "delegation");
   const [source, setSource] = useState<Source>("sheet");
   const [mode, setMode] = useState<"add" | "replace">("add");
 
@@ -400,8 +403,8 @@ export default function TaskImportPage() {
               </p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {[
-                  { v: "checklist", t: "Checklist tasks", d: "Recurring tasks that repeat on a schedule" },
-                  { v: "delegation", t: "Delegation tasks", d: "One-off tasks with a single due date" },
+                  ...(checklistOn ? [{ v: "checklist", t: "Checklist tasks", d: "Recurring tasks that repeat on a schedule" }] : []),
+                  ...(delegationOn ? [{ v: "delegation", t: "Delegation tasks", d: "One-off tasks with a single due date" }] : []),
                 ].map((o) => (
                   <button key={o.v} onClick={() => setKind(o.v as Kind)}
                     className={`rounded-xl border p-4 text-left transition ${

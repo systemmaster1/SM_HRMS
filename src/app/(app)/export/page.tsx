@@ -13,6 +13,8 @@ import {
 import { todayYMD, addDaysYMD, monthRangeYMD, fmtStampIST } from "@/lib/date";
 import { fetchAll } from "@/lib/supabase/fetch-all";
 import { PageLoader } from "@/components/ui";
+import { useEntitlements } from "@/lib/features/client";
+import { isFeatureOn, type FeatureKey } from "@/lib/features/registry";
 
 type ModuleKey =
   | "attendance" | "leaves" | "leave_balances" | "checklist" | "delegation"
@@ -24,6 +26,13 @@ type ModuleDef = {
   desc: string;
   icon: any;
   dated: boolean;
+};
+
+/** Export → organization module it belongs to (null = always available). */
+const EXPORT_FEATURE: Record<string, FeatureKey | null> = {
+  attendance: "attendance", leaves: "leave", leave_balances: "leave",
+  checklist: "tasks.checklist", delegation: "tasks.delegation",
+  field_visits: "field.visits", salary: "payroll", employees: null, tickets: null,
 };
 
 const MODULES: ModuleDef[] = [
@@ -41,6 +50,8 @@ const MODULES: ModuleDef[] = [
 const fmt = (ts: string | null | undefined) => fmtStampIST(ts);
 
 export default function ExportPage() {
+  const entitlements = useEntitlements();
+  const availableModules = MODULES.filter((m) => isFeatureOn(entitlements, EXPORT_FEATURE[m.key] ?? null));
   const supabase = createClient();
   const [me, setMe] = useState<Profile | null>(null);
   const [ready, setReady] = useState(false);
@@ -376,15 +387,15 @@ export default function ExportPage() {
           </h2>
           <button
             onClick={() =>
-              setPicked(picked.length === MODULES.length ? [] : MODULES.map((m) => m.key))
+              setPicked(picked.length === availableModules.length ? [] : availableModules.map((m) => m.key))
             }
             className="text-xs font-medium text-brand-700 hover:text-brand-800">
-            {picked.length === MODULES.length ? "Clear all" : "Select all"}
+            {picked.length === availableModules.length ? "Clear all" : "Select all"}
           </button>
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {MODULES.map((m) => {
+          {availableModules.map((m) => {
             const on = picked.includes(m.key);
             const finished = done.includes(m.key);
             return (

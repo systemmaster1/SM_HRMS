@@ -7,6 +7,9 @@ import ActiveVisitTracker from "@/components/ActiveVisitTracker";
 import PushRegistrar from "@/components/PushRegistrar";
 import DialogHost from "@/components/Dialogs";
 import ContextBackButton from "@/components/ContextBackButton";
+import OrganizationSuspended from "@/components/OrganizationSuspended";
+import { EntitlementsProvider } from "@/lib/features/client";
+import { getEntitlements } from "@/lib/features/server";
 
 export default async function AppLayout({
   children,
@@ -76,12 +79,27 @@ export default async function AppLayout({
     .eq("id", profile.company_id)
     .maybeSingle();
 
+  // Organization entitlements (modules, plan, suspension) — enforced again
+  // in the database for every read and write.
+  const entitlements = await getEntitlements();
+  if (entitlements.organization?.account_status === "suspended") {
+    return (
+      <OrganizationSuspended
+        orgName={entitlements.organization.name}
+        orgCode={entitlements.organization.org_code}
+        reason={entitlements.organization.suspended_reason}
+      />
+    );
+  }
+
   return (
-    <Shell profile={profile as Profile} company={company as Company | null}>
-      <><ContextBackButton />{children}</>
-      <ActiveVisitTracker />
-      <PushRegistrar />
-      <DialogHost />
-    </Shell>
+    <EntitlementsProvider value={entitlements}>
+      <Shell profile={profile as Profile} company={company as Company | null}>
+        <><ContextBackButton />{children}</>
+        <ActiveVisitTracker />
+        <PushRegistrar />
+        <DialogHost />
+      </Shell>
+    </EntitlementsProvider>
   );
 }

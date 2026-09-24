@@ -73,7 +73,19 @@ function rowsOf(db: SupabaseClient, table: string, companyId: string, orderCol: 
       .range(from, to));
 }
 
+/** Module switches for this organization (Phase A). If not installed, everything is on. */
+async function moduleFlags(db: SupabaseClient, companyId: string) {
+  const keys = ["attendance", "leave", "tasks.checklist", "tasks.delegation", "field.visits"] as const;
+  const out: Record<string, boolean> = {};
+  await Promise.all(keys.map(async (k) => {
+    const { data, error } = await db.rpc("org_feature_enabled", { p_company: companyId, p_key: k });
+    out[k] = error ? true : data !== false;
+  }));
+  return out;
+}
+
 async function buildDatasets(db: SupabaseClient, companyId: string): Promise<Dataset[]> {
+  const on = await moduleFlags(db, companyId);
   const people = await fetchAll((from, to) =>
     db.from("profiles").select("*").eq("company_id", companyId)
       .order("full_name").order("id").range(from, to));
@@ -242,7 +254,16 @@ async function buildDatasets(db: SupabaseClient, companyId: string): Promise<Dat
     ]),
   });
 
-  return datasets;
+  // Only send tabs for modules this organization has.
+  const tabModule: Record<string, string> = {
+    "Checklist Tasks": "tasks.checklist",
+    "Delegation Tasks": "tasks.delegation",
+    "Attendance": "attendance",
+    "Attendance Register": "attendance",
+    "Leave": "leave",
+    "Field Visits": "field.visits",
+  };
+  return datasets.filter((d) => !tabModule[d.name] || on[tabModule[d.name]]);
 }
 
 /** Sends the datasets to the Apps Script endpoint and checks the reply. */

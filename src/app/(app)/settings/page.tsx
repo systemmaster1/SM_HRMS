@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import SettingsForm from "@/components/SettingsForm";
+import PlanFeaturesCard from "@/components/PlanFeaturesCard";
 import { redirect } from "next/navigation";
 
 export default async function SettingsPage() {
@@ -19,5 +20,10 @@ export default async function SettingsPage() {
     .select("*", { count: "exact", head: true })
     .eq("status", "active");
 
-  return <SettingsForm company={company} activeUsers={activeUsers ?? 0} />;
+  return (
+    <>
+      <PlanFeaturesCard />
+      <SettingsForm company={company} activeUsers={activeUsers ?? 0} />
+    </>
+  );
 }

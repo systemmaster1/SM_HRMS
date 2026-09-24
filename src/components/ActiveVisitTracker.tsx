@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useFeature } from "@/lib/features/client";
 
 const DEFAULT_INTERVAL_MINUTES = 5;
 
@@ -23,6 +24,9 @@ declare global {
 
 export default function ActiveVisitTracker() {
   const supabase = createClient();
+  // Tracking needs BOTH: the organization has Field Tracking, and the
+  // employee's own "field tracking" switch is on.
+  const orgTrackingOn = useFeature("field.tracking");
   const ctx = useRef<Context>({ enabled: false, interval: DEFAULT_INTERVAL_MINUTES });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const running = useRef(false);
@@ -34,7 +38,7 @@ export default function ActiveVisitTracker() {
       .select("field_tracking_enabled,tracking_interval_minutes,full_name")
       .eq("id", auth.user.id).single();
     ctx.current = {
-      enabled: p?.field_tracking_enabled === true,
+      enabled: orgTrackingOn && p?.field_tracking_enabled === true,
       interval: Math.max(1, Number(p?.tracking_interval_minutes || DEFAULT_INTERVAL_MINUTES)),
     };
 
@@ -58,7 +62,7 @@ export default function ActiveVisitTracker() {
         window.SMHRMSNative.stopDutyTracking();
       }
     }
-  }, [supabase]);
+  }, [supabase, orgTrackingOn]);
 
   const state = useCallback(async (s: string, reason?: string) => {
     if (!ctx.current.enabled) return;
