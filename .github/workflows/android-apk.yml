@@ -111,25 +111,28 @@ jobs:
       - name: Configure official SM HRMS launcher icon
         shell: bash
         run: |
-          # Decode the official user-supplied SM HRMS emblem. The image is stored
-          # losslessly as base64 so GitHub text tooling never redraws/recolors it.
-          RAW="$RUNNER_TEMP/sm_hrms_launcher_raw.png"
+          # Decode the official SM HRMS artwork and validate the PNG checksum.
           OUT="android-app/app/src/main/res/drawable/sm_hrms_launcher.png"
-          base64 --decode android-app/branding/sm-hrms-launcher.png.b64 > "$RAW"
-
-          # AAPT2 can crash on some indexed/paletted PNGs even when the PNG is
-          # otherwise valid. Normalize the official artwork to standard RGBA
-          # PNG before Android resource compilation. Pixels/branding stay the same.
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq imagemagick
-          convert "$RAW" -alpha on -type TrueColorAlpha PNG32:"$OUT"
+          base64 --decode android-app/branding/sm-hrms-launcher.png.b64 > "$OUT"
 
           python3 - <<'PY'
           from pathlib import Path
+          import struct, zlib
           p=Path("android-app/app/src/main/res/drawable/sm_hrms_launcher.png")
-          if p.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
-              raise SystemExit("Official SM HRMS launcher PNG is invalid")
-          print("Official SM HRMS launcher RGBA branding ready:", p.stat().st_size, "bytes")
+          data=p.read_bytes()
+          if data[:8] != b"\x89PNG\r\n\x1a\n":
+              raise SystemExit("Official SM HRMS launcher PNG signature is invalid")
+          pos=8
+          while pos < len(data):
+              n=struct.unpack(">I", data[pos:pos+4])[0]
+              typ=data[pos+4:pos+8]
+              payload=data[pos+8:pos+8+n]
+              crc_expected=struct.unpack(">I", data[pos+8+n:pos+12+n])[0]
+              crc_actual=zlib.crc32(typ+payload) & 0xffffffff
+              if crc_expected != crc_actual:
+                  raise SystemExit(f"PNG CRC mismatch in {typ.decode(errors='replace')}")
+              pos += 12+n
+          print("Official SM HRMS launcher PNG validated:", p.stat().st_size, "bytes")
           PY
 
       - name: Clean Android build
