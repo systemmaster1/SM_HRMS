@@ -19,6 +19,8 @@ export const getEntitlements = cache(async (): Promise<Entitlements> => {
     organization: d.organization ?? null,
     ads_enabled: d.ads_enabled === true,
     features: d.features || {},
+    locked: d.locked || [],
+    requests: d.requests || [],
     catalog: d.catalog || [],
   };
 });

@@ -89,11 +89,16 @@ export type Entitlements = {
     name: string;
     account_status: "active" | "suspended";
     suspended_reason?: string | null;
+    onboarding_completed_at?: string | null;
     timezone: string | null;
     plan_code: string | null;
   } | null;
   ads_enabled: boolean;
   features: Partial<Record<FeatureKey, boolean>>;
+  /** modules decided by SystemMaster (the organization cannot change them) */
+  locked: FeatureKey[];
+  /** paid modules requested and awaiting SystemMaster */
+  requests: FeatureKey[];
   catalog: { key: FeatureKey; parent: FeatureKey | null; name: string; availability: string }[];
 };
 
@@ -102,6 +107,8 @@ export const OPEN_ENTITLEMENTS: Entitlements = {
   organization: null,
   ads_enabled: false,
   features: {},
+  locked: [],
+  requests: [],
   catalog: [],
 };
 
