@@ -259,9 +259,8 @@ export default function TeamPage() {
           {visibleMembers.length > 0 ? (
             <ul className="divide-y divide-slate-100">
               {visibleMembers.map((m: any) => (
-                <li key={m.id} className="flex items-center gap-3 px-4 py-3.5">
-                  <Avatar n={m.full_name} url={m.avatar_url} />
-                  <div className="min-w-0 flex-1">
+                <li key={m.id} className="grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
+                  <div className="flex min-w-0 items-start gap-3 sm:contents">\n                  <Avatar n={m.full_name} url={m.avatar_url} />\n                  <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium text-slate-900">{m.full_name || "—"}</p>
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
@@ -289,13 +288,11 @@ export default function TeamPage() {
                       {m.work_manager?.full_name && <span className="inline-flex items-center gap-1"><Workflow className="h-3 w-3" /> Work: {m.work_manager.full_name}</span>}
                       {m.field_manager?.full_name && <span className="inline-flex items-center gap-1"><MapPinned className="h-3 w-3" /> Field: {m.field_manager.full_name}</span>}
                     </div>
-                  </div>
-                  {admin && (
-                    <div className="flex shrink-0 gap-2">
+                  </div>\n                  </div>\n                  {admin && (\n                    <div className="flex w-full gap-2 overflow-x-auto pb-1 sm:w-auto sm:shrink-0 sm:overflow-visible sm:pb-0">
                       <button
                         onClick={() => setDetailFor(m)}
                         title="Profile"
-                        className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
+                        className="flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
                       >
                         <IdCard className="h-3.5 w-3.5" /> Profile
                       </button>
@@ -303,7 +300,7 @@ export default function TeamPage() {
                         <button
                           onClick={() => openAtt(m)}
                           title="Attendance settings"
-                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
+                          className="flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
                         >
                           <Settings2 className="h-3.5 w-3.5" /> Attendance
                         </button>
@@ -312,7 +309,7 @@ export default function TeamPage() {
                         <Link
                           href={`/team/${m.id}/edit`}
                           title="Edit employee"
-                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
+                          className="flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
                         >
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </Link>
@@ -321,7 +318,7 @@ export default function TeamPage() {
                         <button
                           onClick={() => { setNewPw(randomPassword()); setResetFor(m); }}
                           title="Reset password"
-                          className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
+                          className="flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:border-brand-600 hover:text-brand-700"
                         >
                           <KeyRound className="h-3.5 w-3.5" /> Reset
                         </button>
@@ -330,7 +327,7 @@ export default function TeamPage() {
                         <button
                           onClick={() => { setRemoveMessage(""); setRemoveFor(m); }}
                           title="Remove employee"
-                          className="flex items-center gap-1.5 rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
+                          className="flex shrink-0 whitespace-nowrap items-center gap-1.5 rounded-lg border border-rose-200 px-2.5 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-50"
                         >
                           <Trash2 className="h-3.5 w-3.5" /> Delete
                         </button>
