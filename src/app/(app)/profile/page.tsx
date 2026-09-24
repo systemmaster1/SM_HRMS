@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
 import type { Profile } from "@/lib/types";
 import { Upload, Check, User, Camera } from "lucide-react";
+import { PageLoader } from "@/components/ui";
 
 export default function ProfilePage() {
   const supabase = createClient();
@@ -72,7 +73,7 @@ export default function ProfilePage() {
     load();
   };
 
-  if (loading) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (loading) return <PageLoader />;
 
   return (
     <div>

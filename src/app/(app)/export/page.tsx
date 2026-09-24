@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { todayYMD, addDaysYMD, monthRangeYMD, fmtStampIST } from "@/lib/date";
 import { fetchAll } from "@/lib/supabase/fetch-all";
+import { PageLoader } from "@/components/ui";
 
 type ModuleKey =
   | "attendance" | "leaves" | "leave_balances" | "checklist" | "delegation"
@@ -303,7 +304,7 @@ export default function ExportPage() {
 
   const admin = isAdminRole(me?.role);
 
-  if (!ready) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (!ready) return <PageLoader />;
 
   if (!admin) {
     return (

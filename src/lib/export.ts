@@ -1,4 +1,5 @@
 import { saveBlob } from "@/lib/download";
+import { toast } from "@/components/Dialogs";
 
 /** Downloads rows as a CSV file that Excel opens cleanly. */
 export function exportCsv(filename: string, headers: string[], rows: (string | number)[][]) {
@@ -11,7 +12,7 @@ export function exportCsv(filename: string, headers: string[], rows: (string | n
   // BOM so Excel reads UTF-8 correctly
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
   saveBlob(blob, filename.endsWith(".csv") ? filename : `${filename}.csv`)
-    .catch((e) => window.alert(e?.message || "Could not save the file."));
+    .catch((e) => toast(e?.message || "Could not save the file.", "error"));
 }
 
 /** Opens a print-ready window; the user saves it as PDF. */

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { FileText, Upload, Download, Trash2, Plus } from "lucide-react";
+import { confirmDialog } from "@/components/Dialogs";
 
 const CATEGORIES = [
   { v: "policy", l: "Policy" },
@@ -82,6 +83,7 @@ export default function PoliciesPage() {
   };
 
   const remove = async (id: string) => {
+    if (!(await confirmDialog({ title: "Delete this document?", message: "Employees will no longer see it.", danger: true }))) return;
     await supabase.from("documents").delete().eq("id", id);
     load();
   };

@@ -6,6 +6,7 @@ import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { CalendarDays, Plus, Trash2 } from "lucide-react";
 import { todayYMD } from "@/lib/date";
+import { confirmDialog } from "@/components/Dialogs";
 
 export default function HolidaysPage() {
   const supabase = createClient();
@@ -52,6 +53,11 @@ export default function HolidaysPage() {
   };
 
   const remove = async (id: string) => {
+    if (!(await confirmDialog({
+      title: "Delete this holiday?",
+      message: "If it is in the past, open Attendance register and click “Rebuild month” afterwards.",
+      danger: true,
+    }))) return;
     await supabase.from("holidays").delete().eq("id", id);
     load();
   };

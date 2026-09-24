@@ -9,6 +9,7 @@ import {
   User, CreditCard, FileText, Upload, Trash2, Download,
   ShieldOff, ShieldCheck, UserMinus, UserCheck, AlertTriangle,
 } from "lucide-react";
+import { confirmDialog } from "@/components/Dialogs";
 
 const CATEGORIES = [
   { v: "id_proof", l: "ID proof" },
@@ -106,6 +107,7 @@ export default function EmployeeDetail({
   };
 
   const removeDoc = async (id: string) => {
+    if (!(await confirmDialog({ title: "Delete this document?", message: "This cannot be undone.", danger: true }))) return;
     await supabase.from("employee_documents").delete().eq("id", id);
     loadDocs();
   };

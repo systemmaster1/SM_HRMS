@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { signedUrl } from "@/lib/storage";
+import { toast } from "@/components/Dialogs";
 
 /** <img> for a file in a private Supabase bucket (e.g. attendance selfies). */
 export function PrivateImage({
@@ -62,7 +63,7 @@ export function PrivateLink({
     setBusy(false);
     if (!u) {
       win?.close();
-      window.alert("You do not have access to this file, or it no longer exists.");
+      toast("You do not have access to this file, or it no longer exists.", "error");
       return;
     }
     if (win) win.location.href = u; else window.location.href = u;

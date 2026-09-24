@@ -423,7 +423,44 @@ export default function AttendancePage() {
             <EmptyState icon={CalendarCheck} title="No records in this range"
               hint="Adjust the dates, or check in to create a record." />
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            {/* Phones: one card per day */}
+            <ul className="divide-y divide-slate-100 md:hidden">
+              {rows.map((r: any) => (
+                <li key={r.id}>
+                  <button onClick={() => setDetail(r)} className="flex w-full items-center gap-3 px-4 py-3.5 text-left active:bg-slate-50">
+                    <div className="grid w-12 shrink-0 place-items-center rounded-lg bg-slate-50 py-1.5 text-center">
+                      <span className="text-[10px] font-semibold uppercase text-slate-400">
+                        {new Date(r.work_date).toLocaleDateString("en-IN", { weekday: "short" })}
+                      </span>
+                      <span className="text-lg font-bold leading-none text-slate-900">
+                        {new Date(r.work_date).getDate()}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      {admin && tab === "team" && (
+                        <p className="truncate text-sm font-semibold text-slate-900">{r.profiles?.full_name || "—"}</p>
+                      )}
+                      <p className="text-sm tabular-nums text-slate-700">
+                        {fmtTime(r.check_in)} <span className="text-slate-300">→</span> {fmtTime(r.check_out)}
+                        <span className="ml-2 text-xs text-slate-400">{fmtDuration(r.work_minutes)}</span>
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-slate-500">
+                        {r.is_late && <span className="mr-1.5 font-semibold text-amber-600">LATE</span>}
+                        {r.is_auto && <span className="mr-1.5 font-semibold text-slate-400">AUTO</span>}
+                        {r.check_in_outside
+                          ? <span className="font-medium text-rose-600">Out of office · {r.check_in_distance_m} m</span>
+                          : r.check_in_address || ""}
+                      </p>
+                    </div>
+                    <Badge value={r.status} />
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            {/* Tablets and computers: table */}
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 text-left">
@@ -481,6 +518,7 @@ export default function AttendancePage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
         </Card>
       )}

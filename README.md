@@ -21,7 +21,7 @@ Next.js 14 · Supabase · Tailwind CSS
 - Sign in with **email or mobile number**
 - Password recovery: employees via admin/manager; owners via email OTP
 - Attendance, Leave approvals, Tasks, GPS field visits
-- Company logo upload, organization details, live billing (₹99/user/month)
+- Company logo upload, organization details, live billing (₹19/user/month launch offer, set per company)
 
 ## Roles
 Owner → Admin → Manager → Employee

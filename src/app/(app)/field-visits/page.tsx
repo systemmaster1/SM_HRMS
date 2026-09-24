@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { todayYMD } from "@/lib/date";
 import { visitState } from "@/lib/tracking";
+import { PageLoader } from "@/components/ui";
 
 const activeStatuses = ["accepted", "on_the_way", "reached", "checked_in", "meeting"];
 const travellingStatuses = ["accepted", "on_the_way", "reached"];
@@ -525,7 +526,7 @@ export default function FieldVisitsPage() {
         ))}
       </div>
 
-      {loading ? <p className="text-sm text-slate-400">Loading…</p> : <Card>
+      {loading ? <PageLoader /> : <Card>
         {filteredVisits.length === 0 ? <EmptyState icon={MapPin} title="No field visits" hint="Schedule a visit and check in on location." /> : <ul className="divide-y divide-slate-100">{filteredVisits.map((v: any) => {
           const isMine = v.employee_id === me?.id; const busy = busyId === v.id; const currentLat = v.last_lat ?? v.check_in_lat; const currentLng = v.last_lng ?? v.check_in_lng;
           return <li key={v.id} className="px-4 py-4"><div className="flex items-start gap-3"><div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700"><MapPin className="h-4 w-4" /></div><div className="min-w-0 flex-1">

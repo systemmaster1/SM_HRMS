@@ -10,6 +10,8 @@ import {
   Wallet, Download, Printer, Plus, Check, X, Users2, IndianRupee,
   FileStack, TrendingDown, UserCheck2,
 } from "lucide-react";
+import { toast } from "@/components/Dialogs";
+import { PageLoader } from "@/components/ui";
 
 export default function PayrollPage() {
   const supabase = createClient();
@@ -137,7 +139,8 @@ export default function PayrollPage() {
 
   const approve = async (id: string, from: string) => {
     const { error } = await supabase.rpc("approve_payroll_action", { p_action_id: id, p_deduct_from: from });
-    if (error) alert(error.message);
+    if (error) toast(error.message, "error");
+    else toast("Approved.");
     loadActions();
     loadSheet();
   };
@@ -175,7 +178,7 @@ export default function PayrollPage() {
   const pendingActions = actions.filter((a) => a.status === "pending").length;
   const totalNet = rows.reduce((s, r) => s + Number(r.net_salary || 0), 0);
 
-  if (loading) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (loading) return <PageLoader />;
 
   return (
     <div>

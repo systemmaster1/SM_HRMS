@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { confirmDialog } from "@/components/Dialogs";
 
 type FieldType =
   | "text"
@@ -143,7 +144,12 @@ export default function VisitFormBuilderPage() {
   };
 
   const remove = async (field: FieldDef) => {
-    if (!confirm(`Delete "${field.label}" from future visit forms? Existing visit data will remain preserved.`)) return;
+    const ok = await confirmDialog({
+      title: `Delete "${field.label}"?`,
+      message: "It will no longer appear on new visit forms. Data already captured on past visits is kept.",
+      danger: true,
+    });
+    if (!ok) return;
     const { error } = await supabase.from("visit_custom_fields").delete().eq("id", field.id);
     if (error) setMessage(error.message);
     else {

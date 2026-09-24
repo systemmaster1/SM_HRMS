@@ -123,7 +123,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-40 border-b border-slate-100 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-950/90">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700">
+            <div className="keep-light grid h-11 w-11 place-items-center rounded-xl bg-white shadow-sm ring-1 ring-slate-200/70 dark:ring-slate-700">
               <LogoMark size={38} />
             </div>
             <span className="text-[17px] font-bold tracking-tight">SM HRMS</span>

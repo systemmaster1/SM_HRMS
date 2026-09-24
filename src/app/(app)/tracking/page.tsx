@@ -18,6 +18,7 @@ import {
   Radar, Route as RouteIcon, MapPin, Clock, PauseCircle, WifiOff, FileDown, RefreshCw,
   ChevronLeft, ChevronRight, Navigation, CheckCircle2, Timer, Users, ArrowLeft,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui";
 
 const TrackingMap = dynamic(() => import("@/components/TrackingMap"), {
   ssr: false,
@@ -256,7 +257,7 @@ export default function TrackingPage() {
     }
   };
 
-  if (!ready) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (!ready) return <PageLoader />;
 
   const liveCount = liveRows.filter((r) => r.state === "live").length;
   const staleCount = liveRows.filter((r) => r.state === "stale").length;

@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Modal, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { Building2, Briefcase, Plane, Plus, Trash2, Check, Users2, MapPinned, Navigation, Pencil } from "lucide-react";
+import { confirmDialog } from "@/components/Dialogs";
+import { PageLoader } from "@/components/ui";
 
 const DAY_TYPES = [
   { v: "full_day",       l: "Full day" },
@@ -113,6 +115,7 @@ export default function OrganizationPage() {
   };
 
   const del = async (table: string, id: string) => {
+    if (!(await confirmDialog({ title: "Delete this item?", message: "This cannot be undone.", danger: true }))) return;
     await supabase.from(table).delete().eq("id", id);
     load();
   };
@@ -162,7 +165,7 @@ export default function OrganizationPage() {
 
   const admin = isAdminRole(me?.role);
 
-  if (loading) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (loading) return <PageLoader />;
 
   if (!admin) {
     return (

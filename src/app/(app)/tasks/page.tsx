@@ -14,6 +14,8 @@ import {
   Download, Upload, BarChart3, ChevronDown,
   MessageSquare, CalendarClock, Send, X,
 } from "lucide-react";
+import { confirmDialog, promptDialog, alertDialog, toast } from "@/components/Dialogs";
+import { PageLoader } from "@/components/ui";
 
 /** Completed tasks older than this are not loaded on the Tasks screen. */
 const HISTORY_DAYS = 90;
@@ -349,9 +351,14 @@ export default function TasksPage() {
     // Re-opening a completed task is admin-only, and needs a reason.
     if (!willComplete) {
       if (!admin) return; // employees cannot un-complete
-      const reason = window.prompt("Reason for re-opening this completed task:");
-      if (reason === null) return;               // admin cancelled
-      if (!reason.trim()) { alert("A reason is required to re-open the task."); return; }
+      const reason = await promptDialog({
+        title: "Re-open this task?",
+        message: "Give a reason. It is saved in the task's comments and the employee is notified.",
+        placeholder: "e.g. Report was incomplete",
+        confirmText: "Re-open task",
+        required: true, multiline: true,
+      });
+      if (!reason) return;               // cancelled
       await supabase.from("delegations")
         .update({ completed_at: null })
         .eq("id", d.id);
@@ -508,13 +515,18 @@ export default function TasksPage() {
     // Re-opening a completed occurrence is admin-only and needs a reason.
     if (inst.completed_at) {
       if (!admin) return;
-      const reason = window.prompt("Reason for re-opening this completed task:");
-      if (reason === null) return;
-      if (!reason.trim()) { alert("A reason is required to re-open the task."); return; }
+      const reason = await promptDialog({
+        title: "Re-open this task?",
+        message: "Give a reason. The employee is notified.",
+        placeholder: "e.g. Checklist was not done properly",
+        confirmText: "Re-open task",
+        required: true, multiline: true,
+      });
+      if (!reason) return;
       const { error } = await supabase.rpc("set_checklist_done", {
         p_instance: inst.id, p_done: false,
       });
-      if (error) { alert(error.message); return; }
+      if (error) { toast(error.message, "error"); return; }
       if (inst.assigned_to && inst.assigned_to !== me!.id) {
         await supabase.from("notifications").insert({
           company_id: me!.company_id, user_id: inst.assigned_to,
@@ -528,13 +540,13 @@ export default function TasksPage() {
     }
 
     if (inst.due_date > todayLocal) {
-      alert("This task is scheduled for a future date and cannot be completed early.");
+      alertDialog({ title: "Not due yet", message: "This task is scheduled for a future date and cannot be completed early.", tone: "info" });
       return;
     }
     const { error } = await supabase.rpc("set_checklist_done", {
       p_instance: inst.id, p_done: true,
     });
-    if (error) { alert(error.message); return; }
+    if (error) { toast(error.message, "error"); return; }
     load();
   };
 
@@ -544,6 +556,12 @@ export default function TasksPage() {
   };
 
   const deleteTemplate = async (id: string) => {
+    const ok = await confirmDialog({
+      title: "Delete this checklist?",
+      message: "No new tasks will be created from it. Tasks already created stay in history.",
+      danger: true,
+    });
+    if (!ok) return;
     await supabase.from("checklist_templates").delete().eq("id", id);
     load();
   };
@@ -651,7 +669,7 @@ export default function TasksPage() {
     (i) => i.assigned_to === me?.id && !i.completed_at
   ).length;
 
-  if (loading) return <p className="text-sm text-slate-400 dark:text-slate-500">Loading…</p>;
+  if (loading) return <PageLoader />;
 
   return (
     <div>

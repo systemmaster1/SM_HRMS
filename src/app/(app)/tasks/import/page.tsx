@@ -16,6 +16,8 @@ import {
   Check, AlertTriangle, Table2, Link2, RefreshCw, Trash2,
 } from "lucide-react";
 import { useEffect } from "react";
+import { confirmDialog } from "@/components/Dialogs";
+import { PageLoader } from "@/components/ui";
 
 type Kind = "checklist" | "delegation";
 type Source = "sheet" | "file";
@@ -238,6 +240,15 @@ export default function TaskImportPage() {
 
   /* ---------------- Run the import ---------------- */
   const runImport = async () => {
+    if (mode === "replace") {
+      const ok = await confirmDialog({
+        title: `Replace ALL existing ${kind === "checklist" ? "checklists" : "delegations"}?`,
+        message: `Every ${kind === "checklist" ? "checklist" : "delegated task"} your company already has will be deleted and replaced by the ${good.length} rows in this file. This cannot be undone.\n\nChoose “Add to existing” instead if you only want to add new rows.`,
+        confirmText: "Delete and replace",
+        danger: true,
+      });
+      if (!ok) return;
+    }
     setImporting(true);
     setError("");
 
@@ -320,7 +331,7 @@ export default function TaskImportPage() {
 
   const admin = isAdminRole(me?.role);
 
-  if (!ready) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (!ready) return <PageLoader />;
 
   if (!admin) {
     return (

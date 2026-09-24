@@ -10,6 +10,7 @@ import {
   Sheet, Copy, Check, AlertTriangle, Save, PlayCircle,
   ShieldCheck, Clock, ExternalLink,
 } from "lucide-react";
+import { PageLoader } from "@/components/ui";
 
 const SCRIPT_VERSION = "2.0";
 
@@ -308,7 +309,7 @@ export default function IntegrationsPage() {
   }, [ready, enabled, url, me?.company_id]);
 
   const admin = isAdminRole(me?.role);
-  if (!ready) return <p className="text-sm text-slate-400">Loading…</p>;
+  if (!ready) return <PageLoader />;
 
   if (!admin) {
     return (

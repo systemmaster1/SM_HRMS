@@ -195,7 +195,7 @@ export default function Shell({
     <div className="flex h-full flex-col border-r border-white/[0.06] bg-sidebar-gradient">
       {/* Company */}
       <div className="flex h-16 items-center gap-2.5 border-b border-white/[0.08] px-5">
-        <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-white p-0.5 ring-1 ring-white/20">
+        <div className="grid h-10 w-10 shrink-0 place-items-center keep-light overflow-hidden rounded-xl bg-white p-0.5 ring-1 ring-white/20">
           {company?.logo_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logo_url} alt="" className="h-full w-full object-contain" />
@@ -280,7 +280,7 @@ export default function Shell({
           <p className="text-xs font-medium text-amber-300">
             Trial · {trialDaysLeft} days left
           </p>
-          <p className="mt-0.5 text-[11px] text-amber-400/70">₹19 / user / month · launch offer</p>
+          <p className="mt-0.5 text-[11px] text-amber-400/70">₹{company?.price_per_user ?? 19} / user / month · launch offer</p>
         </div>
       )}
 
