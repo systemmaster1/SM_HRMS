@@ -53,16 +53,16 @@ export default function TodayUpdates() {
                     {b.designation || "—"}{b.department && ` · ${b.department}`}
                   </p>
                 </div>
-                {b.phone && (
-                  <a
-                    href={`https://wa.me/${String(b.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Happy Birthday ${b.full_name}! Wishing you a wonderful year ahead. 🎉`)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700"
-                  >
-                    <MessageCircle className="h-3.5 w-3.5" /> Wish
-                  </a>
-                )}
+                <a
+                  href={b.phone
+                    ? `https://wa.me/${String(b.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Happy Birthday ${b.full_name}! Wishing you a wonderful year ahead. 🎉`)}`
+                    : `https://wa.me/?text=${encodeURIComponent(`Happy Birthday ${b.full_name}! Wishing you a wonderful year ahead. 🎉`)}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700"
+                >
+                  <MessageCircle className="h-3.5 w-3.5" /> Wish
+                </a>
               </li>
             ))}
           </ul>
