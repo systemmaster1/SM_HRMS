@@ -180,11 +180,11 @@ jobs:
         run: |
           APK="android-app/app/build/outputs/apk/release/app-release.apk"
           APKSIGNER="$(find "$SDK_ROOT/build-tools" -type f -name apksigner 2>/dev/null | sort -V | tail -n 1)"
-          "$APKSIGNER" verify --print-certs "$APK" | tee /tmp/certs.txt
-          if ! grep -q "Signer #1" /tmp/certs.txt; then
-            echo "::error::APK is not signed."
-            exit 1
-          fi
+          # apksigner exits non-zero when signature verification fails.
+          # Do not grep certificate output because its wording differs across
+          # Android build-tools versions (for example "V2 Signer: certificate").
+          "$APKSIGNER" verify --verbose --print-certs "$APK" | tee /tmp/certs.txt
+          echo "APK signature verified successfully."
           echo "Put the SHA-256 digest above (with colons) into public/.well-known/assetlinks.json"
 
       - name: Prepare direct-download APK
