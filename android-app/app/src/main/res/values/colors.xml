@@ -1,1 +1,8 @@
-<resources><color name="brand">#123E7A</color><color name="brand_dark">#082B57</color><color name="white">#FFFFFF</color></resources>
+<resources>
+    <color name="brand">#123E7A</color>
+    <color name="brand_dark">#082B57</color>
+    <color name="white">#FFFFFF</color>
+    <color name="app_background">#F4F7FB</color>
+    <color name="splash_title">#0F172A</color>
+    <color name="splash_muted">#64748B</color>
+</resources>

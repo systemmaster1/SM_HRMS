@@ -62,7 +62,7 @@ const nav: NavEntry[] = [
       { href: "/tracking",     label: "Field tracking", icon: <Radar className="h-4 w-4" />, accessKey: "field_visits" },
       { href: "/field-reports", label: "Field reports", icon: <BarChart3 className="h-4 w-4" />, accessKey: "field_reports" },
       { href: "/tasks",        label: "Tasks",         icon: <ListChecks className="h-4 w-4" />, accessKey: "tasks" },
-      { href: "/em-report",    label: "EM Report",     icon: <BarChart3 className="h-4 w-4" /> },
+      { href: "/em-report",    label: "Task scorecard",     icon: <BarChart3 className="h-4 w-4" /> },
     ],
   },
   { href: "/payroll", label: "Payroll", icon: <Wallet className="h-[18px] w-[18px]" />, accessKey: "payroll" },
@@ -111,6 +111,13 @@ const bottomNav: { href: string; label: string; icon: React.ElementType; accessK
 const isActivePath = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
+/** Screen titles for routes that are not in the menu. */
+const EXTRA_TITLES: [string, string][] = [
+  ["/profile", "My profile"], ["/team/new", "Add employee"], ["/team/access", "Access control"],
+  ["/tasks/import", "Import tasks"], ["/field-visits/form-builder", "Visit form setup"],
+  ["/route-history", "Route history"], ["/directory", "Directory"],
+];
+
 /** Every sidebar link, used to find the single most specific match. */
 const allNavHrefs = (): string[] =>
   nav.flatMap((e) => (isGroup(e) ? e.items.map((i) => i.href) : [e.href]));
@@ -132,6 +139,14 @@ export default function Shell({
   useEffect(() => { setOpen(false); }, [pathname]);
 
   // e.g. on /leave/team only "Team balances" is highlighted, not "Leave" too.
+  const screenTitle = (() => {
+    const extra = EXTRA_TITLES.filter(([h]) => isActivePath(pathname, h)).sort((a, b) => b[0].length - a[0].length)[0];
+    if (extra) return extra[1];
+    const all = nav.flatMap((e) => (isGroup(e) ? e.items : [e]));
+    const hit = all.filter((i) => isActivePath(pathname, i.href)).sort((a, b) => b.href.length - a.href.length)[0];
+    return hit?.label || "SM HRMS";
+  })();
+
   const bestMatch = allNavHrefs()
     .filter((h) => isActivePath(pathname, h))
     .sort((a, b) => b.length - a.length)[0];
@@ -360,8 +375,13 @@ export default function Shell({
               className="-ml-1 grid h-10 w-10 shrink-0 place-items-center rounded-lg text-slate-600 active:bg-slate-100 dark:text-slate-300 dark:active:bg-slate-800">
               <Menu className="h-6 w-6" />
             </button>
-            <span className="truncate text-[15px] font-semibold text-slate-900 dark:text-slate-100">
-              {company?.name || "SM HRMS"}
+            <span className="min-w-0">
+              <span className="block truncate text-[15px] font-semibold leading-tight text-slate-900 dark:text-slate-100">
+                {screenTitle}
+              </span>
+              <span className="block truncate text-[11px] leading-tight text-slate-500 dark:text-slate-400">
+                {company?.name || "SM HRMS"}
+              </span>
             </span>
           </div>
           <span className="hidden lg:block" />

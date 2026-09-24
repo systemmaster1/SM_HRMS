@@ -1,0 +1,6 @@
+<resources>
+    <!-- Phone in dark mode: dark splash / loading screen (no white flash). -->
+    <color name="app_background">#0F172A</color>
+    <color name="splash_title">#F1F5F9</color>
+    <color name="splash_muted">#94A3B8</color>
+</resources>

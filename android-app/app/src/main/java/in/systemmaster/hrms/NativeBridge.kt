@@ -7,6 +7,7 @@ import android.provider.Settings
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import androidx.core.content.FileProvider
+import androidx.core.view.WindowCompat
 import org.json.JSONObject
 import java.io.File
 
@@ -100,6 +101,25 @@ class NativeBridge(private val activity: Activity) {
             "saved"
         } catch (e: Exception) {
             "error:${e.message}"
+        }
+    }
+
+    /**
+     * Keeps the phone's status bar and navigation bar the same colour as the
+     * app screen (white in light mode, dark slate in dark mode), so the app
+     * looks native instead of showing a mismatched coloured strip.
+     */
+    @JavascriptInterface
+    fun setSystemBarsTheme(mode: String) {
+        val dark = mode == "dark"
+        activity.runOnUiThread {
+            val w = activity.window
+            val color = if (dark) 0xFF0F172A.toInt() else 0xFFFFFFFF.toInt()
+            w.statusBarColor = color
+            w.navigationBarColor = color
+            val c = WindowCompat.getInsetsController(w, w.decorView)
+            c.isAppearanceLightStatusBars = !dark
+            c.isAppearanceLightNavigationBars = !dark
         }
     }
 }

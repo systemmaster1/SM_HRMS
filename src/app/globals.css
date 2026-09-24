@@ -222,3 +222,28 @@ html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):n
 html.dark input::placeholder, html.dark textarea::placeholder { color: #64748b; }
 html.dark ::-webkit-calendar-picker-indicator { filter: invert(0.8); }
 html.dark .shadow-sm:not([class*="dark:shadow"]), html.dark .shadow:not([class*="dark:shadow"]) { box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+
+/* ---------------------------------------------------------------------------
+   Professional finishing (phones and keyboard users)
+--------------------------------------------------------------------------- */
+@media (max-width: 1023px) {
+  /* A fixed background makes scrolling stutter inside the Android app. */
+  body { background-attachment: scroll; }
+}
+
+/* Clear, consistent focus ring for keyboard navigation (not shown on tap). */
+:where(a, button, [role="button"], input, select, textarea, summary):focus-visible {
+  outline: 2px solid #2464BE;
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+::selection { background: rgba(36, 100, 190, 0.18); }
+
+/* Numbers in tables and stats line up neatly. */
+table td, .tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* Respect users who prefer less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

@@ -227,7 +227,7 @@ export default function EditEmployeePage() {
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex items-center gap-3">
           <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-700"><IdCard className="h-5 w-5"/></div>
-          <div><h2 className="font-semibold">Identity & Login</h2><p className="text-xs text-slate-500">Login email is synchronized with Supabase Authentication.</p></div>
+          <div><h2 className="font-semibold">Identity & Login</h2><p className="text-xs text-slate-500">Changing the email also changes the email this employee signs in with.</p></div>
         </div>
         <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <label className="text-sm font-medium">Full name *
@@ -315,7 +315,7 @@ export default function EditEmployeePage() {
                     <td className="px-4 py-3">
                       <select value={level} onChange={(e)=>setAccess(key,e.target.value as AccessLevel)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">
                         <option value="none">No access</option>
-                        <option value="self">Own / Self</option>
+                        <option value="self">Own records only</option>
                         <option value="team">Assigned Team</option>
                         <option value="company">All Company</option>
                       </select>
@@ -378,8 +378,9 @@ export default function EditEmployeePage() {
           </div>
         </div>
 
+        {isFeatureOn(entitlementsForAccess, "field.tracking") && (
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex items-center gap-3"><Route className="h-5 w-5 text-emerald-700"/><div><h2 className="font-semibold">Own Field Tracking</h2><p className="text-xs text-slate-500">ON only for employees whose official role requires field movement.</p></div></div>
+          <div className="flex items-center gap-3"><Route className="h-5 w-5 text-emerald-700"/><div><h2 className="font-semibold">Location tracking for this employee</h2><p className="text-xs text-slate-500">Turn on only for employees whose role requires field movement. Location is recorded during duty hours only.</p></div></div>
           <div className="mt-5 space-y-4">
             <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3.5">
               <input type="checkbox" checked={f.field_tracking_enabled} onChange={(e)=>set("field_tracking_enabled",e.target.checked)} className="mt-1"/>
@@ -414,11 +415,12 @@ export default function EditEmployeePage() {
               </div>
               <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3.5">
                 <input type="checkbox" checked={f.route_history_enabled} onChange={(e)=>set("route_history_enabled",e.target.checked)} className="mt-1"/>
-                <span><span className="block text-sm font-medium">Save route history</span><span className="block text-xs text-slate-500">Required for Daily KM and historical route replay.</span></span>
+                <span><span className="block text-sm font-medium">Save route history</span><span className="block text-xs text-slate-500">Required for daily distance (km) and route history.</span></span>
               </label>
             </>}
           </div>
         </div>
+        )}
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">

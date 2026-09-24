@@ -330,7 +330,7 @@ export default function IntegrationsPage() {
       <FadeIn>
         <PageHeader
           title="Integrations"
-          subtitle="Migration + professional Google Sheets sync for attendance, visits, activity, GPS routes, tasks, leave and employees."
+          subtitle="Import your existing data and keep a live Google Sheet copy of attendance, visits, tasks, leave and employees."
         />
       </FadeIn>
 

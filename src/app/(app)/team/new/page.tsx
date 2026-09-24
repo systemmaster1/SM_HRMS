@@ -288,7 +288,7 @@ export default function NewEmployeePage() {
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-indigo-700"/><div><h2 className="font-semibold">Module Access & Permissions</h2><p className="text-xs text-slate-500">Choose exactly what this user can use or monitor. Field GPS stays OFF unless explicitly enabled.</p></div></div>
+        <div className="flex items-center gap-3"><ShieldCheck className="h-5 w-5 text-indigo-700"/><div><h2 className="font-semibold">Module Access & Permissions</h2><p className="text-xs text-slate-500">Choose exactly what this person can use or view. GPS tracking stays off unless you turn it on.</p></div></div>
         <div className="mt-5 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {[
             ["attendance","Attendance","Punch and attendance view"], ["leave","Leave","Leave requests and balances"],
@@ -357,7 +357,7 @@ export default function NewEmployeePage() {
               </div>
               <label className="flex items-start gap-3 rounded-xl border border-slate-200 p-3.5">
                 <input type="checkbox" checked={f.route_history_enabled} onChange={(e) => set("route_history_enabled",e.target.checked)} className="mt-1" />
-                <span><span className="block text-sm font-medium">Save duty route history</span><span className="block text-xs text-slate-500">Enables daily KM, historical route and field activity reports.</span></span>
+                <span><span className="block text-sm font-medium">Save duty route history</span><span className="block text-xs text-slate-500">Enables daily distance (km), route history and field activity reports.</span></span>
               </label>
             </>}
           </div>

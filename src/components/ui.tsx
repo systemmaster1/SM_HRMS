@@ -18,18 +18,23 @@ export function PageHeader({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="mb-6 flex items-start justify-between gap-4">
-      <div>
+    <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+      <div className="min-w-0">
         {/* small orange accent bar above the title — consistent brand signature */}
         <div className="mb-2 h-1 w-8 rounded-full bg-accent-gradient" />
-        <h1 className="text-[22px] font-semibold tracking-tight text-slate-900 dark:text-slate-100">
+        <h1 className="text-xl font-semibold leading-tight tracking-tight text-slate-900 dark:text-slate-100 sm:text-[22px]">
           {title}
         </h1>
         {subtitle && (
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{subtitle}</p>
+          <p className="mt-1 max-w-2xl text-[13px] leading-relaxed text-slate-500 dark:text-slate-400 sm:text-sm">{subtitle}</p>
         )}
       </div>
-      {action}
+      {/* On phones the buttons sit under the title and can scroll sideways instead of squeezing it */}
+      {action && (
+        <div className="-mx-1 flex shrink-0 gap-2 overflow-x-auto px-1 pb-1 sm:mx-0 sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0">
+          {action}
+        </div>
+      )}
     </div>
   );
 }
@@ -48,10 +53,12 @@ export function EmptyState({
   icon: Icon,
   title,
   hint,
+  action,
 }: {
   icon: React.ElementType;
   title: string;
   hint?: string;
+  action?: React.ReactNode;
 }) {
   return (
     <div className="px-4 py-12 text-center">
@@ -59,7 +66,8 @@ export function EmptyState({
         <Icon className="h-6 w-6 text-slate-400 dark:text-slate-500" />
       </div>
       <p className="mt-3 text-sm font-medium text-slate-900 dark:text-slate-100">{title}</p>
-      {hint && <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
+      {hint && <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-slate-500 dark:text-slate-400">{hint}</p>}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
   );
 }
@@ -70,6 +78,15 @@ const tones: Record<string, string> = {
   done: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
   active: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
   checked_in: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
+  completed: "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400",
+  late: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
+  on_leave: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300",
+  holiday: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
+  weekly_off: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
+  meeting: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300",
+  assigned: "bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300",
+  planned: "bg-brand-50 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300",
+  missed: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-400",
   pending: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
   in_progress: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
   leave: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400",
@@ -83,15 +100,23 @@ const tones: Record<string, string> = {
   low: "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300",
 };
 
+/** Readable wording for status values stored in the database. */
+const LABELS: Record<string, string> = {
+  on_the_way: "On the way", checked_in: "Checked in", in_progress: "In progress",
+  half_day: "Half day", on_leave: "On leave", weekly_off: "Weekly off",
+  past_due: "Payment due", auto_present: "Auto present",
+};
+
 export function Badge({ value }: { value: string }) {
   const cls = tones[value] || "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300";
+  const label = LABELS[value] || String(value || "").replace(/_/g, " ");
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize ${cls}`}
     >
       {/* status dot in the badge's own colour */}
       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current opacity-70" />
-      {value.replace(/_/g, " ")}
+      {label}
     </span>
   );
 }
@@ -116,22 +141,30 @@ export function Modal({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: reduce ? 0 : 0.15 }}
-          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/60 p-4 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 backdrop-blur-sm sm:items-center sm:p-4"
           onClick={onClose}
         >
+          {/* Phones: a bottom sheet (like a native app). Larger screens: a centred dialog. */}
           <motion.div
-            initial={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96, y: 12 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.97, y: 8 }}
-            transition={{ type: "spring", stiffness: 420, damping: 34, mass: 0.7 }}
-            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-2xl ring-1 ring-slate-900/5 dark:bg-slate-800 dark:ring-white/10"
+            role="dialog"
+            aria-modal="true"
+            aria-label={title}
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: 30 }}
+            transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.7 }}
+            className="max-h-[92vh] w-full overflow-y-auto overscroll-contain rounded-t-3xl bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl ring-1 ring-slate-900/5 dark:bg-slate-800 dark:ring-white/10 sm:max-h-[90vh] sm:max-w-md sm:rounded-2xl sm:pb-0"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur dark:border-slate-700 dark:bg-slate-800/95">
+            <div className="flex justify-center pt-2.5 sm:hidden" aria-hidden="true">
+              <span className="h-1.5 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
+            </div>
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-100 bg-white/95 px-5 py-3.5 backdrop-blur dark:border-slate-700 dark:bg-slate-800/95 sm:py-4">
               <h3 className="font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
               <button
                 onClick={onClose}
-                className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                aria-label="Close"
+                className="grid h-10 w-10 place-items-center rounded-xl text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200 sm:h-8 sm:w-8 sm:rounded-lg"
               >
                 <X className="h-5 w-5" />
               </button>

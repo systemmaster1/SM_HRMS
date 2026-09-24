@@ -329,7 +329,7 @@ export default function TrackingPage() {
           {people.length === 0 ? (
             <Card>
               <EmptyState icon={Users} title="No field staff to show"
-                hint="Turn on field tracking for employees in Team → Edit employee → Own Field Tracking." />
+                hint="Turn on field tracking for employees in Team → Edit employee → Location tracking for this employee." />
             </Card>
           ) : (
             <div className="grid gap-3 lg:grid-cols-[1fr_320px]">

@@ -252,7 +252,7 @@ export default function EmployeeDetail({
                 className="rounded-lg bg-brand-700 px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-brand-800 disabled:opacity-60">
                 {saving ? "Saving…" : "Save details"}
               </MotionButton>
-              {saved && <span className="text-sm font-medium text-emerald-600">Saved ✓</span>}
+              {saved && <span className="text-sm font-medium text-emerald-600">Saved</span>}
             </div>
           </div>
         )}

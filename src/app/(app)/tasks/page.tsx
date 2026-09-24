@@ -369,7 +369,7 @@ export default function TasksPage() {
         .eq("id", d.id);
       await supabase.from("task_comments").insert({
         company_id: me!.company_id, delegation_id: d.id, user_id: me!.id,
-        body: `\ud83d\udd13 Task re-opened by admin. Reason: ${reason.trim()}`,
+        body: `Task re-opened by admin. Reason: ${reason.trim()}`,
       });
       if (d.assigned_to && d.assigned_to !== me!.id) {
         await supabase.from("notifications").insert({

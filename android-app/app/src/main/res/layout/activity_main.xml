@@ -2,7 +2,7 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F4F7FB">
+    android:background="@color/app_background">
 
     <WebView
         android:id="@+id/webView"
@@ -17,7 +17,7 @@
         android:gravity="center"
         android:orientation="vertical"
         android:padding="32dp"
-        android:background="#F4F7FB">
+        android:background="@color/app_background">
 
         <ImageView
             android:layout_width="88dp"
@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
             android:text="SM HRMS"
-            android:textColor="#0F172A"
+            android:textColor="@color/splash_title"
             android:textSize="26sp"
             android:textStyle="bold" />
 
@@ -40,7 +40,7 @@
             android:layout_marginTop="6dp"
             android:gravity="center"
             android:text="HRMS • Task Management • Field Force"
-            android:textColor="#64748B"
+            android:textColor="@color/splash_muted"
             android:textSize="13sp" />
 
         <ProgressBar
@@ -60,7 +60,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
             android:text="Loading secure workspace…"
-            android:textColor="#64748B"
+            android:textColor="@color/splash_muted"
             android:textSize="12sp" />
     </LinearLayout>
 </FrameLayout>

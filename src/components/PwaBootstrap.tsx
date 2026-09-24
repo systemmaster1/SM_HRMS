@@ -12,6 +12,20 @@ export default function PwaBootstrap() {
   const [installEvent, setInstallEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
+  // Android app: keep the phone's status/navigation bars the same colour as
+  // the current theme (light or dark), including when the user toggles it.
+  useEffect(() => {
+    const native = (window as any).SMHRMSNative;
+    if (!native || typeof native.setSystemBarsTheme !== "function") return;
+    const sync = () => {
+      try { native.setSystemBarsTheme(document.documentElement.classList.contains("dark") ? "dark" : "light"); } catch { /* older app */ }
+    };
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+
   useEffect(() => {
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker.register("/sw.js").catch(() => undefined);

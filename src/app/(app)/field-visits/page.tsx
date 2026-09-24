@@ -536,7 +536,7 @@ export default function FieldVisitsPage() {
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
                 {v.company_name && <span><b>Company:</b> {v.company_name}</span>}
                 {v.contact_person && <span><b>Contact:</b> {v.contact_person}</span>}
-                {v.contact_number && <span><b>Phone:</b> {v.contact_number}</span>}
+                {v.contact_number && <span><b>Phone:</b> <a href={`tel:${String(v.contact_number).replace(/\s/g, "")}`} className="font-medium text-brand-700 underline-offset-2 hover:underline">{v.contact_number}</a></span>}
                 {v.contact_email && <span><b>Email:</b> {v.contact_email}</span>}
               </div>
             )}
@@ -548,7 +548,14 @@ export default function FieldVisitsPage() {
                 })}
               </div>
             )}
-            {v.address && <p className="mt-0.5 truncate text-xs text-slate-400">{v.address}</p>}
+            {v.address && (
+              <p className="mt-1 flex items-center gap-2 text-xs text-slate-500">
+                <span className="min-w-0 truncate">{v.address}</span>
+                <a href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(v.address)}`}
+                  target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                  className="shrink-0 font-semibold text-brand-700">Directions</a>
+              </p>
+            )}
             <div className="mt-3">
               <button
                 onClick={() => setSelectedVisitDetail(v)}
@@ -558,15 +565,15 @@ export default function FieldVisitsPage() {
                 Visit details
               </button>
             </div>
-            <p className="mt-1 text-xs text-slate-400">{new Date(v.visit_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}{v.travel_started_at && ` · Travel ${fmtTime(v.travel_started_at)}`}{v.check_in_at && ` · In ${fmtTime(v.check_in_at)}`}{v.check_out_at && ` · Out ${fmtTime(v.check_out_at)}`}</p>
+            <p className="mt-1 text-xs text-slate-500">{new Date(v.visit_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}{v.scheduled_at && <b className="text-slate-700"> · Planned {fmtTime(v.scheduled_at)}</b>}{v.travel_started_at && ` · Travel ${fmtTime(v.travel_started_at)}`}{v.check_in_at && ` · In ${fmtTime(v.check_in_at)}`}{v.check_out_at && ` · Out ${fmtTime(v.check_out_at)}`}</p>
             {currentLat != null && currentLng != null && <div className="mt-2 flex flex-wrap gap-3 text-xs"><button onClick={() => setLiveVisit(v)} className="inline-flex items-center gap-1 font-medium text-brand-700"><LocateFixed className="h-3 w-3" /> Live / latest map</button><span className="text-slate-400">Updated {timeAgo(v.last_location_at)}</span></div>}
             {v.outcome && <p className="mt-2 text-xs text-slate-600"><span className="font-medium">Outcome:</span> {String(v.outcome).replaceAll("_", " ")}{v.person_met ? ` · Met ${v.person_met}` : ""}</p>}
-            {isMine && v.status !== "completed" && v.status !== "cancelled" && <div className="mt-3 flex flex-wrap gap-2">
-              {v.status === "assigned" && <button onClick={() => accept(v)} disabled={busy} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-60">Accept</button>}
-              {["planned", "accepted"].includes(v.status) && <button onClick={() => start(v)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-1.5 text-xs font-medium text-white"><Route className="h-3.5 w-3.5" /> Start travel</button>}
-              {["planned", "accepted", "on_the_way", "reached"].includes(v.status) && <button onClick={() => checkIn(v)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white"><LogIn className="h-3.5 w-3.5" /> {busy ? "Locating…" : "Check in"}</button>}
-              {v.status === "checked_in" && <button onClick={() => beginMeeting(v)} disabled={busy} className="rounded-lg border border-brand-300 px-3 py-1.5 text-xs font-medium text-brand-700">Start meeting</button>}
-              {["checked_in", "meeting"].includes(v.status) && <button onClick={() => setCompletionVisit(v)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-medium text-white"><LogOut className="h-3.5 w-3.5" /> Complete visit</button>}
+            {isMine && v.status !== "completed" && v.status !== "cancelled" && <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+              {v.status === "assigned" && <button onClick={() => accept(v)} disabled={busy} className="flex items-center rounded-lg border border-slate-300 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60">Accept</button>}
+              {["planned", "accepted"].includes(v.status) && <button onClick={() => start(v)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-brand-700 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-white"><Route className="h-3.5 w-3.5" /> Start travel</button>}
+              {["planned", "accepted", "on_the_way", "reached"].includes(v.status) && <button onClick={() => checkIn(v)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-emerald-600 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-white"><LogIn className="h-3.5 w-3.5" /> {busy ? "Locating…" : "Check in"}</button>}
+              {v.status === "checked_in" && <button onClick={() => beginMeeting(v)} disabled={busy} className="flex items-center rounded-lg border border-brand-300 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-brand-700">Start meeting</button>}
+              {["checked_in", "meeting"].includes(v.status) && <button onClick={() => setCompletionVisit(v)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-rose-600 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-white"><LogOut className="h-3.5 w-3.5" /> Complete visit</button>}
             </div>}
           </div></div></li>;
         })}</ul>}

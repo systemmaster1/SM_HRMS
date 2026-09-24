@@ -168,8 +168,8 @@ export default function EMReportPage() {
     <div>
       <FadeIn>
         <PageHeader
-          title="EM Report"
-          subtitle="Weekly work-not-done scoring for checklist and delegation tasks."
+          title="Task scorecard"
+          subtitle="Weekly score of tasks not done on time, per employee, for checklist and delegation tasks (EM report)."
         />
       </FadeIn>
 

@@ -73,6 +73,9 @@ class MainActivity : AppCompatActivity() {
         webView.settings.mediaPlaybackRequiresUserGesture = false
         webView.settings.cacheMode = WebSettings.LOAD_DEFAULT
         webView.settings.setSupportZoom(false)
+        // Respect the phone's larger-text setting, but cap it so screens keep
+        // their professional layout (very large system fonts break tables).
+        webView.settings.textZoom = (resources.configuration.fontScale * 100).toInt().coerceIn(85, 115)
         webView.settings.userAgentString =
             webView.settings.userAgentString + " SMHRMS-Android/2.0"
 
@@ -115,9 +118,14 @@ class MainActivity : AppCompatActivity() {
                 error: WebResourceError?
             ) {
                 if (request?.isForMainFrame == true) {
-                    loadingView.visibility = View.VISIBLE
-                    webView.visibility = View.INVISIBLE
-                    loadingText.text = "Internet unavailable. Reconnect and reopen SM HRMS."
+                    // Friendly offline screen that retries by itself when the
+                    // connection returns (instead of the browser's error page).
+                    val failed = request.url?.toString() ?: BuildConfig.WEB_APP_URL
+                    if (!failed.startsWith("file:")) {
+                        view?.loadUrl("file:///android_asset/offline.html?u=" + Uri.encode(failed))
+                    }
+                    loadingView.visibility = View.GONE
+                    webView.visibility = View.VISIBLE
                 }
             }
         }
