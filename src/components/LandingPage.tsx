@@ -32,7 +32,7 @@ const adminFeatures = [
   { icon: UserCog, title: "Admin-controlled tracking", desc: "Choose exactly which sales or field employees require visit tracking, with role-based visibility and stale-location alerts." },
   { icon: Lock, title: "Mandatory location & locked tasks", desc: "Force location on for attendance, and lock completed tasks so only an admin can re-open them." },
   { icon: Repeat, title: "Recurring task engine", desc: "Set a checklist once — daily, weekly, monthly or yearly — and it generates itself forever." },
-  { icon: BarChart3, title: "On-time performance scoring", desc: "See each employee's on-time %, done, late and overdue counts at a glance." },
+  { icon: BarChart3, title: "Plan-based module access", desc: "See each employee's on-time %, done, late and overdue counts at a glance." },
   { icon: Building2, title: "Multi-branch, multi-department", desc: "Run one or ten office locations, each with its own geofence and team structure." },
   { icon: ShieldCheck, title: "Full control over every account", desc: "Disable, offboard or restore any employee — their history stays on record." },
   { icon: Sheet, title: "Export & Google Sheet backup", desc: "Export any module to CSV, or auto-back-up your data straight to Google Sheets." },
@@ -155,7 +155,7 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-20 lg:grid-cols-2 lg:py-28">
           <FadeIn>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-accent-200 ring-1 ring-white/15">
-              <Clock className="h-3 w-3" /> Launch offer · ₹19/user, limited time
+              <Clock className="h-3 w-3" /> Launch offer · Starter ₹29/user/month
             </span>
             <h1 className="mt-5 text-[38px] font-bold leading-[1.1] tracking-tight sm:text-5xl">
               Run your whole team from one screen.
@@ -256,7 +256,7 @@ export default function LandingPage() {
               Every HR module, in one place
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-slate-500 dark:text-slate-400">
-              No add-ons, no hidden tiers. Every feature below is included from day one.
+              Choose the plan and modules your organization needs. Admins can enable only the features relevant to each team.
             </p>
           </div>
         </FadeIn>
@@ -309,7 +309,7 @@ export default function LandingPage() {
                 Sign in <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
-            <p className="mt-3 text-xs text-white/50">Play Store listing coming soon.</p>
+            <p className="mt-3 text-xs text-white/50">Android app ready · Google Play release in progress.</p>
           </FadeIn>
 
           <FadeIn delay={0.1}>
@@ -400,7 +400,7 @@ export default function LandingPage() {
               </span>
               <h2 className="mt-4 text-3xl font-bold sm:text-4xl">Take SM HRMS with your field team.</h2>
               <p className="mt-4 max-w-xl text-sm leading-7 text-slate-300">
-                Attendance, tasks, field visits and native duty-time tracking in one Android app. Install it directly today; Play Store distribution can be added later.
+                Attendance, tasks, field visits and native duty-time tracking in one Android app. Use the signed Android app today; Google Play distribution is being prepared for release.
               </p>
               <div className="mt-6 grid gap-2 text-xs text-slate-300 sm:grid-cols-2">
                 <span>✓ Same SM HRMS account</span>
@@ -422,10 +422,10 @@ export default function LandingPage() {
         <FadeIn>
           <p className="text-sm font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-300">Pricing</p>
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
-            One simple price, per active user
+            Flexible plans for every team
           </h2>
           <p className="mt-3 text-slate-500 dark:text-slate-400">
-            This is a launch offer — the price goes up as we add more. Lock it in now.
+            Start with HR essentials and upgrade when your organization needs more automation, field operations or advanced controls.
           </p>
 
         </FadeIn>
@@ -434,18 +434,18 @@ export default function LandingPage() {
           <div className="mx-auto mt-8 max-w-sm rounded-2xl border-2 border-brand-600 bg-white p-8 shadow-card-hover dark:bg-slate-800">
             <p className="text-xs font-semibold uppercase tracking-wide text-accent-500">Launch offer</p>
             <p className="mt-3 flex items-end justify-center gap-1">
-              <span className="text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100">₹19</span>
+              <span className="text-5xl font-bold tracking-tight text-slate-900 dark:text-slate-100">₹29</span>
               <span className="pb-1.5 text-sm text-slate-400">/ user / month</span>
             </p>
             <ul className="mt-6 space-y-2.5 text-left text-sm text-slate-600 dark:text-slate-300">
               {[
-                "Unlimited attendance, leave & payroll",
+                "Attendance, leave & employee self-service",
                 "GPS geofencing & selfie check-in",
-                "Recurring tasks, subtasks & delegation",
+                "Team & organization management",
                 "On-time performance scoring",
                 "Employee directory & documents",
-                "Help desk & real-time notifications",
-                "Multi-branch support · App + Web",
+                "Notifications & reminders",
+                "App + Web · Upgrade anytime",
               ].map((f) => (
                 <li key={f} className="flex items-center gap-2.5">
                   <Check className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" /> {f}
@@ -456,7 +456,7 @@ export default function LandingPage() {
               className="mt-7 flex w-full items-center justify-center gap-2 rounded-lg bg-accent-gradient py-3 font-semibold text-white shadow-sm transition hover:opacity-90">
               Start your 7-day trial <ArrowRight className="h-4 w-4" />
             </Link>
-            <p className="mt-3 text-xs text-slate-400">No card required. Cancel anytime.</p>
+            <p className="mt-3 text-xs text-slate-400">Starter ₹29/user/month · Business ₹79 · Pro ₹99 · Enterprise from ₹149/custom</p>
           </div>
         </FadeIn>
       </section>
