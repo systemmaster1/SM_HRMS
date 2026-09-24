@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Cake, Plane } from "lucide-react";
+import { Cake, Plane, MessageCircle } from "lucide-react";
 
 export default function TodayUpdates() {
   const supabase = createClient();
@@ -47,12 +47,22 @@ export default function TodayUpdates() {
             {birthdays.map((b) => (
               <li key={b.employee_id} className="flex items-center gap-3">
                 <Avatar p={b} ring="border-amber-300" />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-slate-900">{b.full_name}</p>
                   <p className="truncate text-xs text-slate-500">
                     {b.designation || "—"}{b.department && ` · ${b.department}`}
                   </p>
                 </div>
+                {b.phone && (
+                  <a
+                    href={`https://wa.me/${String(b.phone).replace(/\D/g, "")}?text=${encodeURIComponent(`Happy Birthday ${b.full_name}! Wishing you a wonderful year ahead. 🎉`)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" /> Wish
+                  </a>
+                )}
               </li>
             ))}
           </ul>
