@@ -260,7 +260,9 @@ export default function TeamPage() {
             <ul className="divide-y divide-slate-100">
               {visibleMembers.map((m: any) => (
                 <li key={m.id} className="grid gap-3 px-4 py-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:items-center">
-                  <div className="flex min-w-0 items-start gap-3 sm:contents">\n                  <Avatar n={m.full_name} url={m.avatar_url} />\n                  <div className="min-w-0">
+                  <div className="flex min-w-0 items-start gap-3 sm:contents">
+                    <Avatar n={m.full_name} url={m.avatar_url} />
+                    <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium text-slate-900">{m.full_name || "—"}</p>
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-slate-600">
@@ -288,7 +290,10 @@ export default function TeamPage() {
                       {m.work_manager?.full_name && <span className="inline-flex items-center gap-1"><Workflow className="h-3 w-3" /> Work: {m.work_manager.full_name}</span>}
                       {m.field_manager?.full_name && <span className="inline-flex items-center gap-1"><MapPinned className="h-3 w-3" /> Field: {m.field_manager.full_name}</span>}
                     </div>
-                  </div>\n                  </div>\n                  {admin && (\n                    <div className="flex w-full gap-2 overflow-x-auto pb-1 sm:w-auto sm:shrink-0 sm:overflow-visible sm:pb-0">
+                    </div>
+                  </div>
+                  {admin && (
+                    <div className="flex w-full gap-2 overflow-x-auto pb-1 sm:w-auto sm:shrink-0 sm:overflow-visible sm:pb-0">
                       <button
                         onClick={() => setDetailFor(m)}
                         title="Profile"
