@@ -1,3 +1,5 @@
+import { saveBlob } from "@/lib/download";
+
 /** Downloads rows as a CSV file that Excel opens cleanly. */
 export function exportCsv(filename: string, headers: string[], rows: (string | number)[][]) {
   const esc = (v: any) => {
@@ -8,12 +10,8 @@ export function exportCsv(filename: string, headers: string[], rows: (string | n
 
   // BOM so Excel reads UTF-8 correctly
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename.endsWith(".csv") ? filename : `${filename}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
+  saveBlob(blob, filename.endsWith(".csv") ? filename : `${filename}.csv`)
+    .catch((e) => window.alert(e?.message || "Could not save the file."));
 }
 
 /** Opens a print-ready window; the user saves it as PDF. */

@@ -15,7 +15,7 @@ import {
   LayoutDashboard, Users, CalendarCheck, Plane,
   ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
   Contact, LifeBuoy, Wallet, WalletCards, ChevronDown, HelpCircle, BarChart3, Download, Sheet, Sparkles,
-  Home, MoreHorizontal,
+  Home, MoreHorizontal, Radar,
 } from "lucide-react";
 
 interface Leaf {
@@ -57,6 +57,7 @@ const nav: NavEntry[] = [
     icon: <ListChecks className="h-[18px] w-[18px]" />,
     items: [
       { href: "/field-visits", label: "Field visits", icon: <MapPin className="h-4 w-4" />, accessKey: "field_visits" },
+      { href: "/tracking",     label: "Field tracking", icon: <Radar className="h-4 w-4" />, accessKey: "field_visits" },
       { href: "/field-reports", label: "Field reports", icon: <BarChart3 className="h-4 w-4" />, accessKey: "field_reports" },
       { href: "/tasks",        label: "Tasks",         icon: <ListChecks className="h-4 w-4" />, accessKey: "tasks" },
       { href: "/em-report",    label: "EM Report",     icon: <BarChart3 className="h-4 w-4" /> },

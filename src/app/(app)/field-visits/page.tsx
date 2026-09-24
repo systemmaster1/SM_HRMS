@@ -12,6 +12,7 @@ import {
   Users, UserCheck, XCircle, LogIn, LogOut, Download, BarChart3, RefreshCw, Wifi, WifiOff,
 } from "lucide-react";
 import { todayYMD } from "@/lib/date";
+import { visitState } from "@/lib/tracking";
 
 const activeStatuses = ["accepted", "on_the_way", "reached", "checked_in", "meeting"];
 const travellingStatuses = ["accepted", "on_the_way", "reached"];
@@ -56,6 +57,19 @@ function mapEmbed(lat: number, lng: number) {
   return `https://maps.google.com/maps?q=${lat},${lng}&z=16&output=embed`;
 }
 
+type ViewKey = "today" | "upcoming" | "pending" | "completed" | "all";
+const VIEWS: [ViewKey, string][] = [
+  ["today", "Today"], ["upcoming", "Upcoming"], ["pending", "Pending"], ["completed", "Completed"], ["all", "All"],
+];
+
+/** "2026-09-24T10:30" (datetime-local, IST) from an ISO timestamp. */
+const toLocalInput = (ts?: string | null) => {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const ist = new Date(d.getTime() + 330 * 60000);
+  return ist.toISOString().slice(0, 16);
+};
+
 export default function FieldVisitsPage() {
   const supabase = createClient();
   const [me, setMe] = useState<Profile | null>(null);
@@ -85,7 +99,10 @@ export default function FieldVisitsPage() {
   const [error, setError] = useState("");
   const [completionVisit, setCompletionVisit] = useState<any | null>(null);
   const [completion, setCompletion] = useState({ person_met: "", outcome: "successful", completion_notes: "", next_followup_at: "" });
-  const [filter, setFilter] = useState("all");
+  const [view, setView] = useState<ViewKey>("today");
+  const [reschedAt, setReschedAt] = useState("");
+  const [reschedBusy, setReschedBusy] = useState(false);
+  const [reschedMsg, setReschedMsg] = useState("");
 
   const [f, setF] = useState({
     client_name: "", company_name: "", contact_person: "", contact_number: "", contact_email: "",
@@ -307,7 +324,22 @@ export default function FieldVisitsPage() {
   const offDutyCount = staffRows.filter((r) => r.health === "off_duty").length;
   const completedToday = visits.filter((v) => v.status === "completed" && v.visit_date === today).length;
 
-  const filteredVisits = visits.filter((v) => filter === "all" || v.status === filter);
+  // Today / Upcoming / Pending / Completed / All — based on real timestamps.
+  const todayStr = todayYMD();
+  const inView = (v: any, key: ViewKey) => {
+    const st = visitState(v);
+    if (key === "today") return v.visit_date === todayStr;
+    if (key === "upcoming") return v.visit_date > todayStr && st !== "cancelled";
+    if (key === "pending") return v.visit_date < todayStr && (st === "missed" || st === "in_progress");
+    if (key === "completed") return st === "completed";
+    return true;
+  };
+  const viewCounts = Object.fromEntries(VIEWS.map(([k]) => [k, visits.filter((v) => inView(v, k)).length])) as Record<ViewKey, number>;
+  const filteredVisits = visits
+    .filter((v) => inView(v, view))
+    .sort((a, b) => view === "today" || view === "upcoming"
+      ? String(a.scheduled_at || a.visit_date).localeCompare(String(b.scheduled_at || b.visit_date))
+      : 0);
 
   const updateTracking = async (member: Profile, patch: Partial<Profile>) => {
     setBusyId(member.id); setError("");
@@ -349,6 +381,13 @@ export default function FieldVisitsPage() {
         subtitle={manager ? "Live sales-team visibility, visit control, GPS health and client outcomes." : "Manage assigned visits, travel, GPS check-ins and outcomes."}
         action={
           <div className="flex flex-wrap gap-2">
+            <Link
+              href="/tracking"
+              className="flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              <Route className="h-4 w-4" />
+              {manager ? "Live tracking" : "My day & route"}
+            </Link>
             {manager && (
               <>
                 <Link
@@ -473,8 +512,17 @@ export default function FieldVisitsPage() {
         </Card>
       </>}
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {["all", "assigned", "planned", "on_the_way", "checked_in", "meeting", "completed"].map((s) => <button key={s} onClick={() => setFilter(s)} className={`rounded-full px-3 py-1.5 text-xs font-medium capitalize ${filter === s ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}>{s.replaceAll("_", " ")}</button>)}
+      <div className="mb-3 -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+        {VIEWS.map(([key, label]) => (
+          <button key={key} onClick={() => setView(key)}
+            className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-semibold transition ${
+              view === key ? "bg-brand-700 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300"}`}>
+            {label}
+            <span className={`rounded-full px-1.5 text-[10px] ${view === key ? "bg-white/20" : key === "pending" && viewCounts.pending > 0 ? "bg-rose-500 text-white" : "bg-white text-slate-500 dark:bg-slate-700 dark:text-slate-300"}`}>
+              {viewCounts[key]}
+            </span>
+          </button>
+        ))}
       </div>
 
       {loading ? <p className="text-sm text-slate-400">Loading…</p> : <Card>
@@ -526,7 +574,7 @@ export default function FieldVisitsPage() {
       
       <Modal
         open={!!selectedVisitDetail}
-        onClose={() => setSelectedVisitDetail(null)}
+        onClose={() => { setSelectedVisitDetail(null); setReschedAt(""); setReschedMsg(""); }}
         title="Visit details"
       >
         {selectedVisitDetail && (
@@ -545,6 +593,41 @@ export default function FieldVisitsPage() {
                 </span>
               </div>
             </div>
+
+            {!selectedVisitDetail.travel_started_at && !selectedVisitDetail.completed_at
+              && !["completed", "cancelled"].includes(String(selectedVisitDetail.status))
+              && (manager || selectedVisitDetail.employee_id === me?.id) && (
+              <div className="rounded-xl border border-slate-200 p-4">
+                <p className="text-sm font-semibold text-slate-900">Change planned time</p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  The original plan is kept in history{manager && selectedVisitDetail.employee_id !== me?.id ? " and the employee is notified" : ""}.
+                  A new 30-minute reminder is sent before the new time.
+                </p>
+                <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                  <input type="datetime-local" className={inputCls}
+                    value={reschedAt || toLocalInput(selectedVisitDetail.scheduled_at)}
+                    onChange={(e) => { setReschedAt(e.target.value); setReschedMsg(""); }} />
+                  <button disabled={reschedBusy || !reschedAt}
+                    onClick={async () => {
+                      setReschedBusy(true); setReschedMsg("");
+                      const when = new Date(`${reschedAt}:00+05:30`);
+                      const { error: e } = await supabase.from("field_visits")
+                        .update({ scheduled_at: when.toISOString(), visit_date: reschedAt.slice(0, 10) })
+                        .eq("id", selectedVisitDetail.id);
+                      setReschedBusy(false);
+                      if (e) { setReschedMsg(`Could not update: ${e.message}`); return; }
+                      setReschedMsg("Planned time updated.");
+                      setSelectedVisitDetail({ ...selectedVisitDetail, scheduled_at: when.toISOString(), visit_date: reschedAt.slice(0, 10) });
+                      setReschedAt("");
+                      load(true);
+                    }}
+                    className="shrink-0 rounded-lg bg-brand-700 px-4 py-2.5 text-sm font-medium text-white hover:bg-brand-800 disabled:opacity-50">
+                    {reschedBusy ? "Saving…" : "Save new time"}
+                  </button>
+                </div>
+                {reschedMsg && <p className={`mt-2 text-xs ${reschedMsg.startsWith("Could") ? "text-rose-600" : "text-emerald-600"}`}>{reschedMsg}</p>}
+              </div>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2">
               {[
@@ -571,12 +654,13 @@ export default function FieldVisitsPage() {
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {[
                   ["Scheduled", selectedVisitDetail.scheduled_at],
+                  ["Originally planned", selectedVisitDetail.original_scheduled_at],
                   ["Travel Started", selectedVisitDetail.travel_started_at],
                   ["Checked In", selectedVisitDetail.check_in_at || selectedVisitDetail.check_in],
                   ["Meeting Started", selectedVisitDetail.meeting_started_at],
                   ["Completed", selectedVisitDetail.completed_at],
                   ["Checked Out", selectedVisitDetail.check_out_at || selectedVisitDetail.check_out],
-                  ["Next Follow-up", selectedVisitDetail.next_follow_up_at],
+                  ["Next Follow-up", selectedVisitDetail.next_followup_at ?? selectedVisitDetail.next_follow_up_at],
                 ].map(([label,value]: any) => (
                   <div key={label} className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2.5">
                     <span className="text-xs text-slate-500">{label}</span>
