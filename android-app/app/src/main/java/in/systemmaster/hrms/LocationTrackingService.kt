@@ -38,7 +38,7 @@ class LocationTrackingService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            ACTION_STOP -> stopTracking("Employee Off Duty")
+            ACTION_STOP -> stopTracking()
             else -> startTracking()
         }
         return START_STICKY
@@ -61,7 +61,7 @@ class LocationTrackingService : Service() {
         executor.execute {
             val onDuty = rpcBoolean("is_employee_on_duty_v7", JSONObject().put("p_employee_id", NativePrefs.str(this,"userId")))
             if (onDuty == false) {
-                handler.post { stopTracking("Employee Off Duty") }
+                handler.post { stopTracking() }
             } else if (onDuty == true) {
                 handler.post { requestUpdates() }
             } else {
@@ -84,7 +84,7 @@ class LocationTrackingService : Service() {
                 executor.execute {
                     val onDuty = rpcBoolean("is_employee_on_duty_v7", JSONObject().put("p_employee_id", NativePrefs.str(this@LocationTrackingService,"userId")))
                     if (onDuty == false) {
-                        handler.post { stopTracking("Employee Off Duty") }; return@execute
+                        handler.post { stopTracking() }; return@execute
                     }
                     if (onDuty != true) return@execute
                     val body = JSONObject()
@@ -125,7 +125,7 @@ class LocationTrackingService : Service() {
             }
             executor.execute {
                 val duty = rpcBoolean("is_employee_on_duty_v7", JSONObject().put("p_employee_id", NativePrefs.str(this@LocationTrackingService,"userId")))
-                if (duty == false) handler.post { stopTracking("Employee Off Duty") }
+                if (duty == false) handler.post { stopTracking() }
             }
             handler.postDelayed(this, 60_000L)
         }
@@ -198,12 +198,21 @@ class LocationTrackingService : Service() {
     private fun updateNotification(text:String) {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID,notification(text))
     }
-    private fun stopTracking(reason:String) {
+    /**
+     * Off duty is a normal state, not an alert. Remove the foreground
+     * notification immediately so employees do not see a permanent
+     * "Employee Off Duty" Duty Tracking message outside working time.
+     *
+     * When duty becomes active again, the web bridge starts this service and
+     * Android shows the foreground notification only while GPS tracking is
+     * actually running.
+     */
+    private fun stopTracking() {
         callback?.let { fused.removeLocationUpdates(it) }; callback=null
         handler.removeCallbacks(healthLoop)
         NativePrefs.setRunning(this,false)
-        updateNotification(reason)
         stopForeground(STOP_FOREGROUND_REMOVE)
+        getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_ID)
         stopSelf()
     }
     override fun onDestroy() {
