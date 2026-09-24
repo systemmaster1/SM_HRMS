@@ -98,13 +98,13 @@ export default function UpcomingFeaturesPage() {
           <div className="max-w-3xl">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-semibold text-blue-200">
               <Sparkles className="h-3.5 w-3.5" />
-              Product roadmap
+              What's Next
             </div>
             <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">
-              Upcoming Field Force Automation Features
+              SM ONE Vision — One App, Multiple Work
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">
-              SM HRMS is evolving into a single platform for HRMS, Task Management and Field Force Automation.
+              SM HRMS is evolving toward SM ONE: a single platform for HRMS, Task Management, Field Force Automation and connected business operations.
               These modules are planned for upcoming releases and will work with your existing employee, manager,
               attendance and live-tracking structure.
             </p>
@@ -112,7 +112,7 @@ export default function UpcomingFeaturesPage() {
 
           <div className="rounded-2xl border border-white/10 bg-white/[0.06] px-5 py-4 backdrop-blur">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Product direction</p>
-            <p className="mt-2 text-lg font-bold">One App. Multiple Business Operations.</p>
+            <p className="mt-2 text-lg font-bold">One App. Multiple Work.</p>
             <p className="mt-1 text-xs text-slate-400">HRMS + Tasks + Field Sales + Reports</p>
           </div>
         </div>
@@ -179,7 +179,7 @@ export default function UpcomingFeaturesPage() {
       </section>
 
       <p className="px-1 text-xs leading-5 text-slate-400">
-        Roadmap items are planned features and may be released in stages. Availability can vary by subscription plan and platform.
+        What's Next items are planned capabilities and may be released in stages. Availability depends on the organization's subscription plan, enabled modules and platform.
       </p>
     </div>
   );
