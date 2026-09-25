@@ -13,6 +13,8 @@ import {
   MailCheck,
   ArrowLeft,
   ShieldCheck,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 const inputCls =
@@ -30,6 +32,9 @@ export default function SignUpPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [code, setCode] = useState("");
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -66,19 +71,16 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        "/api/auth/signup/send-code",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            name: name.trim(),
-            email: normalizedEmail,
-          }),
-        }
-      );
+      const response = await fetch("/api/auth/signup/send-code", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: normalizedEmail,
+        }),
+      });
 
       const data = await response.json();
 
@@ -145,10 +147,6 @@ export default function SignUpPage() {
         return;
       }
 
-      /*
-       * Account is now created and email-confirmed.
-       * Sign in immediately so onboarding has an authenticated session.
-       */
       const supabase = createClient();
 
       const { error: signInError } =
@@ -333,7 +331,7 @@ export default function SignUpPage() {
 
               <ol className="mt-2 space-y-1.5 text-sm text-slate-600">
                 <li>1. Your SM HRMS account will be activated.</li>
-                <li>2. You'll continue to organization setup.</li>
+                <li>2. You&apos;ll continue to organization setup.</li>
                 <li>3. Add your team and start your 7-day trial.</li>
               </ol>
             </div>
@@ -485,16 +483,42 @@ export default function SignUpPage() {
                 Password
               </label>
 
-              <input
-                type="password"
-                className={`mt-1.5 ${inputCls}`}
-                placeholder="At least 8 characters"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={8}
-                autoComplete="new-password"
-              />
+              <div className="relative mt-1.5">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className={`${inputCls} pr-11`}
+                  placeholder="At least 8 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowPassword((current) => !current)
+                  }
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 transition hover:text-brand-700"
+                  aria-label={
+                    showPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                  title={
+                    showPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -502,16 +526,46 @@ export default function SignUpPage() {
                 Confirm password
               </label>
 
-              <input
-                type="password"
-                className={`mt-1.5 ${inputCls}`}
-                placeholder="Re-enter password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-                minLength={8}
-                autoComplete="new-password"
-              />
+              <div className="relative mt-1.5">
+                <input
+                  type={
+                    showConfirmPassword ? "text" : "password"
+                  }
+                  className={`${inputCls} pr-11`}
+                  placeholder="Re-enter password"
+                  value={confirm}
+                  onChange={(e) => setConfirm(e.target.value)}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setShowConfirmPassword(
+                      (current) => !current
+                    )
+                  }
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-slate-400 transition hover:text-brand-700"
+                  aria-label={
+                    showConfirmPassword
+                      ? "Hide confirm password"
+                      : "Show confirm password"
+                  }
+                  title={
+                    showConfirmPassword
+                      ? "Hide password"
+                      : "Show password"
+                  }
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {error && (
