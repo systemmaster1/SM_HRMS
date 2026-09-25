@@ -44,11 +44,13 @@ function checklistVisibleFrom(dueDate: string, frequency: string) {
   return due;
 }
 
-function checklistCanComplete(dueDate: string, dueTime: string | null) {
-  const due = dueTime
-    ? new Date(`${dueDate}T${dueTime}`)
-    : new Date(`${dueDate}T00:00:00`);
-  return new Date() >= due;
+function checklistCanComplete(dueDate: string, earlyDays = 0) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const unlock = new Date(`${dueDate}T00:00:00`);
+  unlock.setDate(unlock.getDate() - Math.max(0, Number(earlyDays) || 0));
+  unlock.setHours(0, 0, 0, 0);
+  return today >= unlock;
 }
 
 function computeStatus(dueDate: string, dueTime: string | null, completedAt: string | null) {
@@ -606,8 +608,16 @@ export default function TasksPage() {
       return;
     }
 
-    if (!checklistCanComplete(inst.due_date, inst.due_time)) {
-      alertDialog({ title: "Not due yet", message: "This task is visible for planning, but it cannot be completed before its due date/time.", tone: "info" });
+    const policy = effectiveTaskPolicy(inst);
+    const earlyDays = Math.max(0, Number(policy?.checklist_early_complete_days ?? 0));
+    if (!checklistCanComplete(inst.due_date, earlyDays)) {
+      alertDialog({
+        title: "Not due yet",
+        message: earlyDays > 0
+          ? `Admin allows completion up to ${earlyDays} day(s) before the due date.`
+          : "This task can be completed from its due date onward.",
+        tone: "info",
+      });
       return;
     }
     const { error } = await supabase.rpc("set_checklist_done", {
