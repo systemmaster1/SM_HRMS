@@ -56,7 +56,7 @@ export default function ReceiptPage(){
  const users=Number(payment.metadata?.users||sub?.licensed_users||0);
  return <div className="min-h-screen bg-slate-100 py-6 print:bg-white print:py-0">
   <div className="mx-auto mb-4 flex max-w-[210mm] justify-between gap-3 px-2 print:hidden">
-   <button onClick={()=>router.back()} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold"><ArrowLeft className="h-4 w-4"/>Back</button>
+   
    <button onClick={download} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"><Download className="h-4 w-4"/>Download PDF</button>
   </div>
   <main className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white p-[12mm] text-slate-900 shadow-xl print:min-h-0 print:max-w-none print:p-[10mm] print:shadow-none">
