@@ -42,7 +42,7 @@ export default function SubscriptionPage(){
       supabase.from("company_subscriptions").select("*").eq("company_id",profile.company_id).single(),
       supabase.from("plan_features").select("*"),
       supabase.from("companies").select("name,email").eq("id",profile.company_id).single(),
-      supabase.rpc("system_admin_payment_history",{p_company_id:profile.company_id,p_limit:20}),
+      fetch("/api/billing/history",{cache:"no-store"}).then(async r=>{const j=await r.json();return {data:r.ok?(j.payments||[]):[],error:r.ok?null:new Error(j.error||"Unable to load payments")}}),
     ]);
     setSub(s||null); setFeatures(f||[]); setPayments(ph||[]); setCompanyName(co?.name||"SM HRMS");
     if(co?.email)setEmail(co.email); if(s?.plan_code)setSelected(s.plan_code); if(s?.licensed_users)setUsers(Math.max(1,s.licensed_users));
