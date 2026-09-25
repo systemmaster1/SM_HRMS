@@ -1,30 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Download, Printer } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 const money=(n:any)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(n||0));
 const d=(v:any)=>v?new Date(v).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}):"—";
 const term=(v:any)=>v==="yearly"?"12 months":v==="6_months"?"6 months":v==="3_months"?"3 months":v||"—";
 
 export default function ReceiptPage(){
- const params=useParams(); const router=useRouter(); const supabase=useMemo(()=>createClient(),[]);
+ const params=useParams(); const router=useRouter();
  const paymentId=String(params?.id||""); const [payment,setPayment]=useState<any>(null),[company,setCompany]=useState<any>(null),[sub,setSub]=useState<any>(null),[loading,setLoading]=useState(true),[error,setError]=useState("");
  useEffect(()=>{(async()=>{
   try{
-   const {data:auth}=await supabase.auth.getUser(); if(!auth.user) throw new Error("Please sign in again.");
-   const {data:profile}=await supabase.from("profiles").select("company_id").eq("id",auth.user.id).single(); if(!profile?.company_id) throw new Error("Organization not found.");
-   const [{data:ph,error:pe},{data:co},{data:cs}]=await Promise.all([
-    supabase.rpc("system_admin_payment_history",{p_company_id:profile.company_id,p_limit:100}),
-    supabase.from("companies").select("id,name,email,org_code").eq("id",profile.company_id).single(),
-    supabase.from("company_subscriptions").select("plan_code,licensed_users,current_period_start,current_period_end,next_billing_at,billing_cycle").eq("company_id",profile.company_id).single()
-   ]);
-   if(pe) throw pe; const rows=Array.isArray(ph)?ph:((ph as any)?.rows||[]); const p=rows.find((x:any)=>String(x.id)===paymentId);
-   if(!p) throw new Error("Receipt not found for this organization."); setPayment(p);setCompany(co);setSub(cs);
+   const res=await fetch(`/api/billing/receipt/${encodeURIComponent(paymentId)}`,{cache:"no-store"});
+   const data=await res.json();
+   if(!res.ok) throw new Error(data.error||"Unable to load receipt.");
+   setPayment(data.payment);setCompany(data.company);setSub(data.subscription);
   }catch(e:any){setError(e?.message||"Unable to load receipt.");}finally{setLoading(false)}
- })()},[paymentId,supabase]);
+ })()},[paymentId]);
  const download=()=>window.print();
  if(loading)return <div className="p-8 text-center text-slate-500">Loading receipt…</div>;
  if(error||!payment)return <div className="mx-auto max-w-xl p-8"><div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700">{error||"Receipt not found."}</div></div>;
