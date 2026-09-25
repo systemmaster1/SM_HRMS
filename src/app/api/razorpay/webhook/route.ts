@@ -12,7 +12,7 @@ function adminClient() {
   return createAdminClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
-const iso = (seconds?: number | null) => seconds ? new Date(seconds * 1000).toISOString() : null;
+const iso = (seconds?: number | null) => seconds ? new Date(seconds * 1000).toISOString() : null;\n\nfunction addBillingTerm(from: Date, term?: string | null) {\n  const months = term === "yearly" ? 12 : term === "6_months" ? 6 : 3;\n  const end = new Date(from);\n  end.setUTCMonth(end.getUTCMonth() + months);\n  return end.toISOString();\n}
 
 export async function POST(request: Request) {
   const raw = await request.text();
@@ -86,8 +86,19 @@ export async function POST(request: Request) {
         payment_method:payment.method||null,paid_at:paid?iso(payment.captured_at||payment.created_at):null,
         source:"razorpay",metadata:{fee,email:payment.email||null,contact:payment.contact||null}
       };
-      const {data:saved,error}=await admin.from("billing_payments").upsert(paymentRow,{onConflict:"razorpay_payment_id"}).select("id,receipt_number").single();
-      if(error) throw error;
+      // Orders are created in billing_payments before checkout. Update that row
+      // instead of inserting a second row for the captured payment.
+      const {data:existingPayment}=payment.order_id
+        ? await admin.from("billing_payments").select("id,receipt_number,plan_code,billing_cycle,metadata").eq("razorpay_order_id",payment.order_id).order("created_at",{ascending:false}).limit(1).maybeSingle()
+        : {data:null};
+      let saved:any;
+      if(existingPayment?.id){
+        const {data,error}=await admin.from("billing_payments").update(paymentRow).eq("id",existingPayment.id).select("id,receipt_number,plan_code,billing_cycle,metadata").single();
+        if(error) throw error; saved=data;
+      }else{
+        const {data,error}=await admin.from("billing_payments").upsert(paymentRow,{onConflict:"razorpay_payment_id"}).select("id,receipt_number,plan_code,billing_cycle,metadata").single();
+        if(error) throw error; saved=data;
+      }
 
       let receiptNumber=saved.receipt_number;
       if(paid&&!receiptNumber){
@@ -99,7 +110,22 @@ export async function POST(request: Request) {
       }
 
       const subPatch: Record<string,any>={last_payment_status:payment.status||null,updated_at:new Date().toISOString()};
-      if(paid){subPatch.last_payment_at=new Date().toISOString();subPatch.status="active";}
+      if(paid){
+        const paidAt = paymentRow.paid_at || new Date().toISOString();
+        subPatch.last_payment_at=paidAt;
+        subPatch.status="active";
+        // A paid Razorpay order is the source of truth for activating a pending
+        // plan. Never activate a paid plan merely because checkout was opened.
+        if(saved?.plan_code) subPatch.plan_code=saved.plan_code;
+        const seats=Number(saved?.metadata?.users||0);
+        if(seats>0) subPatch.licensed_users=seats;
+        if(saved?.billing_cycle) subPatch.billing_cycle=saved.billing_cycle;
+        subPatch.current_period_start=paidAt;
+        subPatch.current_period_end=addBillingTerm(new Date(paidAt),saved?.billing_cycle);
+        subPatch.next_billing_at=subPatch.current_period_end;
+        subPatch.pending_plan_code=null;
+        subPatch.pending_plan_effective_at=null;
+      }
       else if(failed){subPatch.status="past_due";}
       const {error:subError}=await admin.from("company_subscriptions").update(subPatch).eq("company_id",companyId);
       if(subError) throw subError;
