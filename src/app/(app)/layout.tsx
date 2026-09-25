@@ -6,7 +6,6 @@ import type { Profile, Company } from "@/lib/types";
 import ActiveVisitTracker from "@/components/ActiveVisitTracker";
 import PushRegistrar from "@/components/PushRegistrar";
 import DialogHost from "@/components/Dialogs";
-import ContextBackButton from "@/components/ContextBackButton";
 import OrganizationSuspended from "@/components/OrganizationSuspended";
 import { EntitlementsProvider } from "@/lib/features/client";
 import { getEntitlements } from "@/lib/features/server";
@@ -95,7 +94,7 @@ export default async function AppLayout({
   return (
     <EntitlementsProvider value={entitlements}>
       <Shell profile={profile as Profile} company={company as Company | null}>
-        <><ContextBackButton />{children}</>
+        {children}
         <ActiveVisitTracker />
         <PushRegistrar />
         <DialogHost />
