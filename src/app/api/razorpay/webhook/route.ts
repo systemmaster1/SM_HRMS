@@ -12,7 +12,15 @@ function adminClient() {
   return createAdminClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
-const iso = (seconds?: number | null) => seconds ? new Date(seconds * 1000).toISOString() : null;\n\nfunction addBillingTerm(from: Date, term?: string | null) {\n  const months = term === "yearly" ? 12 : term === "6_months" ? 6 : 3;\n  const end = new Date(from);\n  end.setUTCMonth(end.getUTCMonth() + months);\n  return end.toISOString();\n}
+const iso = (seconds?: number | null) =>
+  seconds ? new Date(seconds * 1000).toISOString() : null;
+
+function addBillingTerm(from: Date, term?: string | null) {
+  const months = term === "yearly" ? 12 : term === "6_months" ? 6 : 3;
+  const end = new Date(from);
+  end.setUTCMonth(end.getUTCMonth() + months);
+  return end.toISOString();
+}
 
 export async function POST(request: Request) {
   const raw = await request.text();
