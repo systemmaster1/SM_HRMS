@@ -225,6 +225,7 @@ function InstanceWindow({
                           Add attachment
                           <input
                             type="file"
+                            accept="image/jpeg,image/png,.jpg,.jpeg,.png"
                             className="hidden"
                             onChange={(e) => {
                               const file = e.target.files?.[0];
@@ -634,33 +635,69 @@ export default function TasksPage() {
     const policy = effectiveTaskPolicy(inst);
     if (policy?.attachments_enabled === false) return toast("Attachments are disabled by admin.", "error");
 
-    const maxMb = Number(policy?.max_attachment_size_mb || 10);
-    if (file.size > maxMb * 1024 * 1024) return toast(`Maximum attachment size is ${maxMb} MB.`, "error");
+    // Checklist evidence is image-only. This keeps storage usage predictable
+    // and avoids large PDF/Excel/document uploads.
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      return toast("Only JPG and PNG images are allowed.", "error");
+    }
 
-    const allowed = String(policy?.allowed_attachment_extensions || "pdf,jpg,jpeg,png,doc,docx,xls,xlsx")
-      .split(",").map((x: string) => x.trim().toLowerCase()).filter(Boolean);
-    const ext = file.name.split(".").pop()?.toLowerCase() || "";
-    if (allowed.length && !allowed.includes(ext)) return toast("This file type is not allowed by admin.", "error");
+    const compressChecklistImage = async (source: File): Promise<File> => {
+      const bitmap = await createImageBitmap(source);
+      const maxSide = 1600;
+      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+      const width = Math.max(1, Math.round(bitmap.width * scale));
+      const height = Math.max(1, Math.round(bitmap.height * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Image processing is not supported on this device.");
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      bitmap.close();
 
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob(resolve, "image/jpeg", 0.72)
+      );
+      if (!blob) throw new Error("Could not compress this image.");
+
+      const base = source.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_") || "task-photo";
+      return new File([blob], `${base}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+    };
+
+    let uploadFile: File;
+    try {
+      uploadFile = await compressChecklistImage(file);
+    } catch (e: any) {
+      return toast(e?.message || "Could not process this image.", "error");
+    }
+
+    // Final safety cap after compression: 1 MB.
+    if (uploadFile.size > 1024 * 1024) {
+      return toast("Image is still above 1 MB after compression. Please choose a smaller image.", "error");
+    }
+
+    const safeName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const storagePath = `${me!.company_id}/checklist/${inst.id}/${Date.now()}-${safeName}`;
-    const up = await supabase.storage.from("task-attachments").upload(storagePath, file, { upsert: false });
+    const up = await supabase.storage.from("task-attachments").upload(storagePath, uploadFile, {
+      upsert: false,
+      contentType: "image/jpeg",
+    });
     if (up.error) return toast(up.error.message, "error");
 
     const { error } = await supabase.from("task_attachments").insert({
       company_id: me!.company_id,
       checklist_instance_id: inst.id,
       uploaded_by: me!.id,
-      file_name: file.name,
+      file_name: uploadFile.name,
       storage_path: storagePath,
-      file_size: file.size,
-      mime_type: file.type || null,
+      file_size: uploadFile.size,
+      mime_type: uploadFile.type,
     });
     if (error) {
       await supabase.storage.from("task-attachments").remove([storagePath]);
       return toast(error.message, "error");
     }
-    toast("Attachment uploaded.");
+    toast(`Image uploaded · ${Math.max(1, Math.round(uploadFile.size / 1024))} KB`);
   };
 
   const toggleTemplateActive = async (t: any) => {
