@@ -86,6 +86,7 @@ const nav: NavEntry[] = [
     items: [
       { href: "/organization", label: "Organization", icon: <Building2 className="h-4 w-4" /> },
       { href: "/settings",     label: "Settings",      icon: <Settings className="h-4 w-4" /> },
+      { href: "/settings/task-management", label: "Task configuration", icon: <ListChecks className="h-4 w-4" /> },
       { href: "/subscription", label: "Subscription & Billing", icon: <WalletCards className="h-4 w-4" /> },
       { href: "/export",       label: "Export data",   icon: <Download className="h-4 w-4" /> },
       { href: "/integrations", label: "Integrations",  icon: <Sheet className="h-4 w-4" /> },
