@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 const REDIRECT_URI = "https://hrms.systemmaster.in/api/auth/google/callback";
+export const dynamic = "force-dynamic";
 function page(title: string, body: string, status = 200) {
   return new NextResponse("<!doctype html><html><body style='font-family:system-ui;max-width:760px;margin:60px auto;padding:24px'><h1>" + title + "</h1>" + body + "</body></html>", { status, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
