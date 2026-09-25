@@ -25,7 +25,7 @@ function loadRazorpay(){
 
 export default function SubscriptionPage(){
   const supabase=useMemo(()=>createClient(),[]);
-  const [plans,setPlans]=useState<Plan[]>([]),[sub,setSub]=useState<any>(null),[features,setFeatures]=useState<any[]>([]);
+  const [plans,setPlans]=useState<Plan[]>([]),[sub,setSub]=useState<any>(null),[features,setFeatures]=useState<any[]>([]),[payments,setPayments]=useState<any[]>([]);
   const [companyId,setCompanyId]=useState(""),[companyName,setCompanyName]=useState(""),[email,setEmail]=useState("");
   const [selected,setSelected]=useState("starter"),[term,setTerm]=useState<Term>("3_months"),[users,setUsers]=useState(1);
   const [message,setMessage]=useState(""),[busy,setBusy]=useState(false);
@@ -38,12 +38,13 @@ export default function SubscriptionPage(){
     setPlans((p||[]) as Plan[]); if(!auth.user)return; setEmail(auth.user.email||"");
     const {data:profile}=await supabase.from("profiles").select("company_id").eq("id",auth.user.id).single();
     if(!profile?.company_id)return; setCompanyId(profile.company_id);
-    const [{data:s},{data:f},{data:co}]=await Promise.all([
+    const [{data:s},{data:f},{data:co},{data:ph}]=await Promise.all([
       supabase.from("company_subscriptions").select("*").eq("company_id",profile.company_id).single(),
       supabase.from("plan_features").select("*"),
       supabase.from("companies").select("name,email").eq("id",profile.company_id).single(),
+      supabase.rpc("system_admin_payment_history",{p_company_id:profile.company_id,p_limit:20}),
     ]);
-    setSub(s||null); setFeatures(f||[]); setCompanyName(co?.name||"SM HRMS");
+    setSub(s||null); setFeatures(f||[]); setPayments(ph||[]); setCompanyName(co?.name||"SM HRMS");
     if(co?.email)setEmail(co.email); if(s?.plan_code)setSelected(s.plan_code); if(s?.licensed_users)setUsers(Math.max(1,s.licensed_users));
   },[supabase]);
   useEffect(()=>{load()},[load]);
@@ -89,6 +90,12 @@ export default function SubscriptionPage(){
     </section>
 
     {message&&<div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">{message}</div>}
+    {sub&&<section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">Subscription status</p><p className="mt-1 text-lg font-bold capitalize">{sub.status}</p></div>
+      <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">Billing duration</p><p className="mt-1 text-lg font-bold">{sub.billing_cycle==="yearly"?"12 months":sub.billing_cycle==="6_months"?"6 months":sub.billing_cycle==="3_months"?"3 months":sub.billing_cycle||"—"}</p></div>
+      <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">Paid from</p><p className="mt-1 text-lg font-bold">{sub.current_period_start?new Date(sub.current_period_start).toLocaleDateString("en-IN"):"—"}</p></div>
+      <div className="rounded-2xl border bg-white p-4"><p className="text-xs text-slate-500">Valid until / next billing</p><p className="mt-1 text-lg font-bold">{(sub.current_period_end||sub.next_billing_at)?new Date(sub.current_period_end||sub.next_billing_at).toLocaleDateString("en-IN"):"—"}</p></div>
+    </section>}
 
     <section className="grid gap-4 lg:grid-cols-4">{plans.map(p=>{
       const active=p.code===selected; const labels=features.filter(f=>f.plan_code===p.code&&f.enabled).slice(0,8).map(f=>f.feature_key.replaceAll("_"," ")) || [];
@@ -109,6 +116,7 @@ export default function SubscriptionPage(){
       </div>
     </section>
 
+    {payments.length>0&&<section className="rounded-2xl border border-slate-200 bg-white p-6"><div className="mb-4"><h2 className="font-semibold">Payment history & receipts</h2><p className="mt-1 text-sm text-slate-500">Latest payments and receipt numbers.</p></div><div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b text-xs uppercase text-slate-500"><th className="py-2">Date</th><th>Plan</th><th>Period</th><th>Amount</th><th>Status</th><th>Receipt</th></tr></thead><tbody>{payments.map((x:any)=><tr key={x.id||x.razorpay_payment_id} className="border-b last:border-0"><td className="py-3">{new Date(x.paid_at||x.created_at).toLocaleDateString("en-IN")}</td><td className="capitalize">{x.plan_code||"—"}</td><td>{x.billing_cycle==="yearly"?"12 months":x.billing_cycle==="6_months"?"6 months":x.billing_cycle==="3_months"?"3 months":x.billing_cycle||"—"}</td><td>{money(Number(x.amount_paid||x.amount_due||0))}</td><td className="capitalize">{x.status||"—"}</td><td className="font-mono text-xs">{x.receipt_number||"Processing"}</td></tr>)}</tbody></table></div></section>}
     {sub&&!sub.cancel_at_period_end&&<section className="rounded-2xl border border-slate-200 bg-white p-6"><div className="flex items-center justify-between gap-4"><div><h2 className="font-semibold">Manage subscription</h2><p className="mt-1 text-sm text-slate-500">You can schedule cancellation for the end of your paid period.</p></div><button onClick={requestCancel} className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-700">Cancel at period end</button></div></section>}
   </div>
 }
