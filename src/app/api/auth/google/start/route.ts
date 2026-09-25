@@ -1,14 +1,15 @@
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 
 const REDIRECT_URI = "https://hrms.systemmaster.in/api/auth/google/callback";
-export async function GET(request: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.redirect(new URL("/login", request.url));
+export const dynamic = "force-dynamic";
+
+export async function GET() {
   const clientId = process.env.GOOGLE_GMAIL_CLIENT_ID;
-  if (!clientId) return NextResponse.json({ error: "Gmail OAuth is not configured" }, { status: 500 });
+  if (!clientId) {
+    return NextResponse.json({ error: "Gmail OAuth is not configured" }, { status: 500 });
+  }
+
   const state = randomBytes(24).toString("hex");
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   url.searchParams.set("client_id", clientId);
@@ -19,7 +20,14 @@ export async function GET(request: Request) {
   url.searchParams.set("prompt", "consent");
   url.searchParams.set("state", state);
   url.searchParams.set("login_hint", process.env.GOOGLE_GMAIL_SENDER || "noreply@systemmaster.in");
+
   const response = NextResponse.redirect(url);
-  response.cookies.set("sm_gmail_oauth_state", state, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 600, path: "/" });
+  response.cookies.set("sm_gmail_oauth_state", state, {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    maxAge: 600,
+    path: "/",
+  });
   return response;
 }
