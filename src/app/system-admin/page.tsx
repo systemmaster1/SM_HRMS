@@ -17,6 +17,7 @@ import {
 import OverviewTab from "@/components/sysadmin/OverviewTab";
 import OrganizationsTab from "@/components/sysadmin/OrganizationsTab";
 import AccountsTab from "@/components/sysadmin/AccountsTab";
+import BillingTab from "@/components/sysadmin/BillingTab";
 import RequestsTab from "@/components/sysadmin/RequestsTab";
 import FeaturesTab from "@/components/sysadmin/FeaturesTab";
 import AuditTab from "@/components/sysadmin/AuditTab";
@@ -61,7 +62,7 @@ const TABS: TabItem[] = [
     key: "billing",
     label: "Billing & Payments",
     icon: CreditCard,
-    ready: false,
+    ready: true,
   },
   {
     key: "requests",
@@ -238,23 +239,7 @@ export default function SystemAdminPage() {
         ===================================================== */}
 
         {tab === "billing" && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <CreditCard className="mx-auto h-9 w-9 text-brand-600" />
-
-            <h3 className="mt-4 text-lg font-semibold text-slate-900 dark:text-white">
-              Billing & Payments
-            </h3>
-
-            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-500">
-              Subscription billing, received payments,
-              outstanding dues, expiry management and payment
-              history will be managed from this section.
-            </p>
-
-            <div className="mx-auto mt-5 inline-flex rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
-              Setup pending
-            </div>
-          </div>
+          <BillingTab onOpenOrg={openOrganization} />
         )}
 
         {/* =====================================================
