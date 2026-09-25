@@ -25,7 +25,7 @@ export async function GET(_request:Request,{params}:{params:Promise<{id:string}>
   if(paymentError)throw paymentError;
   if(!payment)return NextResponse.json({error:"Receipt not found for this organization."},{status:404});
   const [{data:company},{data:subscription}]=await Promise.all([
-   admin.from("companies").select("id,name,email,org_code").eq("id",profile.company_id).maybeSingle(),
+   admin.from("companies").select("*").eq("id",profile.company_id).maybeSingle(),
    admin.from("company_subscriptions").select("plan_code,licensed_users,current_period_start,current_period_end,next_billing_at,billing_cycle").eq("company_id",profile.company_id).maybeSingle()
   ]);
   return NextResponse.json({payment,company,subscription},{headers:{"Cache-Control":"no-store, max-age=0"}});
