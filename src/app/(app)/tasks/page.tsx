@@ -299,7 +299,7 @@ export default function TasksPage() {
         .select("*, requester:requested_by(full_name)")
         .order("created_at", { ascending: false }).order("id").range(from, to)),
       supabase.from("task_management_policies").select("*").eq("company_id", (p as Profile)!.company_id).then(({ data, error }) => { if (error) throw error; return data || []; }),
-    ].map((p) => p.then((data) => ({ data })).catch((e) => {
+    ].map((p) => Promise.resolve(p).then((data) => ({ data })).catch((e) => {
       console.error("Tasks load failed:", e);
       return { data: [] as any[] };
     })));
