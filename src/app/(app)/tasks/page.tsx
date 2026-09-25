@@ -12,7 +12,7 @@ import {
   Plus, ListChecks, ClipboardList, Check, Clock, AlertTriangle,
   RotateCcw, Pause, Play, Trash2, Repeat, Lock,
   Download, Upload, BarChart3, ChevronDown,
-  MessageSquare, CalendarClock, Send, X,
+  MessageSquare, CalendarClock, Send, X, Paperclip,
 } from "lucide-react";
 import { confirmDialog, promptDialog, alertDialog, toast } from "@/components/Dialogs";
 import { PageLoader } from "@/components/ui";
@@ -225,6 +225,7 @@ export default function TasksPage() {
   const [subtasks, setSubtasks] = useState<any[]>([]);               // all subtasks (grouped client-side)
   const [comments, setComments] = useState<any[]>([]);               // all task comments
   const [extensions, setExtensions] = useState<any[]>([]);           // all extension requests
+  const [taskPolicies, setTaskPolicies] = useState<any[]>([]);        // company/department/employee task controls
   const [newSub, setNewSub] = useState("");                          // "add subtask" input
   const [commentText, setCommentText] = useState("");                // comment composer
   const [commentSaving, setCommentSaving] = useState(false);
@@ -276,7 +277,7 @@ export default function TasksPage() {
     const since = addDaysYMD(todayYMD(), -HISTORY_DAYS);
     const recentOrOpen = `completed_at.is.null,due_date.gte.${since}`;
 
-    const [d, t, i, st, cm, ex] = await Promise.all([
+    const [d, t, i, st, cm, ex, pol] = await Promise.all([
       fetchAll((from, to) => supabase.from("delegations")
         .select("*, assignee:assigned_to(full_name), assigner:assigned_by(full_name)")
         .or(recentOrOpen)
@@ -297,6 +298,7 @@ export default function TasksPage() {
       fetchAll((from, to) => supabase.from("task_extensions")
         .select("*, requester:requested_by(full_name)")
         .order("created_at", { ascending: false }).order("id").range(from, to)),
+      supabase.from("task_management_policies").select("*").eq("company_id", (p as Profile)!.company_id).then(({ data, error }) => { if (error) throw error; return data || []; }),
     ].map((p) => p.then((data) => ({ data })).catch((e) => {
       console.error("Tasks load failed:", e);
       return { data: [] as any[] };
@@ -308,6 +310,7 @@ export default function TasksPage() {
     setSubtasks(st.data || []);
     setComments(cm.data || []);
     setExtensions(ex.data || []);
+    setTaskPolicies(pol.data || []);
     setLoading(false);
   }, [supabase]);
 
@@ -638,6 +641,22 @@ export default function TasksPage() {
     }
   };
 
+  const effectiveTaskPolicy = (d: any) => {
+    const employee = taskPolicies.find((x) => x.scope_type === "employee" && x.employee_id === d.assigned_to);
+    const assignee = members.find((x: any) => x.id === d.assigned_to) as any;
+    const department = assignee?.department_id ? taskPolicies.find((x) => x.scope_type === "department" && x.department_id === assignee.department_id) : null;
+    return employee || department || taskPolicies.find((x) => x.scope_type === "company") || null;
+  };
+
+  const changeDelegationStatus = async (d: any, nextStatus: string) => {
+    const patch: any = { status: nextStatus, completed_at: nextStatus === "complete" ? new Date().toISOString() : null };
+    const { error } = await supabase.from("delegations").update(patch).eq("id", d.id);
+    if (error) return toast(error.message);
+    toast("Task status updated.");
+    setExpandedId(nextStatus === "complete" ? null : d.id);
+    load();
+  };
+
   /* ---------------- Derived lists ---------------- */
   const dList = delegations.filter((d) => {
     if (dScope === "mine") return d.assigned_to === me?.id;
@@ -796,9 +815,9 @@ export default function TasksPage() {
 
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className={`text-sm font-medium ${d.completed_at ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"}`}>
+                            <button type="button" onClick={() => { setExpandedId(isRowOpen ? null : d.id); setNewSub(""); setCommentText(""); setExtOpen(false); setExtError(""); }} className={`text-left text-sm font-medium hover:text-brand-700 ${d.completed_at ? "text-slate-400 dark:text-slate-500 line-through" : "text-slate-900 dark:text-slate-100"}`}>
                               {d.title}
-                            </p>
+                            </button>
                             <StatusChip status={status} />
                             {d.priority === "high" && (
                               <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-medium text-rose-600">HIGH</span>
@@ -846,6 +865,36 @@ export default function TasksPage() {
                       {/* ---------- Expanded details: subtasks / extension / comments ---------- */}
                       {isRowOpen && (
                         <div className="ml-8 mt-3 space-y-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-700 dark:bg-slate-800/40">
+                          {(() => {
+                            const policy = effectiveTaskPolicy(d);
+                            const workflowStatus = d.completed_at ? "complete" : (d.status || "pending");
+                            const options = [
+                              ["pending", "Pending", policy?.status_pending_enabled !== false],
+                              ["in_progress", "In Progress", policy?.status_in_progress_enabled !== false],
+                              ["hold", "Hold", policy?.status_hold_enabled !== false],
+                              ["complete", "Complete", policy?.status_complete_enabled !== false],
+                            ].filter((x) => x[2]);
+                            return (
+                              <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-800 sm:grid-cols-2">
+                                <div>
+                                  <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Task status</p>
+                                  <select value={workflowStatus} disabled={!(isAssignee || canManage) || !!d.completed_at} onChange={(e) => changeDelegationStatus(d, e.target.value)}
+                                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-800 outline-none focus:border-brand-600 disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
+                                    {options.map(([value, label]) => <option key={String(value)} value={String(value)}>{String(label)}</option>)}
+                                  </select>
+                                </div>
+                                {policy?.attachments_enabled !== false && (
+                                  <div>
+                                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Attachments</p>
+                                    <div className="rounded-lg border border-dashed border-brand-300 bg-brand-50/50 px-3 py-2 text-xs text-brand-700 dark:bg-brand-500/10">
+                                      <span className="inline-flex items-center gap-1.5 font-medium"><Paperclip className="h-3.5 w-3.5" /> Attachment upload enabled</span>
+                                      <p className="mt-1 text-[11px] text-slate-500">File controls follow the admin policy for this employee.</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                           {/* Subtasks */}
                           <div>
                             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
