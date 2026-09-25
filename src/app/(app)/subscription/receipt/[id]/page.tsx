@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { Download } from "lucide-react";
 
-const money=(n:any)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(n||0));
+const money=(n:any)=>`INR ${Number(n||0).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 const d=(v:any)=>v?new Date(v).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}):"—";
 const term=(v:any)=>v==="yearly"?"12 months":v==="6_months"?"6 months":v==="3_months"?"3 months":v||"—";
 
@@ -22,7 +22,7 @@ export default function ReceiptPage(){
  const download=async()=>{
   const { jsPDF }=await import("jspdf");
   const autoTable=(await import("jspdf-autotable")).default;
-  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4"});
+  const doc=new jsPDF({orientation:"portrait",unit:"mm",format:"a4",compress:true});
   const address=company?.billing_address||company?.address||company?.registered_address||"";
   const gst=company?.gstin||company?.gst_number||company?.gst_no||"";
   const phone=company?.phone||company?.mobile||company?.contact_number||"";
@@ -43,7 +43,7 @@ export default function ReceiptPage(){
   const tableY=Math.max(105,y+5);
   autoTable(doc,{startY:tableY,head:[["Description","Qty","Rate / Amount"]],body:[[`SM HRMS - ${payment.plan_code||sub?.plan_code||"Subscription"} Plan\n${users?users+" licensed users | ":""}Billing period: ${term(payment.billing_cycle||sub?.billing_cycle)}\nService period: ${d(sub?.current_period_start||payment.paid_at)} to ${d(sub?.current_period_end||sub?.next_billing_at)}`,"1",money(payment.amount_paid||payment.total_amount)]],theme:"grid",headStyles:{fillColor:[29,78,216]},styles:{font:"helvetica",fontSize:8,cellPadding:4},columnStyles:{1:{halign:"center",cellWidth:18},2:{halign:"right",cellWidth:38}}});
   let fy=(doc as any).lastAutoTable.finalY+8;
-  autoTable(doc,{startY:fy,margin:{left:115},body:[["Total Amount",money(payment.total_amount)],["Amount Paid",money(payment.amount_paid)],["Balance Due",money(payment.amount_due)]],theme:"grid",styles:{fontSize:8,cellPadding:3},columnStyles:{1:{halign:"right",fontStyle:"bold"}}});
+  autoTable(doc,{startY:fy,margin:{left:115,right:15},tableWidth:80,body:[["Total Amount",money(payment.total_amount)],["Amount Paid",money(payment.amount_paid)],["Balance Due",money(payment.amount_due)]],theme:"grid",styles:{font:"helvetica",fontSize:8,cellPadding:3,overflow:"linebreak"},columnStyles:{0:{cellWidth:42},1:{cellWidth:38,halign:"right",fontStyle:"bold"}}});
   fy=(doc as any).lastAutoTable.finalY+10;
   doc.setFont("helvetica","bold");doc.setFontSize(8);doc.text("PAYMENT DETAILS",15,fy);doc.text("BANK DETAILS",110,fy);
   doc.setFont("helvetica","normal");doc.setFontSize(7);doc.text([`Method: ${payment.payment_method||"-"}`,`Razorpay Payment ID: ${payment.razorpay_payment_id||"-"}`,`Razorpay Order ID: ${payment.razorpay_order_id||"-"}`],15,fy+5);
