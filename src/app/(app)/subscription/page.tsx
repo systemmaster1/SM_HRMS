@@ -65,7 +65,7 @@ export default function SubscriptionPage(){
         key:data.keyId,amount:data.amount,currency:data.currency||"INR",name:"SystemMaster Automations",
         description:`SM HRMS · ${plan?.name||selected} · ${tc.label}`,order_id:data.orderId,
         prefill:{name:companyName,email},theme:{},modal:{ondismiss:()=>setBusy(false)},
-        handler:async()=>{setMessage("Payment received. Verifying and activating your plan…");setBusy(false);setTimeout(()=>{load()},2500);}
+        handler:async(r:any)=>{setMessage("Payment received. Verifying and activating your plan…");try{const vr=await fetch("/api/billing/verify-payment",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({companyId,paymentId:r?.razorpay_payment_id,orderId:r?.razorpay_order_id||data.orderId})});const vd=await vr.json();if(!vr.ok)throw new Error(vd.error||"Payment verification is pending.");setMessage(`Payment verified successfully. Receipt ${vd.receiptNumber||""}.`);await load();}catch(e:any){setMessage(e?.message||"Payment received. Verification is pending; please refresh shortly.");}finally{setBusy(false);}}
       });
       rz.on("payment.failed",(r:any)=>{setMessage(r?.error?.description||"Payment failed. Please try again.");setBusy(false)});
       rz.open();
