@@ -27,6 +27,30 @@ const FREQ_LABELS: Record<string, string> = {
   quarterly: "Quarterly", half_yearly: "Half-yearly", yearly: "Yearly",
 };
 
+const CHECKLIST_VISIBILITY_DAYS: Record<string, number> = {
+  daily: 1,
+  weekly: 2,
+  monthly: 3,
+  quarterly: 5,
+  half_yearly: 5,
+  yearly: 10,
+};
+
+function checklistVisibleFrom(dueDate: string, frequency: string) {
+  const days = CHECKLIST_VISIBILITY_DAYS[frequency] ?? 1;
+  const due = new Date(`${dueDate}T00:00:00`);
+  due.setDate(due.getDate() - days);
+  due.setHours(0, 0, 0, 0);
+  return due;
+}
+
+function checklistCanComplete(dueDate: string, dueTime: string | null) {
+  const due = dueTime
+    ? new Date(`${dueDate}T${dueTime}`)
+    : new Date(`${dueDate}T00:00:00`);
+  return new Date() >= due;
+}
+
 function computeStatus(dueDate: string, dueTime: string | null, completedAt: string | null) {
   const now = new Date();
   const due = dueTime ? new Date(`${dueDate}T${dueTime}`) : new Date(`${dueDate}T23:59:59`);
@@ -89,10 +113,13 @@ const TONES: Record<string, { head: string; ring: string }> = {
 };
 
 function InstanceWindow({
-  title, tone, icon: Icon, items, me, admin, onToggle, locked = false, empty,
+  title, tone, icon: Icon, items, me, admin, onToggle, onStatus, onUpload, policyFor, locked = false, empty,
 }: {
   title: string; tone: string; icon: any; items: any[];
   me: Profile | null; admin: boolean; onToggle: (i: any) => void;
+  onStatus: (i: any, status: string) => void;
+  onUpload: (i: any, file: File) => void;
+  policyFor: (i: any) => any;
   locked?: boolean; empty: string;
 }) {
   const t = TONES[tone] || TONES.today;
@@ -179,6 +206,36 @@ function InstanceWindow({
                       </span>
                     )}
                   </div>
+
+                  {!i.completed_at && !locked && (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                      <select
+                        className={inputCls}
+                        value={i.status || "pending"}
+                        onChange={(e) => onStatus(i, e.target.value)}
+                      >
+                        {policyFor(i)?.status_pending_enabled !== false && <option value="pending">Pending</option>}
+                        {policyFor(i)?.status_in_progress_enabled !== false && <option value="in_progress">In Progress</option>}
+                        {policyFor(i)?.status_hold_enabled !== false && <option value="hold">Hold</option>}
+                        {policyFor(i)?.status_complete_enabled !== false && <option value="complete">Complete</option>}
+                      </select>
+                      {policyFor(i)?.attachments_enabled !== false && (
+                        <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 dark:border-slate-600 px-3 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 hover:border-brand-500">
+                          <Paperclip className="h-3.5 w-3.5" />
+                          Add attachment
+                          <input
+                            type="file"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) onUpload(i, file);
+                              e.currentTarget.value = "";
+                            }}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  )}
 
                   {locked && (
                     <p className="mt-1.5 flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-500">
@@ -535,6 +592,7 @@ export default function TasksPage() {
         p_instance: inst.id, p_done: false,
       });
       if (error) { toast(error.message, "error"); return; }
+      await supabase.from("checklist_instances").update({ status: "pending" }).eq("id", inst.id);
       if (inst.assigned_to && inst.assigned_to !== me!.id) {
         await supabase.from("notifications").insert({
           company_id: me!.company_id, user_id: inst.assigned_to,
@@ -547,15 +605,62 @@ export default function TasksPage() {
       return;
     }
 
-    if (inst.due_date > todayLocal) {
-      alertDialog({ title: "Not due yet", message: "This task is scheduled for a future date and cannot be completed early.", tone: "info" });
+    if (!checklistCanComplete(inst.due_date, inst.due_time)) {
+      alertDialog({ title: "Not due yet", message: "This task is visible for planning, but it cannot be completed before its due date/time.", tone: "info" });
       return;
     }
     const { error } = await supabase.rpc("set_checklist_done", {
       p_instance: inst.id, p_done: true,
     });
     if (error) { toast(error.message, "error"); return; }
+    await supabase.from("checklist_instances").update({ status: "complete" }).eq("id", inst.id);
     load();
+  };
+
+  const changeChecklistStatus = async (inst: any, nextStatus: string) => {
+    if (nextStatus === "complete") {
+      await toggleInstanceDone(inst);
+      return;
+    }
+    const { error } = await supabase.from("checklist_instances")
+      .update({ status: nextStatus })
+      .eq("id", inst.id);
+    if (error) return toast(error.message, "error");
+    toast("Checklist status updated.");
+    load();
+  };
+
+  const uploadChecklistAttachment = async (inst: any, file: File) => {
+    const policy = effectiveTaskPolicy(inst);
+    if (policy?.attachments_enabled === false) return toast("Attachments are disabled by admin.", "error");
+
+    const maxMb = Number(policy?.max_attachment_size_mb || 10);
+    if (file.size > maxMb * 1024 * 1024) return toast(`Maximum attachment size is ${maxMb} MB.`, "error");
+
+    const allowed = String(policy?.allowed_attachment_extensions || "pdf,jpg,jpeg,png,doc,docx,xls,xlsx")
+      .split(",").map((x: string) => x.trim().toLowerCase()).filter(Boolean);
+    const ext = file.name.split(".").pop()?.toLowerCase() || "";
+    if (allowed.length && !allowed.includes(ext)) return toast("This file type is not allowed by admin.", "error");
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${me!.company_id}/checklist/${inst.id}/${Date.now()}-${safeName}`;
+    const up = await supabase.storage.from("task-attachments").upload(storagePath, file, { upsert: false });
+    if (up.error) return toast(up.error.message, "error");
+
+    const { error } = await supabase.from("task_attachments").insert({
+      company_id: me!.company_id,
+      checklist_instance_id: inst.id,
+      uploaded_by: me!.id,
+      file_name: file.name,
+      storage_path: storagePath,
+      file_size: file.size,
+      mime_type: file.type || null,
+    });
+    if (error) {
+      await supabase.storage.from("task-attachments").remove([storagePath]);
+      return toast(error.message, "error");
+    }
+    toast("Attachment uploaded.");
   };
 
   const toggleTemplateActive = async (t: any) => {
@@ -674,8 +779,10 @@ export default function TasksPage() {
   const dOnTimePct  = dDoneTotal > 0 ? Math.round((dDoneOnTime / dDoneTotal) * 100) : null;
 
   const iList = instances.filter((i) => {
-    if (cScope === "mine") return i.assigned_to === me?.id;
-    return true;
+    if (cScope === "mine" && i.assigned_to !== me?.id) return false;
+    if (i.completed_at) return true;
+    const frequency = i.template?.frequency || "daily";
+    return new Date() >= checklistVisibleFrom(i.due_date, frequency);
   });
 
   /* ---- Today / Upcoming / Delayed windows ---- */
@@ -1187,22 +1294,26 @@ export default function TasksPage() {
                 <InstanceWindow
                   title="Today's tasks" tone="today" icon={Clock}
                   items={iToday} me={me} admin={admin} onToggle={toggleInstanceDone}
+                  onStatus={changeChecklistStatus} onUpload={uploadChecklistAttachment} policyFor={effectiveTaskPolicy}
                   empty="Nothing scheduled for today."
                 />
                 <InstanceWindow
                   title="Delayed" tone="delayed" icon={AlertTriangle}
                   items={iDelayed} me={me} admin={admin} onToggle={toggleInstanceDone}
+                  onStatus={changeChecklistStatus} onUpload={uploadChecklistAttachment} policyFor={effectiveTaskPolicy}
                   empty="No delayed tasks — well done."
                 />
                 <InstanceWindow
                   title="Upcoming" tone="upcoming" icon={Lock}
                   items={iUpcoming} me={me} admin={admin} onToggle={toggleInstanceDone}
+                  onStatus={changeChecklistStatus} onUpload={uploadChecklistAttachment} policyFor={effectiveTaskPolicy}
                   locked
                   empty="Nothing scheduled ahead."
                 />
                 <InstanceWindow
                   title="Completed" tone="done" icon={Check}
                   items={iCompleted} me={me} admin={admin} onToggle={toggleInstanceDone}
+                  onStatus={changeChecklistStatus} onUpload={uploadChecklistAttachment} policyFor={effectiveTaskPolicy}
                   empty="No completed tasks yet."
                 />
               </div>
