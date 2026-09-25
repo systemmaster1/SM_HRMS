@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, Download, Printer } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 
 const money=(n:any)=>new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(n||0));
 const d=(v:any)=>v?new Date(v).toLocaleDateString("en-IN",{day:"2-digit",month:"short",year:"numeric"}):"—";
@@ -19,14 +19,14 @@ export default function ReceiptPage(){
    setPayment(data.payment);setCompany(data.company);setSub(data.subscription);
   }catch(e:any){setError(e?.message||"Unable to load receipt.");}finally{setLoading(false)}
  })()},[paymentId]);
- const download=()=>window.print();
+ const download=()=>{ const url=`/api/billing/receipt/${encodeURIComponent(paymentId)}/pdf`; window.location.href=url; };
  if(loading)return <div className="p-8 text-center text-slate-500">Loading receipt…</div>;
  if(error||!payment)return <div className="mx-auto max-w-xl p-8"><div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-rose-700">{error||"Receipt not found."}</div></div>;
  const users=Number(payment.metadata?.users||sub?.licensed_users||0);
  return <div className="min-h-screen bg-slate-100 py-6 print:bg-white print:py-0">
   <div className="mx-auto mb-4 flex max-w-[210mm] justify-between gap-3 px-2 print:hidden">
    <button onClick={()=>router.back()} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold"><ArrowLeft className="h-4 w-4"/>Back</button>
-   <div className="flex gap-2"><button onClick={()=>window.print()} className="inline-flex items-center gap-2 rounded-xl border bg-white px-4 py-2 text-sm font-semibold"><Printer className="h-4 w-4"/>Print</button><button onClick={download} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"><Download className="h-4 w-4"/>Download PDF</button></div>
+   <button onClick={download} className="inline-flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2 text-sm font-semibold text-white"><Download className="h-4 w-4"/>Download PDF</button>
   </div>
   <main className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white p-[12mm] text-slate-900 shadow-xl print:min-h-0 print:max-w-none print:p-[10mm] print:shadow-none">
    <header className="flex items-start justify-between gap-6 border-b-4 border-blue-700 pb-5">
