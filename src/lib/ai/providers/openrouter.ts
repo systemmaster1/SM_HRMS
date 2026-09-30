@@ -1,0 +1,5 @@
+import "server-only"; import { fetchAI } from "./http"; import type { AIProvider } from "./types";
+export class OpenRouterProvider implements AIProvider{constructor(private apiKey:string){} async complete(i:Parameters<AIProvider["complete"]>[0]){
+ const r=await fetchAI("https://openrouter.ai/api/v1/chat/completions",{method:"POST",headers:{"content-type":"application/json",authorization:`Bearer ${this.apiKey}`,"HTTP-Referer":"https://hrms.systemmaster.in","X-Title":"SM HRMS"},body:JSON.stringify({model:i.model,messages:[{role:"system",content:i.system},...i.messages],tools:i.tools.map(t=>({type:"function",function:t})),tool_choice:i.tools.length?"auto":"none"})},i.timeoutMs);
+ const j=await r.json();const m=j.choices?.[0]?.message||{};return {text:m.content||"",toolCalls:(m.tool_calls||[]).map((x:any)=>({id:x.id,name:x.function.name,arguments:JSON.parse(x.function.arguments||"{}")})),inputTokens:j.usage?.prompt_tokens||0,outputTokens:j.usage?.completion_tokens||0};
+}}
