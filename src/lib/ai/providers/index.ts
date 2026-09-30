@@ -1,0 +1,2 @@
+import "server-only"; import type { AIProviderName } from "./types"; import { OpenAIProvider } from "./openai"; import { AnthropicProvider } from "./anthropic"; import { GeminiProvider } from "./gemini";
+export function providerFor(name:AIProviderName,key:string){if(name==="openai")return new OpenAIProvider(key);if(name==="anthropic")return new AnthropicProvider(key);return new GeminiProvider(key);}
