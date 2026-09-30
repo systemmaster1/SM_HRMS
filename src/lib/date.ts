@@ -38,13 +38,17 @@ export function istDateTime(date: string, time?: string | null, fallback = "23:5
   return new Date(`${date}T${t.slice(0, 8)}+05:30`);
 }
 
-/** Timestamp -> "23 Sep 2026, 09:05 am" in IST ("" for empty). */
+/** Timestamp -> "DD/MM/YYYY HH:MM:SS" in IST (24-hour, "" for empty). */
 export function fmtStampIST(ts: string | null | undefined): string {
   if (!ts) return "";
   const d = new Date(ts);
   if (isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-IN", {
-    timeZone: APP_TZ, day: "2-digit", month: "short", year: "numeric",
-    hour: "2-digit", minute: "2-digit", hour12: true,
-  });
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: APP_TZ,
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value || "";
+  return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}:${get("second")}`;
 }
