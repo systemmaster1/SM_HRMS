@@ -8,6 +8,7 @@ export default function SignOutLink() {
   const router = useRouter();
 
   const signOut = async () => {
+    await fetch("/api/security/logout", { method: "POST" }).catch(() => undefined);
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
