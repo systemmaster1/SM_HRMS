@@ -1,0 +1,40 @@
+import "server-only";
+import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ToolDefinition } from "./providers/types";
+
+const DateRange=z.object({from:z.string().optional(),to:z.string().optional()});
+const Month=z.object({month:z.number().int().min(1).max(12).optional(),year:z.number().int().min(2020).max(2100).optional()});
+const FindEmployee=z.object({query:z.string().min(1).max(100)});
+
+const defs: ToolDefinition[]=[
+ {name:"my_attendance",description:"Read the caller's attendance records for a date range.",parameters:{type:"object",properties:{from:{type:"string"},to:{type:"string"}}}},
+ {name:"my_tasks",description:"Read tasks assigned to the caller.",parameters:{type:"object",properties:{}}},
+ {name:"my_leave_balance",description:"Read the caller's leave balance.",parameters:{type:"object",properties:{}}},
+ {name:"my_payslip",description:"Read the caller's payroll/payslip summary for a month.",parameters:{type:"object",properties:{month:{type:"integer"},year:{type:"integer"}}}},
+ {name:"team_attendance_report",description:"Manager/admin attendance report for authorized team members.",parameters:{type:"object",properties:{from:{type:"string"},to:{type:"string"}}}},
+ {name:"team_task_report",description:"Manager/admin task report for authorized team members.",parameters:{type:"object",properties:{}}},
+ {name:"leave_summary",description:"Manager/admin leave summary for authorized team members.",parameters:{type:"object",properties:{from:{type:"string"},to:{type:"string"}}}},
+ {name:"field_visit_report",description:"Manager/admin field visit report for authorized team members.",parameters:{type:"object",properties:{from:{type:"string"},to:{type:"string"}}}},
+ {name:"payroll_summary",description:"Admin-only payroll summary.",parameters:{type:"object",properties:{month:{type:"integer"},year:{type:"integer"}}}},
+ {name:"find_employee",description:"Find an employee by name, code or department within caller's authorized scope.",parameters:{type:"object",properties:{query:{type:"string"}},required:["query"]}}
+];
+export const readToolDefinitions=defs;
+
+const ymd=(d:Date)=>d.toISOString().slice(0,10);
+const range=(raw:any)=>{const p=DateRange.parse(raw||{}),n=new Date();return {from:p.from||`${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-01`,to:p.to||ymd(n)}};
+async function profile(s:SupabaseClient){const {data:{user}}=await s.auth.getUser();if(!user)throw new Error("Not authenticated");const {data:p,error}=await s.from("profiles").select("id,company_id,full_name,role,manager_id").eq("id",user.id).single();if(error||!p)throw new Error("Profile unavailable");const {data:allowed}=await s.rpc("ai_access_allowed");if(!allowed)throw new Error("SM Assistant is not enabled for your account.");return p as any;}
+const managerIds=async(s:SupabaseClient,p:any)=>{if(p.role==="owner"||p.role==="admin")return null;if(p.role!=="manager")throw new Error("This tool requires manager access.");const {data}=await s.from("profiles").select("id").eq("manager_id",p.id).eq("status","active");return [p.id,...(data||[]).map((x:any)=>x.id)];};
+export async function runReadTool(s:SupabaseClient,name:string,args:any){
+ const p=await profile(s); const r=range(args);
+ if(name==="my_attendance"){const {data,error}=await s.from("attendance").select("work_date,check_in,check_out,work_minutes,status,late_minutes").eq("employee_id",p.id).gte("work_date",r.from).lte("work_date",r.to).order("work_date",{ascending:false}).limit(100);if(error)throw error;return data;}
+ if(name==="my_tasks"){const {data,error}=await s.from("delegations").select("id,title,description,priority,due_date,due_time,status,completed_at").eq("assigned_to",p.id).order("due_date").limit(100);if(error)throw error;return data;}
+ if(name==="my_leave_balance"){const {data,error}=await s.rpc("leave_balance");if(error)throw error;return data;}
+ if(name==="my_payslip"||name==="payroll_summary"){const m=Month.parse(args||{}),n=new Date(),month=m.month||n.getMonth()+1,year=m.year||n.getFullYear();if(name==="payroll_summary"&&!["owner","admin"].includes(p.role))throw new Error("Payroll summary is admin only.");const {data,error}=await s.rpc("get_payroll",{p_month:month,p_year:year});if(error)throw error;return name==="my_payslip"?(data||[]).filter((x:any)=>x.employee_id===p.id):data;}
+ if(name==="team_attendance_report"){const ids=await managerIds(s,p);let q=s.from("attendance").select("employee_id,work_date,check_in,check_out,work_minutes,status,late_minutes,profiles:employee_id(full_name,employee_code,department)").gte("work_date",r.from).lte("work_date",r.to).order("work_date",{ascending:false}).limit(250);if(ids)q=q.in("employee_id",ids);const {data,error}=await q;if(error)throw error;return data;}
+ if(name==="team_task_report"){const ids=await managerIds(s,p);let q=s.from("delegations").select("id,assigned_to,title,priority,due_date,due_time,status,completed_at,assignee:assigned_to(full_name,employee_code,department)").order("due_date").limit(250);if(ids)q=q.in("assigned_to",ids);const {data,error}=await q;if(error)throw error;return data;}
+ if(name==="leave_summary"){const ids=await managerIds(s,p);let q=s.from("leaves").select("employee_id,from_date,to_date,days,day_type,status,profiles:employee_id(full_name,employee_code,department),leave_types:leave_type_id(code,name)").gte("from_date",r.from).lte("from_date",r.to).limit(250);if(ids)q=q.in("employee_id",ids);const {data,error}=await q;if(error)throw error;return data;}
+ if(name==="field_visit_report"){const ids=await managerIds(s,p);let q=s.from("field_visits").select("employee_id,client_name,visit_date,status,outcome,profiles:employee_id(full_name,employee_code,department)").gte("visit_date",r.from).lte("visit_date",r.to).limit(250);if(ids)q=q.in("employee_id",ids);const {data,error}=await q;if(error)throw error;return data;}
+ if(name==="find_employee"){const a=FindEmployee.parse(args||{});const ids=await managerIds(s,p);let q=s.from("profiles").select("id,full_name,employee_code,department,designation,role,status").eq("status","active").or(`full_name.ilike.%${a.query}%,employee_code.ilike.%${a.query}%,department.ilike.%${a.query}%`).limit(20);if(ids)q=q.in("id",ids);const {data,error}=await q;if(error)throw error;return data;}
+ throw new Error("Unknown or unavailable tool.");
+}
