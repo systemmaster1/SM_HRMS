@@ -1,0 +1,19 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+export async function POST(req:Request){
+ const s=await createClient();const {data:{user}}=await s.auth.getUser();if(!user)return NextResponse.json({error:"Not authenticated"},{status:401});
+ const {actionId,decision}=await req.json();if(!["confirm","cancel"].includes(decision))return NextResponse.json({error:"Invalid decision"},{status:400});
+ const {data:a}=await s.from("ai_pending_actions").select("*").eq("id",actionId).eq("user_id",user.id).maybeSingle();if(!a||a.status!=="pending")return NextResponse.json({error:"Action is no longer pending."},{status:409});
+ if(new Date(a.expires_at).getTime()<Date.now()){await s.from("ai_pending_actions").update({status:"expired"}).eq("id",a.id);return NextResponse.json({error:"This confirmation expired. Ask SM Assistant to prepare it again."},{status:410})}
+ if(decision==="cancel"){await s.from("ai_pending_actions").update({status:"cancelled"}).eq("id",a.id);return NextResponse.json({ok:true,status:"cancelled"})}
+ const {data:p}=await s.from("profiles").select("id,company_id,role").eq("id",user.id).single();if(!p||p.company_id!==a.company_id||!["owner","admin","manager"].includes(p.role))return NextResponse.json({error:"Permission denied"},{status:403});
+ try{
+  let targetId=a.target_id;
+  if(a.action==="assign_task"){const x=a.payload;const {data:e}=await s.from("profiles").select("id,manager_id").eq("id",x.employee_id).eq("company_id",p.company_id).eq("status","active").maybeSingle();if(!e||(p.role==="manager"&&e.id!==p.id&&e.manager_id!==p.id))throw new Error("Employee is outside your authorized team.");const {data:t,error}=await s.from("delegations").insert({company_id:p.company_id,title:x.title,description:x.description||"",assigned_to:x.employee_id,assigned_by:p.id,priority:x.priority||"medium",due_date:x.due_date,due_time:x.due_time||null}).select("id").single();if(error)throw error;targetId=t.id;await s.from("notifications").insert({company_id:p.company_id,user_id:x.employee_id,title:"New task delegated to you",body:`${x.title} · due ${x.due_date}${x.due_time?" "+x.due_time:""}`,kind:"task",link:"/tasks"})}
+  else if(a.action==="update_task_due"){const x=a.payload;let q=s.from("delegations").update({due_date:x.due_date,due_time:x.due_time||null}).eq("id",x.task_id).eq("company_id",p.company_id);if(p.role==="manager")q=q.eq("assigned_by",p.id);const {data,error}=await q.select("id,assigned_to,title").maybeSingle();if(error||!data)throw error||new Error("Task is outside your authorized scope.");targetId=data.id;await s.from("notifications").insert({company_id:p.company_id,user_id:data.assigned_to,title:"Task due date updated",body:`${data.title} · new due ${x.due_date}${x.due_time?" "+x.due_time:""}`,kind:"task",link:"/tasks"})}
+  else throw new Error("Unsupported action.");
+  await s.from("ai_pending_actions").update({status:"executed",confirmed_at:new Date().toISOString(),executed_at:new Date().toISOString(),target_id:targetId}).eq("id",a.id);
+  await s.from("ai_action_log").insert({company_id:p.company_id,user_id:p.id,action:a.action,target_type:a.target_type,target_id:targetId,payload:a.payload,status:"executed"});
+  return NextResponse.json({ok:true,status:"executed",message:"Action completed successfully."});
+ }catch(e:any){await s.from("ai_pending_actions").update({status:"failed",confirmed_at:new Date().toISOString()}).eq("id",a.id);await s.from("ai_action_log").insert({company_id:a.company_id,user_id:user.id,action:a.action,target_type:a.target_type,target_id:a.target_id,payload:a.payload,status:"failed"});return NextResponse.json({error:e?.message||"Action failed"},{status:400})}
+}
