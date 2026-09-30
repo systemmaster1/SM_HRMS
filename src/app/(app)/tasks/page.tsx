@@ -286,6 +286,7 @@ export default function TasksPage() {
   const [subtasks, setSubtasks] = useState<any[]>([]);               // all subtasks (grouped client-side)
   const [comments, setComments] = useState<any[]>([]);               // all task comments
   const [extensions, setExtensions] = useState<any[]>([]);           // all extension requests
+  const [attachments, setAttachments] = useState<any[]>([]);         // work proof images
   const [taskPolicies, setTaskPolicies] = useState<any[]>([]);        // company/department/employee task controls
   const [newSub, setNewSub] = useState("");                          // "add subtask" input
   const [commentText, setCommentText] = useState("");                // comment composer
@@ -338,7 +339,7 @@ export default function TasksPage() {
     const since = addDaysYMD(todayYMD(), -HISTORY_DAYS);
     const recentOrOpen = `completed_at.is.null,due_date.gte.${since}`;
 
-    const [d, t, i, st, cm, ex, pol] = await Promise.all([
+    const [d, t, i, st, cm, ex, att, pol] = await Promise.all([
       fetchAll((from, to) => supabase.from("delegations")
         .select("*, assignee:assigned_to(full_name), assigner:assigned_by(full_name)")
         .or(recentOrOpen)
@@ -359,6 +360,9 @@ export default function TasksPage() {
       fetchAll((from, to) => supabase.from("task_extensions")
         .select("*, requester:requested_by(full_name)")
         .order("created_at", { ascending: false }).order("id").range(from, to)),
+      fetchAll((from, to) => supabase.from("task_attachments")
+        .select("id, delegation_id, checklist_instance_id, file_name, storage_path, file_size, mime_type, uploaded_by, created_at")
+        .order("created_at", { ascending: false }).order("id").range(from, to)),
       supabase.from("task_management_policies").select("*").eq("company_id", (p as Profile)!.company_id).then(({ data, error }) => { if (error) throw error; return data || []; }),
     ].map((p) => Promise.resolve(p).then((data) => ({ data })).catch((e) => {
       console.error("Tasks load failed:", e);
@@ -371,6 +375,7 @@ export default function TasksPage() {
     setSubtasks(st.data || []);
     setComments(cm.data || []);
     setExtensions(ex.data || []);
+    setAttachments(att.data || []);
     setTaskPolicies(pol.data || []);
     setLoading(false);
   }, [supabase]);
@@ -721,6 +726,15 @@ export default function TasksPage() {
       return toast(error.message, "error");
     }
     toast(`Work photo uploaded · ${Math.max(1, Math.round(uploadFile.size / 1024))} KB`);
+  };
+
+  const openTaskAttachment = async (attachment: any, download = false) => {
+    if (!attachment?.storage_path) return toast("Attachment path is missing.", "error");
+    const { data, error } = await supabase.storage.from("task-attachments").createSignedUrl(attachment.storage_path, 120, {
+      download: download ? (attachment.file_name || "task-photo.jpg") : false,
+    });
+    if (error || !data?.signedUrl) return toast(error?.message || "Could not open attachment.", "error");
+    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   };
 
   const uploadChecklistAttachment = async (inst: any, file: File) => {
@@ -1107,6 +1121,7 @@ export default function TasksPage() {
                   const subsDone = subs.filter((s) => s.done).length;
                   const cmts = comments.filter((c) => c.delegation_id === d.id);
                   const exts = extensions.filter((x) => x.delegation_id === d.id);
+                  const taskFiles = attachments.filter((a) => a.delegation_id === d.id);
                   const pendingExt = exts.find((x) => x.status === "pending");
                   const isRowOpen = expandedId === d.id;
                   const isAssignee = d.assigned_to === me?.id;
@@ -1379,6 +1394,35 @@ export default function TasksPage() {
                               </p>
                             )}
                           </div>
+
+                          {taskFiles.length > 0 && (
+                            <div>
+                              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                Work photos · {taskFiles.length}
+                              </p>
+                              <div className="grid gap-2 sm:grid-cols-2">
+                                {taskFiles.map((file) => (
+                                  <div key={file.id} className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-800">
+                                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700 dark:bg-brand-500/10">
+                                      <Paperclip className="h-4 w-4" />
+                                    </span>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">{file.file_name || "Work photo"}</p>
+                                      <p className="text-[10px] text-slate-400">{file.file_size ? `${Math.max(1, Math.round(file.file_size / 1024))} KB · ` : ""}{fmtStamp(file.created_at)}</p>
+                                    </div>
+                                    <button type="button" onClick={() => openTaskAttachment(file)}
+                                      className="rounded-lg border border-slate-200 px-2 py-1.5 text-[11px] font-semibold text-slate-600 hover:border-brand-300 hover:text-brand-700 dark:border-slate-600 dark:text-slate-300">
+                                      View
+                                    </button>
+                                    <button type="button" onClick={() => openTaskAttachment(file, true)}
+                                      className="rounded-lg bg-brand-700 px-2 py-1.5 text-[11px] font-semibold text-white hover:bg-brand-800">
+                                      Download
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
                           {/* Activity timeline */}
                           <div>
