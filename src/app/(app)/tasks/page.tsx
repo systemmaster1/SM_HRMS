@@ -642,6 +642,46 @@ export default function TasksPage() {
     load();
   };
 
+  const uploadDelegationAttachment = async (task: any, file: File) => {
+    const policy = effectiveTaskPolicy(task);
+    if (policy?.attachments_enabled === false) return toast("Attachments are disabled by admin.", "error");
+    if (!["image/jpeg", "image/png"].includes(file.type)) {
+      return toast("Only JPG and PNG images are allowed.", "error");
+    }
+
+    let uploadFile: File;
+    try {
+      uploadFile = await compressChecklistImage(file);
+    } catch (e: any) {
+      return toast(e?.message || "Could not process this image.", "error");
+    }
+    if (uploadFile.size > 5 * 1024 * 1024) {
+      return toast("Image is still above 5 MB after compression. Please choose a smaller image.", "error");
+    }
+
+    const safeName = uploadFile.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const storagePath = `${me!.company_id}/delegation/${task.id}/${Date.now()}-${safeName}`;
+    const up = await supabase.storage.from("task-attachments").upload(storagePath, uploadFile, {
+      upsert: false, contentType: "image/jpeg",
+    });
+    if (up.error) return toast(up.error.message, "error");
+
+    const { error } = await supabase.from("task_attachments").insert({
+      company_id: me!.company_id,
+      delegation_id: task.id,
+      uploaded_by: me!.id,
+      file_name: uploadFile.name,
+      storage_path: storagePath,
+      file_size: uploadFile.size,
+      mime_type: uploadFile.type,
+    });
+    if (error) {
+      await supabase.storage.from("task-attachments").remove([storagePath]);
+      return toast(error.message, "error");
+    }
+    toast(`Work photo uploaded · ${Math.max(1, Math.round(uploadFile.size / 1024))} KB`);
+  };
+
   const uploadChecklistAttachment = async (inst: any, file: File) => {
     const policy = effectiveTaskPolicy(inst);
     if (policy?.attachments_enabled === false) return toast("Attachments are disabled by admin.", "error");
@@ -1180,11 +1220,17 @@ export default function TasksPage() {
                                 </div>
                                 {policy?.attachments_enabled !== false && (
                                   <div>
-                                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Attachments</p>
-                                    <div className="rounded-lg border border-dashed border-brand-300 bg-brand-50/50 px-3 py-2 text-xs text-brand-700 dark:bg-brand-500/10">
-                                      <span className="inline-flex items-center gap-1.5 font-medium"><Paperclip className="h-3.5 w-3.5" /> Attachment upload enabled</span>
-                                      <p className="mt-1 text-[11px] text-slate-500">File controls follow the admin policy for this employee.</p>
-                                    </div>
+                                    <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Work photo</p>
+                                    <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-brand-300 bg-brand-50/50 px-3 py-2.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-50 dark:bg-brand-500/10">
+                                      <Paperclip className="h-3.5 w-3.5" /> Add work photo
+                                      <input type="file" accept="image/jpeg,image/png,.jpg,.jpeg,.png" className="hidden"
+                                        onChange={(e) => {
+                                          const file = e.target.files?.[0];
+                                          if (file) uploadDelegationAttachment(d, file);
+                                          e.currentTarget.value = "";
+                                        }} />
+                                    </label>
+                                    <p className="mt-1 text-[10px] text-slate-400">JPG/PNG · automatically compressed</p>
                                   </div>
                                 )}
                               </div>
@@ -1334,7 +1380,7 @@ export default function TasksPage() {
                             <div className="mt-2 flex gap-2">
                               <input
                                 className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-slate-100 outline-none transition focus:border-brand-600 placeholder:text-slate-400"
-                                placeholder="Write a comment…"
+                                placeholder="Write work update / comment…"
                                 value={commentText}
                                 onChange={(e) => setCommentText(e.target.value)}
                                 onKeyDown={(e) => e.key === "Enter" && !commentSaving && postComment(d)}
