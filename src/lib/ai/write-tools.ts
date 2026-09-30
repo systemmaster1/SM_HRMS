@@ -1,0 +1,18 @@
+import "server-only";
+import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ToolDefinition } from "./providers/types";
+
+const AssignTask=z.object({employee_id:z.string().uuid(),title:z.string().trim().min(1).max(200),description:z.string().max(2000).optional(),priority:z.enum(["low","medium","high","urgent"]).default("medium"),due_date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),due_time:z.string().regex(/^\d{2}:\d{2}/).optional()});
+const UpdateDue=z.object({task_id:z.string().uuid(),due_date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),due_time:z.string().regex(/^\d{2}:\d{2}/).optional()});
+export const writeProposalDefinitions:ToolDefinition[]=[
+ {name:"propose_assign_task",description:"Prepare a task assignment for explicit user confirmation. Never executes immediately.",parameters:{type:"object",properties:{employee_id:{type:"string"},title:{type:"string"},description:{type:"string"},priority:{type:"string",enum:["low","medium","high","urgent"]},due_date:{type:"string"},due_time:{type:"string"}},required:["employee_id","title","due_date"]}},
+ {name:"propose_update_task_due",description:"Prepare a task due date/time change for explicit user confirmation. Never executes immediately.",parameters:{type:"object",properties:{task_id:{type:"string"},due_date:{type:"string"},due_time:{type:"string"}},required:["task_id","due_date"]}}
+];
+async function actor(s:SupabaseClient){const {data:{user}}=await s.auth.getUser();if(!user)throw new Error("Not authenticated");const {data:p}=await s.from("profiles").select("id,company_id,role").eq("id",user.id).single();if(!p||!["owner","admin","manager"].includes(p.role))throw new Error("You do not have permission to perform this action.");return p as any}
+export async function proposeWriteAction(s:SupabaseClient,name:string,args:any,conversationId:string){
+ const p=await actor(s);
+ if(name==="propose_assign_task"){const a=AssignTask.parse(args);const {data:e}=await s.from("profiles").select("id,full_name,employee_code,manager_id").eq("id",a.employee_id).eq("company_id",p.company_id).eq("status","active").maybeSingle();if(!e)throw new Error("Employee not found in your organization.");if(p.role==="manager"&&e.id!==p.id&&e.manager_id!==p.id)throw new Error("Managers can assign through AI only within their authorized team.");const summary=`Assign task “${a.title}” to ${e.full_name} · Priority: ${a.priority} · Due: ${a.due_date}${a.due_time?" "+a.due_time:""}`;const {data,error}=await s.from("ai_pending_actions").insert({company_id:p.company_id,user_id:p.id,conversation_id:conversationId,action:"assign_task",target_type:"employee",target_id:e.id,summary,payload:a}).select("id,summary,expires_at").single();if(error)throw error;return data}
+ if(name==="propose_update_task_due"){const a=UpdateDue.parse(args);const {data:t}=await s.from("delegations").select("id,title,assigned_to,assigned_by,assignee:assigned_to(full_name)").eq("id",a.task_id).eq("company_id",p.company_id).maybeSingle();if(!t)throw new Error("Task not found.");if(p.role==="manager"&&t.assigned_by!==p.id)throw new Error("Managers can change only tasks they assigned.");const summary=`Change due date for “${t.title}” to ${a.due_date}${a.due_time?" "+a.due_time:""}`;const {data,error}=await s.from("ai_pending_actions").insert({company_id:p.company_id,user_id:p.id,conversation_id:conversationId,action:"update_task_due",target_type:"delegation",target_id:t.id,summary,payload:a}).select("id,summary,expires_at").single();if(error)throw error;return data}
+ throw new Error("Unknown write proposal.");
+}
