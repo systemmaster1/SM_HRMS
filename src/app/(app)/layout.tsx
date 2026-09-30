@@ -6,6 +6,7 @@ import type { Profile, Company } from "@/lib/types";
 import ActiveVisitTracker from "@/components/ActiveVisitTracker";
 import PushRegistrar from "@/components/PushRegistrar";
 import DialogHost from "@/components/Dialogs";
+import FirstLoginGuide from "@/components/FirstLoginGuide";
 import OrganizationSuspended from "@/components/OrganizationSuspended";
 import { EntitlementsProvider } from "@/lib/features/client";
 import { getEntitlements } from "@/lib/features/server";
@@ -98,6 +99,7 @@ export default async function AppLayout({
         <ActiveVisitTracker />
         <PushRegistrar />
         <DialogHost />
+        <FirstLoginGuide userId={profile.id} />
       </Shell>
     </EntitlementsProvider>
   );
