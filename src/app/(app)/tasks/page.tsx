@@ -12,7 +12,7 @@ import {
   Plus, ListChecks, ClipboardList, Check, Clock, AlertTriangle,
   RotateCcw, Pause, Play, Trash2, Repeat, Lock,
   Download, Upload, BarChart3, ChevronDown,
-  MessageSquare, CalendarClock, Send, X, Paperclip,
+  MessageSquare, CalendarClock, Send, X, Paperclip, Users, UserCheck,
 } from "lucide-react";
 import { confirmDialog, promptDialog, alertDialog, toast } from "@/components/Dialogs";
 import { PageLoader } from "@/components/ui";
@@ -843,6 +843,20 @@ export default function TasksPage() {
   const dPendingCount = delegations.filter(
     (d) => d.assigned_to === me?.id && !d.completed_at
   ).length;
+
+  // Simple assignment overview for managers/admins: who has how much work pending.
+  const assignmentOverview = members
+    .map((member) => {
+      const assigned = delegations.filter((d) => d.assigned_to === member.id);
+      const pending = assigned.filter((d) => !d.completed_at).length;
+      const overdue = assigned.filter(
+        (d) => !d.completed_at && computeStatus(d.due_date, d.due_time, d.completed_at) === "overdue"
+      ).length;
+      const completed = assigned.filter((d) => !!d.completed_at).length;
+      return { member, pending, overdue, completed };
+    })
+    .filter((row) => row.pending > 0 || row.completed > 0)
+    .sort((a, b) => b.pending - a.pending || b.overdue - a.overdue);
   const iPendingCount = instances.filter(
     (i) => i.assigned_to === me?.id && !i.completed_at
   ).length;
@@ -910,6 +924,52 @@ export default function TasksPage() {
             {admin && <ScopeBtn on={dScope === "byMe"} onClick={() => setDScope("byMe")}>Assigned by me</ScopeBtn>}
             {admin && <ScopeBtn on={dScope === "all"} onClick={() => setDScope("all")}>All</ScopeBtn>}
           </div>
+
+          {admin && (
+            <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    <Users className="h-4 w-4 text-brand-600" /> Team task overview
+                  </h3>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                    See who has pending work, then assign the next task without leaving Tasks.
+                  </p>
+                </div>
+                <button onClick={openDelegation}
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-700 px-3.5 py-2 text-xs font-semibold text-white transition hover:bg-brand-800">
+                  <Plus className="h-4 w-4" /> Assign task
+                </button>
+              </div>
+
+              {assignmentOverview.length === 0 ? (
+                <p className="mt-4 rounded-xl bg-slate-50 px-4 py-5 text-center text-xs text-slate-500 dark:bg-slate-900/50">
+                  No team task activity yet.
+                </p>
+              ) : (
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {assignmentOverview.map(({ member, pending, overdue, completed }) => (
+                    <button key={member.id} type="button"
+                      onClick={() => { setDScope("all"); setExpandedId(null); }}
+                      className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-brand-300 hover:bg-brand-50/40 dark:border-slate-700 dark:hover:bg-brand-500/10">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-bold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                        {(member.full_name || "U").split(" ").map((x) => x[0]).slice(0, 2).join("").toUpperCase()}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{member.full_name || "Employee"}</span>
+                        <span className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
+                          <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{pending} pending</span>
+                          {overdue > 0 && <span className="rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{overdue} overdue</span>}
+                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{completed} done</span>
+                        </span>
+                      </span>
+                      <UserCheck className="h-4 w-4 shrink-0 text-slate-400" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Performance strip for the current filter */}
           {dList.length > 0 && (
