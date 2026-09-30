@@ -1,0 +1,12 @@
+"use client";
+import { useEffect,useState } from "react";
+import { ShieldCheck,X } from "lucide-react";
+export default function OrgAdmin2FARecommendation(){
+ const [status,setStatus]=useState<any>(null); const [code,setCode]=useState(""); const [msg,setMsg]=useState(""); const [busy,setBusy]=useState(false);
+ useEffect(()=>{fetch("/api/security/org-admin-2fa/status").then(r=>r.json()).then(setStatus).catch(()=>{});},[]);
+ if(!status||status.enabled||status.skipped) return null;
+ async function skip(){setBusy(true);const r=await fetch("/api/security/org-admin-2fa/skip",{method:"POST"});if(r.ok)setStatus({...status,skipped:true});setBusy(false);}
+ async function send(){setBusy(true);const r=await fetch("/api/security/org-admin-2fa/send-code",{method:"POST"});const j=await r.json();setMsg(j.message||j.error||"");setBusy(false);}
+ async function verify(){setBusy(true);const r=await fetch("/api/security/org-admin-2fa/verify-enable",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code})});const j=await r.json();if(r.ok)setStatus({...status,enabled:true});setMsg(j.message||j.error||"");setBusy(false);}
+ return <div className="fixed inset-0 z-[90] grid place-items-center bg-slate-950/70 p-4"><div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900"><div className="flex gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><ShieldCheck/></span><div><h2 className="font-bold text-slate-900 dark:text-white">Protect your administrator account</h2><p className="mt-1 text-sm text-slate-500">Recommended: require an email verification code when signing in as an Organization Admin or Owner.</p></div></div>{msg&&<p className="mt-4 rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-800">{msg}</p>}<div className="mt-5 flex gap-2"><input value={code} onChange={e=>setCode(e.target.value.replace(/\D/g,"").slice(0,6))} inputMode="numeric" maxLength={6} placeholder="6-digit OTP" className="min-w-0 flex-1 rounded-xl border px-3 py-2.5"/>{code.length===6?<button onClick={verify} disabled={busy} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">Verify & Enable</button>:<button onClick={send} disabled={busy} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">Enable 2-Step</button>}</div><button onClick={skip} disabled={busy} className="mt-4 flex w-full items-center justify-center gap-1 text-sm text-slate-500"><X className="h-4 w-4"/>Skip for now</button></div></div>;
+}
