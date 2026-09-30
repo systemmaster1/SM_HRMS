@@ -1,0 +1,6 @@
+import "server-only"; import { fetchAI } from "./http"; import type { AIProvider } from "./types";
+export class GeminiProvider implements AIProvider{constructor(private apiKey:string){} async complete(i:Parameters<AIProvider["complete"]>[0]){
+ const url=`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(i.model)}:generateContent?key=${encodeURIComponent(this.apiKey)}`;
+ const r=await fetchAI(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({systemInstruction:{parts:[{text:i.system}]},contents:i.messages.map(m=>({role:m.role==="assistant"?"model":"user",parts:[{text:m.content}]})),tools:[{functionDeclarations:i.tools.map(t=>({name:t.name,description:t.description,parameters:t.parameters}))}]})},i.timeoutMs);
+ const j=await r.json(); const parts=j.candidates?.[0]?.content?.parts||[]; return {text:parts.filter((p:any)=>p.text).map((p:any)=>p.text).join("\n"),toolCalls:parts.filter((p:any)=>p.functionCall).map((p:any,index:number)=>({id:`gemini-${index}`,name:p.functionCall.name,arguments:p.functionCall.args||{}})),inputTokens:j.usageMetadata?.promptTokenCount||0,outputTokens:j.usageMetadata?.candidatesTokenCount||0};
+}}
