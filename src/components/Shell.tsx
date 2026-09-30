@@ -66,6 +66,7 @@ const nav: NavEntry[] = [
     ],
   },
   { href: "/payroll", label: "Payroll", icon: <Wallet className="h-[18px] w-[18px]" />, accessKey: "payroll" },
+  { href: "/assistant", label: "SM Assistant", icon: <Sparkles className="h-[18px] w-[18px]" />, accessKey: "ai_assistant" },
   { href: "/team", label: "Team", icon: <Users className="h-[18px] w-[18px]" />, accessKey: "team" },
   {
     key: "support",
