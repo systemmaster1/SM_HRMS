@@ -1,0 +1,1 @@
+import FeatureGate from "@/components/FeatureGate"; export default function AssistantLayout({children}:{children:React.ReactNode}){return <FeatureGate feature="ai.assistant">{children}</FeatureGate>}
