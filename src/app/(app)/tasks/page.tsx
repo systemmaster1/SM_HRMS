@@ -446,9 +446,31 @@ export default function TasksPage() {
       return;
     }
 
-    await supabase.from("delegations")
-      .update({ completed_at: new Date().toISOString() })
+    const taskSubs = subtasks.filter((s) => s.delegation_id === d.id);
+    const unfinished = taskSubs.filter((s) => !s.done);
+    if (unfinished.length > 0) {
+      await alertDialog({
+        title: "Finish subtasks first",
+        message: `${unfinished.length} subtask(s) are still pending. Complete them before closing this task.`,
+        tone: "info",
+      });
+      setExpandedId(d.id);
+      return;
+    }
+
+    const ok = await confirmDialog({
+      title: "Complete this task?",
+      message: "Confirm only after the work is finished. You can add a work update or photo before completing.",
+      confirmText: "Yes, complete task",
+    });
+    if (!ok) return;
+
+    const { error } = await supabase.from("delegations")
+      .update({ completed_at: new Date().toISOString(), status: "complete" })
       .eq("id", d.id);
+    if (error) return toast(error.message, "error");
+    toast("Task completed successfully.");
+    setExpandedId(null);
     load();
   };
 
@@ -642,6 +664,25 @@ export default function TasksPage() {
     load();
   };
 
+  const compressTaskImage = async (source: File): Promise<File> => {
+    const bitmap = await createImageBitmap(source);
+    const maxSide = 1600;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Image processing is not supported on this device.");
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
+    if (!blob) throw new Error("Could not compress this image.");
+    const base = source.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_") || "task-photo";
+    return new File([blob], `${base}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+  };
+
   const uploadDelegationAttachment = async (task: any, file: File) => {
     const policy = effectiveTaskPolicy(task);
     if (policy?.attachments_enabled === false) return toast("Attachments are disabled by admin.", "error");
@@ -651,7 +692,7 @@ export default function TasksPage() {
 
     let uploadFile: File;
     try {
-      uploadFile = await compressChecklistImage(file);
+      uploadFile = await compressTaskImage(file);
     } catch (e: any) {
       return toast(e?.message || "Could not process this image.", "error");
     }
@@ -692,32 +733,9 @@ export default function TasksPage() {
       return toast("Only JPG and PNG images are allowed.", "error");
     }
 
-    const compressChecklistImage = async (source: File): Promise<File> => {
-      const bitmap = await createImageBitmap(source);
-      const maxSide = 1600;
-      const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
-      const width = Math.max(1, Math.round(bitmap.width * scale));
-      const height = Math.max(1, Math.round(bitmap.height * scale));
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Image processing is not supported on this device.");
-      ctx.drawImage(bitmap, 0, 0, width, height);
-      bitmap.close();
-
-      const blob = await new Promise<Blob | null>((resolve) =>
-        canvas.toBlob(resolve, "image/jpeg", 0.72)
-      );
-      if (!blob) throw new Error("Could not compress this image.");
-
-      const base = source.name.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9_-]/g, "_") || "task-photo";
-      return new File([blob], `${base}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
-    };
-
     let uploadFile: File;
     try {
-      uploadFile = await compressChecklistImage(file);
+      uploadFile = await compressTaskImage(file);
     } catch (e: any) {
       return toast(e?.message || "Could not process this image.", "error");
     }
@@ -842,11 +860,14 @@ export default function TasksPage() {
   };
 
   const changeDelegationStatus = async (d: any, nextStatus: string) => {
-    const patch: any = { status: nextStatus, completed_at: nextStatus === "complete" ? new Date().toISOString() : null };
-    const { error } = await supabase.from("delegations").update(patch).eq("id", d.id);
-    if (error) return toast(error.message);
-    toast("Task status updated.");
-    setExpandedId(nextStatus === "complete" ? null : d.id);
+    if (nextStatus === "complete") {
+      await toggleDelegationDone(d);
+      return;
+    }
+    const { error } = await supabase.from("delegations").update({ status: nextStatus, completed_at: null }).eq("id", d.id);
+    if (error) return toast(error.message, "error");
+    toast(nextStatus === "in_progress" ? "Task started." : nextStatus === "hold" ? "Task put on hold." : "Task status updated.");
+    setExpandedId(d.id);
     load();
   };
 
