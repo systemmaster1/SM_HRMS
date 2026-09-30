@@ -1,2 +1,29 @@
-import {NextResponse} from "next/server";import{createClient}from"@/lib/supabase/server";import{createAdminClient}from"@/lib/supabase/admin";
-export async function GET(){const s=await createClient();const{data:{user}}=await s.auth.getUser();if(!user)return NextResponse.json({error:"Unauthorized"},{status:401});const{data:p}=await s.from("profiles").select("role,company_id").eq("id",user.id).single();if(!p||!["owner","admin"].includes(p.role))return NextResponse.json({enabled:false,skipped:true});const a=createAdminClient();const{data}=await a.from("org_admin_2fa_preferences").select("enabled,skipped_at").eq("user_id",user.id).eq("company_id",p.company_id).maybeSingle();return NextResponse.json({enabled:!!data?.enabled,skipped:!!data?.skipped_at});}
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+function emailHint(email?: string | null) {
+  if (!email || !email.includes("@")) return undefined;
+  const [name, domain] = email.split("@");
+  const masked = name.length <= 2 ? name[0] + "*" : name.slice(0,2) + "***";
+  return `${masked}@${domain}`;
+}
+
+export async function GET() {
+  const s = await createClient();
+  const { data: { user } } = await s.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { data: p } = await s.from("profiles").select("role,company_id").eq("id",user.id).single();
+  if (!p || !["owner","admin"].includes(p.role)) return NextResponse.json({ enabled:false, skipped:true });
+
+  const a = createAdminClient();
+  const { data } = await a.from("org_admin_2fa_preferences")
+    .select("enabled,skipped_at").eq("user_id",user.id).eq("company_id",p.company_id).maybeSingle();
+
+  return NextResponse.json({
+    enabled: !!data?.enabled,
+    skipped: !!data?.skipped_at,
+    emailHint: emailHint(user.email),
+  }, { headers: { "Cache-Control": "no-store" } });
+}
