@@ -42,19 +42,23 @@ const fieldCls =
   "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10";
 
 const standardFields = [
-  ["client_name", "Client / Site Name", "Required core field"],
-  ["company_name", "Company Name", "Standard contact field"],
-  ["contact_person", "Contact Person", "Standard contact field"],
-  ["contact_number", "Contact Number", "Standard contact field"],
-  ["contact_email", "Email", "Standard contact field"],
-  ["purpose", "Purpose", "Standard visit field"],
-  ["address", "Address", "Standard visit field"],
-];
+  ["customer_name_required", "Customer Name", "Always required", true],
+  ["company_name_required", "Company Name", "Company / dealer name", false],
+  ["contact_person_required", "Contact Person", "Person the employee plans to meet", false],
+  ["contact_number_required", "Contact Number", "Customer phone number", false],
+  ["contact_email_required", "Email", "Customer email address", false],
+  ["purpose_required", "Purpose", "Reason for the visit", false],
+  ["address_required", "Address", "Visit destination", false],
+  ["scheduled_at_required", "Planned Date & Time", "Scheduled visit time", false],
+] as const;
 
 export default function VisitFormBuilderPage() {
   const supabase = useMemo(() => createClient(), []);
   const [me, setMe] = useState<any>(null);
   const [fields, setFields] = useState<FieldDef[]>([]);
+  const [standardSettings, setStandardSettings] = useState<Record<string, boolean>>({
+    customer_name_required: true, purpose_required: true, scheduled_at_required: true,
+  });
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [draft, setDraft] = useState({
@@ -75,6 +79,11 @@ export default function VisitFormBuilderPage() {
       .single();
     setMe(profile);
 
+    if (profile?.company_id) {
+      const { data: std } = await supabase.from("visit_form_settings").select("*").eq("company_id", profile.company_id).maybeSingle();
+      if (std) setStandardSettings(std as Record<string, boolean>);
+    }
+
     const { data } = await supabase
       .from("visit_custom_fields")
       .select("*")
@@ -91,7 +100,17 @@ export default function VisitFormBuilderPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const canManage = ["owner","admin","manager"].includes(me?.role || "");
+  const canManage = ["owner","admin"].includes(me?.role || "");
+
+  const toggleStandard = async (key: string, required: boolean) => {
+    if (!canManage || !me?.company_id || key === "customer_name_required") return;
+    setStandardSettings((prev) => ({ ...prev, [key]: required }));
+    const { error } = await supabase.from("visit_form_settings")
+      .update({ [key]: required, updated_by: me.id, updated_at: new Date().toISOString() })
+      .eq("company_id", me.company_id);
+    setMessage(error ? error.message : "Visit requirements saved.");
+    if (error) await load();
+  };
 
   const add = async () => {
     if (!draft.label.trim() || !me?.company_id) return;
@@ -167,7 +186,7 @@ export default function VisitFormBuilderPage() {
           </Link>
           <h1 className="mt-3 text-3xl font-bold text-slate-950">Visit Form Builder</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Admin/Manager can add, disable or change custom fields used when a new field visit is created.
+            Organization Admin controls which information employees must provide when creating a visit.
           </p>
         </div>
       </div>
@@ -186,15 +205,25 @@ export default function VisitFormBuilderPage() {
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-2">
-          {standardFields.map(([key,label,note]) => (
-            <div key={key} className="rounded-xl border border-slate-200 p-4">
-              <div className="flex items-center gap-2">
-                <Check className="h-4 w-4 text-emerald-600" />
-                <span className="text-sm font-semibold">{label}</span>
+          {standardFields.map(([key,label,note,locked]) => {
+            const required = locked || !!standardSettings[key];
+            return (
+              <div key={key} className="flex items-center justify-between gap-4 rounded-xl border border-slate-200 p-4">
+                <div>
+                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-emerald-600" /><span className="text-sm font-semibold">{label}</span></div>
+                  <p className="mt-1 text-xs text-slate-500">{note}</p>
+                </div>
+                {locked ? (
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">Required · Locked</span>
+                ) : (
+                  <button disabled={!canManage} onClick={() => toggleStandard(key, !required)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold ${required ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-600"} disabled:opacity-50`}>
+                    {required ? "Required" : "Optional"}
+                  </button>
+                )}
               </div>
-              <p className="mt-1 text-xs text-slate-500">{note}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
