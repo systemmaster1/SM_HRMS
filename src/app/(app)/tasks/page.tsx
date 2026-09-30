@@ -274,6 +274,7 @@ export default function TasksPage() {
   const [dSaving, setDSaving] = useState(false);
   const [dError, setDError] = useState("");
   const [dScope, setDScope] = useState<"mine" | "byMe" | "all">("mine");
+  const [dStatusView, setDStatusView] = useState<"active" | "pending" | "in_progress" | "hold" | "completed">("active");
   const [df, setDf] = useState({
     title: "", kra_id: "", department: "", description: "", assigned_to: "", priority: "medium",
     due_date: "", due_time: "",
@@ -810,13 +811,29 @@ export default function TasksPage() {
   };
 
   /* ---------------- Derived lists ---------------- */
-  const dList = delegations.filter((d) => {
+  const dScopedList = delegations.filter((d) => {
     if (dScope === "mine") return d.assigned_to === me?.id;
     if (dScope === "byMe") return d.assigned_by === me?.id;
     return true; // all
   });
 
-  /* ---- Delegation performance summary (for the strip above the list) ---- */
+  const delegationWorkflowStatus = (d: any) =>
+    d.completed_at ? "completed" : (d.status === "in_progress" || d.status === "hold" ? d.status : "pending");
+
+  const dStatusCounts = {
+    active: dScopedList.filter((d) => !d.completed_at).length,
+    pending: dScopedList.filter((d) => delegationWorkflowStatus(d) === "pending").length,
+    in_progress: dScopedList.filter((d) => delegationWorkflowStatus(d) === "in_progress").length,
+    hold: dScopedList.filter((d) => delegationWorkflowStatus(d) === "hold").length,
+    completed: dScopedList.filter((d) => delegationWorkflowStatus(d) === "completed").length,
+  };
+
+  const dList = dScopedList.filter((d) => {
+    if (dStatusView === "active") return !d.completed_at;
+    return delegationWorkflowStatus(d) === dStatusView;
+  });
+
+  /* ---- Delegation performance summary (for the current visible list) ---- */
   const dStatuses = dList.map((x) => computeStatus(x.due_date, x.due_time, x.completed_at));
   const dDoneOnTime = dStatuses.filter((s) => s === "done_on_time").length;
   const dDoneLate   = dStatuses.filter((s) => s === "done_late").length;
@@ -919,10 +936,38 @@ export default function TasksPage() {
       {/* ================= DELEGATION ================= */}
       {tab === "delegation" && delegationOn && (
         <div>
-          <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-700 p-1">
+          <div className="mb-3 flex gap-1 rounded-lg bg-slate-100 dark:bg-slate-700 p-1">
             <ScopeBtn on={dScope === "mine"} onClick={() => setDScope("mine")}>Assigned to me</ScopeBtn>
             {admin && <ScopeBtn on={dScope === "byMe"} onClick={() => setDScope("byMe")}>Assigned by me</ScopeBtn>}
             {admin && <ScopeBtn on={dScope === "all"} onClick={() => setDScope("all")}>All</ScopeBtn>}
+          </div>
+
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+            {([
+              ["active", "To do", dStatusCounts.active, "Finish these first"],
+              ["pending", "Pending", dStatusCounts.pending, "Not started"],
+              ["in_progress", "In Progress", dStatusCounts.in_progress, "Work started"],
+              ["hold", "On Hold", dStatusCounts.hold, "Paused"],
+              ["completed", "Completed", dStatusCounts.completed, "Finished"],
+            ] as const).map(([value, label, count, hint]) => (
+              <button key={value} type="button" onClick={() => setDStatusView(value)}
+                className={`rounded-xl border px-3 py-3 text-left transition ${
+                  dStatusView === value
+                    ? "border-brand-500 bg-brand-50 ring-1 ring-brand-200 dark:bg-brand-500/10 dark:ring-brand-500/20"
+                    : "border-slate-200 bg-white hover:border-brand-200 dark:border-slate-700 dark:bg-slate-800"
+                }`}>
+                <span className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                    value === "hold" ? "bg-amber-50 text-amber-700" :
+                    value === "completed" ? "bg-emerald-50 text-emerald-700" :
+                    value === "in_progress" ? "bg-blue-50 text-blue-700" :
+                    "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
+                  }`}>{count}</span>
+                </span>
+                <span className="mt-1 block text-[10px] text-slate-400 dark:text-slate-500">{hint}</span>
+              </button>
+            ))}
           </div>
 
           {admin && (
@@ -984,8 +1029,11 @@ export default function TasksPage() {
 
           <Card>
             {dList.length === 0 ? (
-              <EmptyState icon={ClipboardList} title="No delegated tasks"
-                hint={admin ? "Assign a task with a due date to track it." : "Tasks assigned to you will appear here."} />
+              <EmptyState icon={ClipboardList}
+                title={dStatusView === "active" ? "No tasks to do" : `No ${dStatusView.replace("_", " ")} tasks`}
+                hint={dStatusView === "active"
+                  ? (admin ? "No active tasks in this view. Assign a new task when needed." : "You are clear — no active tasks need action.")
+                  : "Choose another status above to see other tasks."} />
             ) : (
               <ul className="divide-y divide-slate-100 dark:divide-slate-700">
                 {dList.map((d) => {
