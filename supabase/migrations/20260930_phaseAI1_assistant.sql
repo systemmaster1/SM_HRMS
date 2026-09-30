@@ -139,12 +139,15 @@ grant execute on function public.ai_access_allowed() to authenticated;
 
 create or replace function public.ai_usage_allowed() returns boolean
 language plpgsql stable security definer set search_path=public as $$
-declare s record; req bigint; tok bigint;
+declare s record; req bigint; tok bigint; user_minute bigint; org_minute bigint;
 begin
   if not public.ai_access_allowed() then return false; end if;
   select * into s from public.ai_settings where company_id=public.my_company_id();
   select coalesce(sum(requests),0),coalesce(sum(input_tokens+output_tokens),0) into req,tok
   from public.ai_usage_log where company_id=public.my_company_id() and created_at>=date_trunc('month',now());
+  select coalesce(sum(requests),0) into user_minute from public.ai_usage_log where user_id=auth.uid() and created_at>=now()-interval '1 minute';
+  select coalesce(sum(requests),0) into org_minute from public.ai_usage_log where company_id=public.my_company_id() and created_at>=now()-interval '1 minute';
+  if user_minute >= 20 or org_minute >= 100 then return false; end if;
   return (s.monthly_request_limit is null or req<s.monthly_request_limit)
      and (s.monthly_token_limit is null or tok<s.monthly_token_limit);
 end $$;
