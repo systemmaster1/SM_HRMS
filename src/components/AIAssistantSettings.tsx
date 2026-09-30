@@ -1,10 +1,11 @@
 "use client";
 import { useEffect,useState } from "react"; import { KeyRound,Loader2,ShieldCheck,Trash2 } from "lucide-react";
-const providers=[["gemini","Google Gemini"],["openai","OpenAI"],["anthropic","Anthropic Claude"]] as const;
+const providers=[["gemini","Google Gemini"],["openai","OpenAI"],["anthropic","Anthropic Claude"],["openrouter","OpenRouter"]] as const;
 const defaultModels:Record<string,string[]>={
  gemini:["gemini-3.8-flash","gemini-3.5-flash-lite","gemini-3.6-flash","gemini-2.5-flash","gemini-2.5-pro","gemini-2.5-flash-lite"],
  openai:["gpt-5.4","gpt-5.4-mini","gpt-5.4-nano"],
- anthropic:["claude-sonnet-5","claude-fable-5","claude-opus-5","claude-sonnet-4-6","claude-haiku-4-5-20251001"]
+ anthropic:["claude-sonnet-5","claude-fable-5","claude-opus-5","claude-sonnet-4-6","claude-haiku-4-5-20251001"],
+ openrouter:["openai/gpt-5.4","google/gemini-2.5-flash","anthropic/claude-sonnet-4.6"]
 };
 export default function AIAssistantSettings(){
  const [f,setF]=useState<any>({provider:"gemini",model:"",models:defaultModels.gemini,apiKey:"",enabled:false,employeeEnabled:true,managerEnabled:true,adminEnabled:true,monthlyRequestLimit:1000,monthlyTokenLimit:null,keyHint:null});const [busy,setBusy]=useState(false),[msg,setMsg]=useState(""),[users,setUsers]=useState<any[]>([]),[overrides,setOverrides]=useState<Record<string,boolean>>({});
