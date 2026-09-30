@@ -7,7 +7,7 @@ export const metadata = {
   description: "How SM HRMS collects, uses and protects your data.",
 };
 
-const LAST_UPDATED = "10 August 2026";
+const LAST_UPDATED = "30 September 2026";
 
 /* A small helper for consistent section headings */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -114,7 +114,16 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="7. Data security">
+        <Section title="7. SM Assistant and AI providers">
+          <p>
+            If your organization enables SM Assistant, the minimum HRMS data needed to answer your request may be sent to the AI provider selected by your organization administrator (Google Gemini, OpenAI or Anthropic Claude). Provider API credentials are encrypted on the SM HRMS server and are not returned to employees, browsers or the Android app.
+          </p>
+          <p>
+            SM Assistant is designed not to send passwords, bank details or Aadhaar data to an AI provider. Access to HRMS records continues to follow your organization, role and user permissions.
+          </p>
+        </Section>
+
+        <Section title="8. Data security">
           <p>
             Data is transmitted over encrypted HTTPS connections and stored with access controls so
             that only authorized users in your workspace can view it. No method of transmission or
@@ -122,7 +131,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="8. Data retention">
+        <Section title="9. Data retention">
           <p>
             We retain your data for as long as your organization maintains an active account, or as
             needed to provide the service and meet legal obligations. When an employee is offboarded,
@@ -131,7 +140,7 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="9. Your rights &amp; data deletion">
+        <Section title="10. Your rights &amp; data deletion">
           <p>
             You may request access to, correction of, or deletion of your personal data. Because your
             employer owns the workspace, such requests are usually handled through your organization&rsquo;s
@@ -140,18 +149,18 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="10. Children">
+        <Section title="11. Children">
           <p>SM HRMS is intended for use by employees and is not directed at anyone under 18.</p>
         </Section>
 
-        <Section title="11. Changes to this policy">
+        <Section title="12. Changes to this policy">
           <p>
             We may update this policy from time to time. Material changes will be reflected by the
             &ldquo;Last updated&rdquo; date at the top of this page.
           </p>
         </Section>
 
-        <Section title="12. Contact us">
+        <Section title="13. Contact us">
           <p>
             For any privacy question or request, contact:
           </p>
