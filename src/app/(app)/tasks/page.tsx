@@ -1051,6 +1051,14 @@ export default function TasksPage() {
                   const isAssignee = d.assigned_to === me?.id;
                   const canManage = admin || d.assigned_by === me?.id; // decide extensions, delete subtasks
                   const canEditSubs = isAssignee || canManage;
+                  const workflowStatus = d.completed_at ? "complete" : (d.status || "pending");
+                  const primaryAction = workflowStatus === "pending"
+                    ? { label: "Start task", next: "in_progress" }
+                    : workflowStatus === "in_progress"
+                      ? { label: "Complete task", next: "complete" }
+                      : workflowStatus === "hold"
+                        ? { label: "Resume task", next: "in_progress" }
+                        : null;
                   return (
                     <li key={d.id} className="px-4 py-3.5">
                       <div className="flex items-start gap-3">
@@ -1108,6 +1116,32 @@ export default function TasksPage() {
                             Due {d.due_date}{d.due_time && ` at ${d.due_time.slice(0, 5)}`}
                             {d.assigner?.full_name && ` · by ${d.assigner.full_name}`}
                           </p>
+
+                          {!d.completed_at && (isAssignee || canManage) && (
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              {primaryAction && (
+                                <button type="button"
+                                  onClick={() => changeDelegationStatus(d, primaryAction.next)}
+                                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-white transition ${
+                                    primaryAction.next === "complete" ? "bg-emerald-600 hover:bg-emerald-700" : "bg-brand-700 hover:bg-brand-800"
+                                  }`}>
+                                  {primaryAction.next === "complete" ? <Check className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                                  {primaryAction.label}
+                                </button>
+                              )}
+                              {workflowStatus === "in_progress" && (
+                                <button type="button" onClick={() => changeDelegationStatus(d, "hold")}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100">
+                                  <Pause className="h-3.5 w-3.5" /> Put on hold
+                                </button>
+                              )}
+                              <button type="button"
+                                onClick={() => { setExpandedId(isRowOpen ? null : d.id); setNewSub(""); setCommentText(""); setExtOpen(false); setExtError(""); }}
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                <MessageSquare className="h-3.5 w-3.5" /> Add update / details
+                              </button>
+                            </div>
+                          )}
                         </div>
 
                         {/* Expand / collapse the details panel */}
@@ -1129,7 +1163,6 @@ export default function TasksPage() {
                         <div className="ml-8 mt-3 space-y-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5 dark:border-slate-700 dark:bg-slate-800/40">
                           {(() => {
                             const policy = effectiveTaskPolicy(d);
-                            const workflowStatus = d.completed_at ? "complete" : (d.status || "pending");
                             const options = [
                               ["pending", "Pending", policy?.status_pending_enabled !== false],
                               ["in_progress", "In Progress", policy?.status_in_progress_enabled !== false],
