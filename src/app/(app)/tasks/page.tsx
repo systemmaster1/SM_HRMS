@@ -1476,11 +1476,35 @@ export default function TasksPage() {
             <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Assign to *</label>
             <select className={`mt-1.5 ${inputCls}`} value={df.assigned_to}
               onChange={(e) => setD("assigned_to", e.target.value)}>
-              <option value="">Select…</option>
+              <option value="">Select employee…</option>
               {members
                 .filter((m) => !df.department || m.department === df.department)
-                .map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
+                .map((m) => {
+                  const openCount = delegations.filter((d) => d.assigned_to === m.id && !d.completed_at).length;
+                  const lateCount = delegations.filter((d) => d.assigned_to === m.id && !d.completed_at && computeStatus(d.due_date, d.due_time, d.completed_at) === "overdue").length;
+                  return <option key={m.id} value={m.id}>{m.full_name} · {openCount} pending{lateCount ? ` · ${lateCount} overdue` : ""}</option>;
+                })}
             </select>
+            {df.assigned_to && (() => {
+              const selected = members.find((m) => m.id === df.assigned_to);
+              const assigned = delegations.filter((d) => d.assigned_to === df.assigned_to);
+              const pending = assigned.filter((d) => !d.completed_at).length;
+              const overdue = assigned.filter((d) => !d.completed_at && computeStatus(d.due_date, d.due_time, d.completed_at) === "overdue").length;
+              const done = assigned.filter((d) => !!d.completed_at).length;
+              return (
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-brand-100 bg-brand-50/60 px-3 py-2.5 dark:border-brand-500/20 dark:bg-brand-500/10">
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-slate-800 dark:text-slate-100">{selected?.full_name || "Selected employee"}</p>
+                    <p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">Current workload before assigning this task</p>
+                  </div>
+                  <div className="flex shrink-0 gap-1.5 text-[10px] font-semibold">
+                    <span className="rounded-full bg-white px-2 py-1 text-amber-700 shadow-sm dark:bg-slate-800">{pending} pending</span>
+                    {overdue > 0 && <span className="rounded-full bg-white px-2 py-1 text-rose-700 shadow-sm dark:bg-slate-800">{overdue} overdue</span>}
+                    <span className="rounded-full bg-white px-2 py-1 text-emerald-700 shadow-sm dark:bg-slate-800">{done} done</span>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div>
@@ -1508,9 +1532,13 @@ export default function TasksPage() {
             <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{dError}</p>
           )}
 
-          <button onClick={createDelegation} disabled={dSaving}
-            className="w-full rounded-lg bg-brand-700 py-2.5 font-medium text-white transition hover:bg-brand-800 disabled:opacity-60">
-            {dSaving ? "Assigning…" : "Assign task"}
+          <div className="rounded-xl bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">
+            <p className="font-semibold text-slate-800 dark:text-slate-100">Before assigning</p>
+            <p className="mt-1">Employee, task title and due date are required. The employee will see this task in their Tasks screen immediately.</p>
+          </div>
+          <button onClick={createDelegation} disabled={dSaving || !df.title.trim() || !df.assigned_to || !df.due_date}
+            className="w-full rounded-xl bg-brand-700 py-3 font-semibold text-white transition hover:bg-brand-800 disabled:cursor-not-allowed disabled:opacity-40">
+            {dSaving ? "Assigning…" : df.assigned_to ? `Assign to ${members.find((m) => m.id === df.assigned_to)?.full_name || "employee"}` : "Select employee to continue"}
           </button>
         </div>
       </Modal>
