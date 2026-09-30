@@ -1,0 +1,5 @@
+import "server-only"; import { fetchAI } from "./http"; import type { AIProvider } from "./types";
+export class AnthropicProvider implements AIProvider{constructor(private apiKey:string){} async complete(i:Parameters<AIProvider["complete"]>[0]){
+ const r=await fetchAI("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":this.apiKey,"anthropic-version":"2023-06-01"},body:JSON.stringify({model:i.model,max_tokens:1200,system:i.system,messages:i.messages,tools:i.tools.map(t=>({name:t.name,description:t.description,input_schema:t.parameters}))})},i.timeoutMs);
+ const j=await r.json(); const blocks=j.content||[]; return {text:blocks.filter((x:any)=>x.type==="text").map((x:any)=>x.text).join("\n"),toolCalls:blocks.filter((x:any)=>x.type==="tool_use").map((x:any)=>({id:x.id,name:x.name,arguments:x.input||{}})),inputTokens:j.usage?.input_tokens||0,outputTokens:j.usage?.output_tokens||0};
+}}
