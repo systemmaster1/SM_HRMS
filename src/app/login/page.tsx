@@ -45,7 +45,7 @@ export default function LoginPage() {
 
     if (!res.ok) {
       setLoading(false);
-      setError(resolved.error || "Could not find that account.");
+      setError(resolved.error || "Incorrect credentials. Please try again.");
       return;
     }
 
