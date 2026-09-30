@@ -210,7 +210,7 @@ async function buildDatasets(db: SupabaseClient, companyId: string): Promise<Dat
   datasets.push({
     name: "Field Visits",
     headers: [
-      "Date", "Employee", "Code", "Client / site", "Company",
+      "Created at", "Date", "Employee", "Code", "Client / site", "Company",
       "Contact person", "Contact number", "Email", "Purpose",
       "Address", "Status", "Person met", "Outcome", "Completion notes", "Remarks",
       "Next action", "Next follow-up",
@@ -218,9 +218,9 @@ async function buildDatasets(db: SupabaseClient, companyId: string): Promise<Dat
       "Travel started", "Reached", "Checked in", "Meeting started", "Completed",
       ...customHeaders,
     ],
-    textCols: [2, 6],
+    textCols: [3, 7],
     rows: fv.map((r: any) => [
-      s(r.visit_date), who(r.employee_id), code(r.employee_id),
+      fmt(r.created_at), s(r.visit_date), who(r.employee_id), code(r.employee_id),
       s(r.client_name), s(r.company_name),
       s(r.contact_person), s(r.contact_number), s(r.contact_email),
       s(r.purpose), s(r.address), s(r.status).replace(/_/g, " "),
