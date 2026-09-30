@@ -3,6 +3,7 @@ import SettingsForm from "@/components/SettingsForm";
 import PlanFeaturesCard from "@/components/PlanFeaturesCard";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import AIAssistantSettings from "@/components/AIAssistantSettings";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -26,6 +27,7 @@ export default async function SettingsPage() {
     <>
       <PlanFeaturesCard />
       <SettingsForm company={company} activeUsers={activeUsers ?? 0} />
+      <AIAssistantSettings />
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-base font-semibold text-slate-900 dark:text-white">Privacy & account</h2>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review the policies used by the Android app and Google Play listing.</p>
