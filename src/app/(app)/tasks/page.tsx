@@ -274,7 +274,8 @@ export default function TasksPage() {
   const [dSaving, setDSaving] = useState(false);
   const [dError, setDError] = useState("");
   const [dScope, setDScope] = useState<"mine" | "byMe" | "all">("mine");
-  const [dStatusView, setDStatusView] = useState<"active" | "pending" | "in_progress" | "hold" | "completed">("active");
+  const [dStatusView, setDStatusView] = useState<"active" | "pending" | "overdue" | "in_progress" | "hold" | "completed">("active");
+  const [teamMemberFilter, setTeamMemberFilter] = useState<string | null>(null);
   const [df, setDf] = useState({
     title: "", kra_id: "", department: "", description: "", assigned_to: "", priority: "medium",
     due_date: "", due_time: "",
@@ -887,6 +888,7 @@ export default function TasksPage() {
 
   /* ---------------- Derived lists ---------------- */
   const dScopedList = delegations.filter((d) => {
+    if (teamMemberFilter && d.assigned_to !== teamMemberFilter) return false;
     if (dScope === "mine") return d.assigned_to === me?.id;
     if (dScope === "byMe") return d.assigned_by === me?.id;
     return true; // all
@@ -897,7 +899,8 @@ export default function TasksPage() {
 
   const dStatusCounts = {
     active: dScopedList.filter((d) => !d.completed_at).length,
-    pending: dScopedList.filter((d) => delegationWorkflowStatus(d) === "pending").length,
+    pending: dScopedList.filter((d) => delegationWorkflowStatus(d) === "pending" && computeStatus(d.due_date, d.due_time, d.completed_at) !== "overdue").length,
+    overdue: dScopedList.filter((d) => delegationWorkflowStatus(d) === "pending" && computeStatus(d.due_date, d.due_time, d.completed_at) === "overdue").length,
     in_progress: dScopedList.filter((d) => delegationWorkflowStatus(d) === "in_progress").length,
     hold: dScopedList.filter((d) => delegationWorkflowStatus(d) === "hold").length,
     completed: dScopedList.filter((d) => delegationWorkflowStatus(d) === "completed").length,
@@ -905,6 +908,12 @@ export default function TasksPage() {
 
   const dList = dScopedList.filter((d) => {
     if (dStatusView === "active") return !d.completed_at;
+    if (dStatusView === "overdue") {
+      return delegationWorkflowStatus(d) === "pending" && computeStatus(d.due_date, d.due_time, d.completed_at) === "overdue";
+    }
+    if (dStatusView === "pending") {
+      return delegationWorkflowStatus(d) === "pending" && computeStatus(d.due_date, d.due_time, d.completed_at) !== "overdue";
+    }
     return delegationWorkflowStatus(d) === dStatusView;
   });
 
@@ -940,15 +949,17 @@ export default function TasksPage() {
   const assignmentOverview = members
     .map((member) => {
       const assigned = delegations.filter((d) => d.assigned_to === member.id);
-      const pending = assigned.filter((d) => !d.completed_at).length;
+      const pending = assigned.filter((d) => delegationWorkflowStatus(d) === "pending" && computeStatus(d.due_date, d.due_time, d.completed_at) !== "overdue").length;
       const overdue = assigned.filter(
-        (d) => !d.completed_at && computeStatus(d.due_date, d.due_time, d.completed_at) === "overdue"
+        (d) => delegationWorkflowStatus(d) === "pending" && computeStatus(d.due_date, d.due_time, d.completed_at) === "overdue"
       ).length;
+      const inProgress = assigned.filter((d) => delegationWorkflowStatus(d) === "in_progress").length;
+      const hold = assigned.filter((d) => delegationWorkflowStatus(d) === "hold").length;
       const completed = assigned.filter((d) => !!d.completed_at).length;
-      return { member, pending, overdue, completed };
+      return { member, pending, overdue, inProgress, hold, completed };
     })
-    .filter((row) => row.pending > 0 || row.completed > 0)
-    .sort((a, b) => b.pending - a.pending || b.overdue - a.overdue);
+    .filter((row) => row.pending > 0 || row.overdue > 0 || row.inProgress > 0 || row.hold > 0 || row.completed > 0)
+    .sort((a, b) => (b.pending + b.overdue + b.inProgress + b.hold) - (a.pending + a.overdue + a.inProgress + a.hold) || b.overdue - a.overdue);
   const iPendingCount = instances.filter(
     (i) => i.assigned_to === me?.id && !i.completed_at
   ).length;
@@ -1017,10 +1028,11 @@ export default function TasksPage() {
             {admin && <ScopeBtn on={dScope === "all"} onClick={() => setDScope("all")}>All</ScopeBtn>}
           </div>
 
-          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+          <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
             {([
               ["active", "To do", dStatusCounts.active, "Finish these first"],
               ["pending", "Pending", dStatusCounts.pending, "Not started"],
+              ["overdue", "Overdue", dStatusCounts.overdue, "Past due"],
               ["in_progress", "In Progress", dStatusCounts.in_progress, "Work started"],
               ["hold", "On Hold", dStatusCounts.hold, "Paused"],
               ["completed", "Completed", dStatusCounts.completed, "Finished"],
@@ -1035,6 +1047,7 @@ export default function TasksPage() {
                   <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">{label}</span>
                   <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
                     value === "hold" ? "bg-amber-50 text-amber-700" :
+                    value === "overdue" ? "bg-rose-50 text-rose-700" :
                     value === "completed" ? "bg-emerald-50 text-emerald-700" :
                     value === "in_progress" ? "bg-blue-50 text-blue-700" :
                     "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"
@@ -1068,26 +1081,53 @@ export default function TasksPage() {
                 </p>
               ) : (
                 <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {assignmentOverview.map(({ member, pending, overdue, completed }) => (
-                    <button key={member.id} type="button"
-                      onClick={() => { setDScope("all"); setExpandedId(null); }}
-                      className="flex items-center gap-3 rounded-xl border border-slate-200 p-3 text-left transition hover:border-brand-300 hover:bg-brand-50/40 dark:border-slate-700 dark:hover:bg-brand-500/10">
-                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-bold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
-                        {(member.full_name || "U").split(" ").map((x) => x[0]).slice(0, 2).join("").toUpperCase()}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{member.full_name || "Employee"}</span>
-                        <span className="mt-1 flex flex-wrap gap-1.5 text-[11px]">
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{pending} pending</span>
-                          {overdue > 0 && <span className="rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">{overdue} overdue</span>}
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">{completed} done</span>
+                  {assignmentOverview.map(({ member, pending, overdue, inProgress, hold, completed }) => (
+                    <div key={member.id}
+                      className={`rounded-xl border p-3 transition ${teamMemberFilter === member.id ? "border-brand-400 bg-brand-50/50 dark:bg-brand-500/10" : "border-slate-200 dark:border-slate-700"}`}>
+                      <button type="button"
+                        onClick={() => { setDScope("all"); setTeamMemberFilter(member.id); setDStatusView("active"); setExpandedId(null); }}
+                        className="flex w-full items-center gap-3 text-left">
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand-50 text-sm font-bold text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">
+                          {(member.full_name || "U").split(" ").map((x) => x[0]).slice(0, 2).join("").toUpperCase()}
                         </span>
-                      </span>
-                      <UserCheck className="h-4 w-4 shrink-0 text-slate-400" />
-                    </button>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{member.full_name || "Employee"}</span>
+                          <span className="mt-0.5 block text-[10px] text-slate-400">Tap a count to see matching tasks</span>
+                        </span>
+                        <UserCheck className="h-4 w-4 shrink-0 text-slate-400" />
+                      </button>
+                      <div className="mt-3 grid grid-cols-2 gap-1.5 text-[10px] font-semibold sm:grid-cols-3">
+                        {[
+                          ["pending", "Pending", pending, "bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-200"],
+                          ["overdue", "Overdue", overdue, "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"],
+                          ["in_progress", "In Progress", inProgress, "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300"],
+                          ["hold", "Hold", hold, "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"],
+                          ["completed", "Done", completed, "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300"],
+                        ].map(([status, label, count, cls]) => (
+                          <button key={String(status)} type="button"
+                            onClick={() => { setDScope("all"); setTeamMemberFilter(member.id); setDStatusView(status as "pending" | "overdue" | "in_progress" | "hold" | "completed"); setExpandedId(null); }}
+                            className={`rounded-lg px-2 py-1.5 text-left transition hover:ring-1 hover:ring-brand-300 ${cls}`}>
+                            <span className="block text-sm font-bold">{count}</span>
+                            <span>{label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {admin && teamMemberFilter && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-200 bg-brand-50 px-3 py-2.5 text-sm dark:border-brand-500/30 dark:bg-brand-500/10">
+              <span className="font-medium text-brand-800 dark:text-brand-200">
+                Showing {members.find((m) => m.id === teamMemberFilter)?.full_name || "employee"} · {dStatusView === "active" ? "To do" : dStatusView.replace("_", " ")}
+              </span>
+              <button type="button" onClick={() => { setTeamMemberFilter(null); setDStatusView("active"); setDScope("all"); }}
+                className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-brand-700 shadow-sm dark:bg-slate-800 dark:text-brand-300">
+                Clear team filter
+              </button>
             </div>
           )}
 
