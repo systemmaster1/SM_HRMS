@@ -4,6 +4,7 @@ import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import DialogHost from "@/components/Dialogs";
 import { hasVerifiedSystemAdmin2fa } from "@/lib/system-admin-2fa";
+import { headers } from "next/headers";
 
 export const metadata: Metadata = {
   title: "SystemMaster Super Admin",
@@ -46,8 +47,14 @@ export default async function SystemAdminLayout({ children }: { children: React.
     );
   }
 
-  const verified2fa = await hasVerifiedSystemAdmin2fa(user.id);
-  if (!verified2fa) redirect("/system-admin/verify");
+  // The verification page must remain reachable before the second factor exists.
+  // It is still protected above by the platform-admin authorization check.
+  const pathname = (await headers()).get("x-pathname") || "";
+  const isVerificationPage = pathname === "/system-admin/verify";
+  if (!isVerificationPage) {
+    const verified2fa = await hasVerifiedSystemAdmin2fa(user.id);
+    if (!verified2fa) redirect("/system-admin/verify");
+  }
 
   return (
     <>
