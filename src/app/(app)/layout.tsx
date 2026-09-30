@@ -7,6 +7,7 @@ import ActiveVisitTracker from "@/components/ActiveVisitTracker";
 import PushRegistrar from "@/components/PushRegistrar";
 import DialogHost from "@/components/Dialogs";
 import FirstLoginGuide from "@/components/FirstLoginGuide";
+import OrgAdmin2FARecommendation from "@/components/OrgAdmin2FARecommendation";
 import OrganizationSuspended from "@/components/OrganizationSuspended";
 import { EntitlementsProvider } from "@/lib/features/client";
 import { getEntitlements } from "@/lib/features/server";
@@ -100,6 +101,7 @@ export default async function AppLayout({
         <PushRegistrar />
         <DialogHost />
         <FirstLoginGuide userId={profile.id} />
+        {(profile.role === "owner" || profile.role === "admin") && <OrgAdmin2FARecommendation />}
       </Shell>
     </EntitlementsProvider>
   );
