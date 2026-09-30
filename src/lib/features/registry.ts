@@ -21,7 +21,8 @@ export type FeatureKey =
   | "field"
   | "field.tracking"
   | "field.visits"
-  | "payroll";
+  | "payroll"
+  | "ai.assistant";
 
 export type FeatureInfo = {
   key: FeatureKey;
@@ -40,6 +41,7 @@ export const FEATURES: Record<FeatureKey, FeatureInfo> = {
   "field.tracking":   { key: "field.tracking", parent: "field", label: "Field Tracking", description: "Duty-time live location, route history and KM" },
   "field.visits":     { key: "field.visits", parent: "field", label: "Visit Management", description: "Customer visits, check-in/out, notes and reports" },
   payroll:            { key: "payroll", label: "Payroll", description: "Salary structure, payroll processing and payslips" },
+  "ai.assistant":      { key: "ai.assistant", label: "SM Assistant", description: "AI assistant for HRMS data and workflows" },
 };
 
 /** Route prefix → the feature that must be enabled to open it. Unlisted routes are core. */
@@ -53,6 +55,7 @@ export const ROUTE_FEATURES: [string, FeatureKey][] = [
   ["/tracking", "field"],
   ["/route-history", "field.tracking"],
   ["/payroll", "payroll"],
+  ["/assistant", "ai.assistant"],
 ];
 
 /** Per-user access keys (Team → Access) → the organization feature they belong to. */
@@ -66,6 +69,7 @@ export const ACCESS_KEY_FEATURE: Record<string, FeatureKey | null> = {
   live_tracking: "field.tracking",
   route_history: "field.tracking",
   payroll: "payroll",
+  ai_assistant: "ai.assistant",
   team: null,
   reports: null,
 };
