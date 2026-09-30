@@ -11,6 +11,7 @@ import NotificationBell from "@/components/NotificationBell";
 import { unregisterThisDevice } from "@/components/PushRegistrar";
 import ThemeToggle from "@/components/ThemeToggle";
 import LiveClock from "@/components/LiveClock";
+import SMAssistant from "@/components/SMAssistant";
 import { RouteTransition } from "@/components/motion";
 import { type Profile, type Company, type Role, isAdminRole } from "@/lib/types";
 import {
@@ -368,6 +369,8 @@ export default function Shell({
           </aside>
         </div>
       )}
+
+      {moduleOn("/assistant") && <SMAssistant role={profile.role} />}
 
       <div className="lg:pl-64">
         <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/80 pt-[env(safe-area-inset-top)] backdrop-blur-xl dark:border-slate-800/70 dark:bg-slate-900/80">
