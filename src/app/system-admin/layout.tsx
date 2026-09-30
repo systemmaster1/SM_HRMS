@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import DialogHost from "@/components/Dialogs";
+import { hasVerifiedSystemAdmin2fa } from "@/lib/system-admin-2fa";
 
 export const metadata: Metadata = {
   title: "SystemMaster Super Admin",
@@ -44,6 +45,9 @@ export default async function SystemAdminLayout({ children }: { children: React.
       </div>
     );
   }
+
+  const verified2fa = await hasVerifiedSystemAdmin2fa(user.id);
+  if (!verified2fa) redirect("/system-admin/verify");
 
   return (
     <>
