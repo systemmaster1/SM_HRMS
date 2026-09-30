@@ -11,6 +11,7 @@ import OrgAdmin2FARecommendation from "@/components/OrgAdmin2FARecommendation";
 import OrganizationSuspended from "@/components/OrganizationSuspended";
 import { EntitlementsProvider } from "@/lib/features/client";
 import { getEntitlements } from "@/lib/features/server";
+import { hasVerifiedOrgAdmin2fa } from "@/lib/org-admin-2fa";
 
 export default async function AppLayout({
   children,
@@ -79,6 +80,12 @@ export default async function AppLayout({
     .select("*")
     .eq("id", profile.company_id)
     .maybeSingle();
+
+  // Optional Organization Admin 2FA becomes mandatory at sign-in once enabled.
+  if (profile.role === "owner" || profile.role === "admin") {
+    const org2fa = await hasVerifiedOrgAdmin2fa(profile.id, profile.company_id);
+    if (org2fa.required && !org2fa.verified) redirect("/org-admin-verify");
+  }
 
   // Organization entitlements (modules, plan, suspension) — enforced again
   // in the database for every read and write.
