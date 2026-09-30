@@ -1380,6 +1380,51 @@ export default function TasksPage() {
                             )}
                           </div>
 
+                          {/* Activity timeline */}
+                          <div>
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                              Activity timeline
+                            </p>
+                            <div className="relative ml-1 border-l border-slate-200 pl-4 dark:border-slate-700">
+                              {([
+                                {
+                                  key: "assigned",
+                                  at: d.created_at,
+                                  title: "Task assigned",
+                                  detail: `${d.assigner?.full_name || "Manager"} → ${d.assignee?.full_name || "Employee"}`,
+                                },
+                                ...cmts.map((item: any) => ({
+                                  key: `comment-${item.id}`,
+                                  at: item.created_at,
+                                  title: item.body?.startsWith("Task re-opened by admin.") ? "Task re-opened" : "Work update",
+                                  detail: `${item.author?.full_name || "User"}: ${item.body}`,
+                                })),
+                                ...exts.map((item: any) => ({
+                                  key: `extension-${item.id}`,
+                                  at: item.created_at,
+                                  title: item.status === "approved" ? "Extension approved" : item.status === "rejected" ? "Extension rejected" : "Extension requested",
+                                  detail: `New due date ${item.requested_date}${item.reason ? ` · ${item.reason}` : ""}`,
+                                })),
+                                ...(d.completed_at ? [{
+                                  key: "completed",
+                                  at: d.completed_at,
+                                  title: "Task completed",
+                                  detail: `Completed by ${d.assignee?.full_name || "employee"}`,
+                                }] : []),
+                              ] as any[])
+                                .filter((item) => item.at)
+                                .sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime())
+                                .map((item) => (
+                                  <div key={item.key} className="relative pb-3 last:pb-0">
+                                    <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-brand-600 ring-1 ring-brand-200 dark:border-slate-800" />
+                                    <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{item.title}</p>
+                                    <p className="mt-0.5 break-words text-[11px] text-slate-500 dark:text-slate-400">{item.detail}</p>
+                                    <p className="mt-0.5 text-[10px] text-slate-400">{fmtStamp(item.at)}</p>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+
                           {/* Comments */}
                           <div>
                             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
