@@ -297,7 +297,7 @@ export default function TrackingPage() {
                 <Radar className="h-4 w-4 text-emerald-600" /> Live now
               </h2>
               <p className="text-xs text-slate-500">
-                Refreshes every minute{lastSync ? ` · last update ${fmtClock(lastSync.getTime())}` : ""}. Tap a person to review their day.
+                Auto-updates every minute{lastSync ? ` · checked ${fmtClock(lastSync.getTime())}` : ""}. Use Check Live Location anytime for the latest received GPS.
               </p>
             </div>
             <button onClick={loadLive} disabled={liveLoading}
@@ -310,7 +310,7 @@ export default function TrackingPage() {
             {[
               ["Field staff", String(people.length), Users, "text-slate-900 dark:text-slate-100"],
               ["Live", String(liveCount), Radar, "text-emerald-600"],
-              ["Weak signal", String(staleCount), Clock, "text-amber-600"],
+              ["Needs attention", String(staleCount), Clock, "text-amber-600"],
               ["Offline / off duty", String(offCount), WifiOff, "text-slate-500"],
               ["Team distance today", `${teamKm.toFixed(1)} km`, RouteIcon, "text-brand-700 dark:text-brand-300"],
             ].map(([label, value, Icon, tone]: any) => (
