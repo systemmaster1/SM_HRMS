@@ -4,6 +4,9 @@ import android.app.Activity
 import android.content.ClipData
 import android.content.Intent
 import android.provider.Settings
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
 import android.util.Base64
 import android.webkit.JavascriptInterface
 import androidx.core.content.FileProvider
@@ -20,10 +23,22 @@ class NativeBridge(private val activity: Activity) {
             val intent = Intent(activity, LocationTrackingService::class.java).apply {
                 action = LocationTrackingService.ACTION_START
             }
-            androidx.core.content.ContextCompat.startForegroundService(activity, intent)
-            "started"
-        } catch (e: Exception) {
-            "error:${e.message}"
+            val fine = ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            val coarse = ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+            if (!fine && !coarse) return "permission_required"
+            try {
+                ContextCompat.startForegroundService(activity, intent)
+                "started"
+            } catch (e: SecurityException) {
+                NativePrefs.setError(activity, "Tracking start blocked by Android permission or app-state rules")
+                "error:tracking_not_allowed"
+            } catch (e: IllegalStateException) {
+                NativePrefs.setError(activity, "Tracking start blocked while app is restricted")
+                "error:app_state_restricted"
+            }
+        } catch (e: Throwable) {
+            NativePrefs.setError(activity, "Tracking bridge could not start")
+            "error:tracking_bridge"
         }
     }
 
