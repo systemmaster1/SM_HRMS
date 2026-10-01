@@ -335,12 +335,27 @@ export default function FieldVisitsPage() {
     if (key === "completed") return st === "completed";
     return true;
   };
-  const viewCounts = Object.fromEntries(VIEWS.map(([k]) => [k, visits.filter((v) => inView(v, k)).length])) as Record<ViewKey, number>;
-  const filteredVisits = visits
+  const myVisits = me ? visits.filter((v) => v.employee_id === me.id) : [];
+  const visibleVisits = manager ? visits : myVisits;
+  const viewCounts = Object.fromEntries(VIEWS.map(([k]) => [k, visibleVisits.filter((v) => inView(v, k)).length])) as Record<ViewKey, number>;
+  const filteredVisits = visibleVisits
     .filter((v) => inView(v, view))
     .sort((a, b) => view === "today" || view === "upcoming"
       ? String(a.scheduled_at || a.visit_date).localeCompare(String(b.scheduled_at || b.visit_date))
       : 0);
+
+  const isOpenVisit = (v: any) => !["completed","cancelled"].includes(String(v.status || ""));
+  const myToday = myVisits.filter((v) => v.visit_date === todayStr);
+  const myCompletedToday = myToday.filter((v) => v.status === "completed").length;
+  const myPending = myVisits.filter((v) => v.visit_date < todayStr && isOpenVisit(v)).length;
+  const myManagerScheduled = myVisits.filter((v) => v.assigned_by && v.assigned_by !== me?.id && isOpenVisit(v)).length;
+  const weekStart = addDaysYMD(todayStr, -6);
+  const myWeekCompleted = myVisits.filter((v) => v.status === "completed" && v.visit_date >= weekStart && v.visit_date <= todayStr).length;
+  const monthStart = `${todayStr.slice(0,7)}-01`;
+  const myMonthCompleted = myVisits.filter((v) => v.status === "completed" && v.visit_date >= monthStart && v.visit_date <= todayStr).length;
+  const nextVisit = myVisits
+    .filter((v) => isOpenVisit(v) && v.visit_date >= todayStr)
+    .sort((a,b) => String(a.scheduled_at || a.visit_date).localeCompare(String(b.scheduled_at || b.visit_date)))[0];
 
   const updateTracking = async (member: Profile, patch: Partial<Profile>) => {
     setBusyId(member.id); setError("");
@@ -440,6 +455,38 @@ export default function FieldVisitsPage() {
           </div>
         }
       />
+
+      {!manager && (
+        <div className="mb-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[
+              ["Today", myToday.length, "Scheduled today"],
+              ["Pending", myPending, "Needs attention"],
+              ["Manager Scheduled", myManagerScheduled, "Assigned to you"],
+              ["Completed", myCompletedToday, "Done today"],
+            ].map(([label,value,note]) => (
+              <Card key={String(label)}><div className="p-4"><p className="text-xs font-medium text-slate-500">{label}</p><p className="mt-1 text-2xl font-bold text-slate-950">{value}</p><p className="mt-1 text-[11px] text-slate-400">{note}</p></div></Card>
+            ))}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Card><div className="p-4"><p className="text-xs text-slate-500">Last 7 days</p><p className="mt-1 text-xl font-bold text-emerald-700">{myWeekCompleted} completed visits</p></div></Card>
+            <Card><div className="p-4"><p className="text-xs text-slate-500">This month</p><p className="mt-1 text-xl font-bold text-brand-700">{myMonthCompleted} completed visits</p></div></Card>
+          </div>
+          <Card className="overflow-hidden">
+            <div className="p-5">
+              <div className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-brand-700">Next Visit</p><h2 className="mt-1 text-lg font-bold text-slate-950">{nextVisit?.client_name || "No upcoming visit"}</h2></div>{nextVisit && <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold capitalize text-slate-600">{String(nextVisit.status).replaceAll("_"," ")}</span>}</div>
+              {nextVisit ? <><p className="mt-2 text-sm text-slate-500">{nextVisit.scheduled_at ? fmtStampIST(nextVisit.scheduled_at) : nextVisit.visit_date}{nextVisit.address ? ` · ${nextVisit.address}` : ""}</p>
+                <div className="mt-4">
+                  {nextVisit.status === "assigned" ? <button onClick={()=>accept(nextVisit)} className="w-full rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white">Accept Visit</button> :
+                   ["planned","accepted"].includes(nextVisit.status) ? <button onClick={()=>start(nextVisit)} className="w-full rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white">Start Travel</button> :
+                   ["on_the_way","reached"].includes(nextVisit.status) ? <button onClick={()=>checkIn(nextVisit)} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white">Check In</button> :
+                   nextVisit.status === "checked_in" ? <button onClick={()=>beginMeeting(nextVisit)} className="w-full rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white">Start Meeting</button> :
+                   nextVisit.status === "meeting" ? <button onClick={()=>setCompletionVisit(nextVisit)} className="w-full rounded-xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white">Complete Visit</button> : null}
+                </div></> : <p className="mt-2 text-sm text-slate-500">You are clear. New or manager-assigned visits will appear here.</p>}
+            </div>
+          </Card>
+        </div>
+      )}
 
       {manager && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs text-slate-500 shadow-sm">
