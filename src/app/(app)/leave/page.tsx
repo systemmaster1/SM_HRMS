@@ -64,12 +64,14 @@ export default function LeavePage() {
   const load = useCallback(async () => {
     setLoadError("");
     const { data: auth } = await supabase.auth.getUser();
-    const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+    if (!auth.user) { setLoading(false); setLoadError("Your session expired. Please sign in again."); return; }
+    const { data: p, error: profileError } = await supabase
+      .from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
+    if (profileError || !p?.company_id) { setLoading(false); setLoadError(profileError?.message || "Your employee profile is not ready."); return; }
     setMe(p as Profile);
 
     const { data: c } = await supabase
-      .from("companies").select("*").eq("id", p!.company_id).single();
+      .from("companies").select("*").eq("id", p.company_id).maybeSingle();
     setCompany(c);
 
     const { data: t, error: tErr } = await supabase
@@ -99,7 +101,7 @@ export default function LeavePage() {
     setLeaves(l || []);
 
     // possible buddies
-    let q = supabase.from("profiles").select("*").eq("status", "active").neq("id", auth.user!.id);
+    let q = supabase.from("profiles").select("*").eq("status", "active").neq("id", auth.user.id);
     if (c?.buddy_scope === "department" && p?.department) {
       q = q.eq("department", p.department);
     }
