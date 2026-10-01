@@ -357,6 +357,23 @@ export default function FieldVisitsPage() {
     .filter((v) => isOpenVisit(v) && v.visit_date >= todayStr)
     .sort((a,b) => String(a.scheduled_at || a.visit_date).localeCompare(String(b.scheduled_at || b.visit_date)))[0];
 
+  const teamPerformance = members
+    .map((member) => {
+      const employeeVisits = visits.filter((v) => v.employee_id === member.id);
+      const todayVisits = employeeVisits.filter((v) => v.visit_date === todayStr);
+      const weekVisits = employeeVisits.filter((v) => v.visit_date >= weekStart && v.visit_date <= todayStr);
+      const monthVisits = employeeVisits.filter((v) => v.visit_date >= monthStart && v.visit_date <= todayStr);
+      return {
+        member,
+        todayTotal: todayVisits.length,
+        todayCompleted: todayVisits.filter((v) => v.status === "completed").length,
+        weekCompleted: weekVisits.filter((v) => v.status === "completed").length,
+        monthCompleted: monthVisits.filter((v) => v.status === "completed").length,
+        pending: employeeVisits.filter((v) => v.visit_date < todayStr && isOpenVisit(v)).length,
+      };
+    })
+    .filter((row) => row.todayTotal || row.weekCompleted || row.monthCompleted || row.pending);
+
   const updateTracking = async (member: Profile, patch: Partial<Profile>) => {
     setBusyId(member.id); setError("");
     const next = { ...member, ...patch };
@@ -497,6 +514,26 @@ export default function FieldVisitsPage() {
             ["Scheduled Ahead", visits.filter((v)=>v.visit_date>todayStr && isOpenVisit(v)).length],
           ].map(([label,value]) => <Card key={String(label)}><div className="p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-2xl font-bold text-slate-950">{value}</p></div></Card>)}
         </div>
+      )}
+
+      {manager && (
+        <Card className="mb-4 overflow-hidden">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="font-semibold text-slate-900">Employee visit progress</h2>
+            <p className="mt-1 text-xs text-slate-500">Today, last 7 days and current month · completed visits only.</p>
+          </div>
+          {teamPerformance.length === 0 ? <div className="p-6 text-center text-sm text-slate-500">No visit activity yet.</div> :
+          <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">Employee</th><th className="px-4 py-3">Today</th><th className="px-4 py-3">Pending</th><th className="px-4 py-3">7 Days</th><th className="px-4 py-3">This Month</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">{teamPerformance.map(({member,todayTotal,todayCompleted,pending,weekCompleted,monthCompleted}) => <tr key={member.id}>
+              <td className="px-5 py-3"><p className="font-semibold text-slate-900">{member.full_name}</p><p className="text-xs text-slate-400">{member.designation || member.role}</p></td>
+              <td className="px-4 py-3 font-medium text-slate-700">{todayCompleted}/{todayTotal}</td>
+              <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${pending ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>{pending}</span></td>
+              <td className="px-4 py-3 font-semibold text-slate-700">{weekCompleted}</td>
+              <td className="px-4 py-3 font-semibold text-brand-700">{monthCompleted}</td>
+            </tr>)}</tbody>
+          </table></div>}
+        </Card>
       )}
 
       {manager && (
