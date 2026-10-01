@@ -12,6 +12,8 @@ import {
   ArrowLeft,
   CreditCard,
   UserCog,
+  ExternalLink,
+  LogOut,
 } from "lucide-react";
 
 import OverviewTab from "@/components/sysadmin/OverviewTab";
@@ -85,6 +87,11 @@ const TABS: TabItem[] = [
 ];
 
 export default function SystemAdminPage() {
+  const signOut = async () => {
+    const { createClient } = await import("@/lib/supabase/client");
+    await createClient().auth.signOut();
+    window.location.replace("/login");
+  };
   const [tab, setTab] = useState<Tab>("overview");
 
   const [openOrg, setOpenOrg] = useState<string | null>(null);
@@ -131,14 +138,27 @@ export default function SystemAdminPage() {
               </p>
             </div>
 
-            <Link
-              href="/dashboard"
-              className="inline-flex self-start items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10 lg:self-auto"
-            >
-              <ArrowLeft className="h-4 w-4" />
-
-              Back to HRMS
-            </Link>
+            <div className="flex flex-wrap gap-2 self-start lg:self-auto">
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                <ArrowLeft className="h-4 w-4" /> HRMS Dashboard
+              </Link>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                <ExternalLink className="h-4 w-4" /> Public Website
+              </Link>
+              <button
+                type="button"
+                onClick={signOut}
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-slate-100"
+              >
+                <LogOut className="h-4 w-4" /> Sign out
+              </button>
+            </div>
           </div>
         </header>
 
