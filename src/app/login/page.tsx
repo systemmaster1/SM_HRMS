@@ -70,7 +70,16 @@ export default function LoginPage() {
       return;
     }
 
-    router.push("/dashboard");
+    // Platform admins should land in the SystemMaster control center.
+    // Everyone else lands in the normal HRMS home/dashboard.
+    const adminCheck = await supabase.rpc("is_platform_admin");
+    let isPlatformAdmin = !adminCheck.error && adminCheck.data === true;
+    if (adminCheck.error) {
+      const fallback = await supabase.rpc("is_system_admin");
+      isPlatformAdmin = !fallback.error && fallback.data === true;
+    }
+
+    router.replace(isPlatformAdmin ? "/system-admin" : "/dashboard");
     router.refresh();
   };
 
