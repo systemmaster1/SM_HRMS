@@ -177,9 +177,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // Native app must open directly to authentication, never the marketing landing page.
+        // Existing web session is preserved, so an already signed-in user is redirected to dashboard.
         val initial = linkFrom(intent)
             ?: intent?.dataString?.takeIf { it.startsWith(BuildConfig.WEB_APP_URL) }
-            ?: BuildConfig.WEB_APP_URL
+            ?: (BuildConfig.WEB_APP_URL.trimEnd('/') + "/login")
         webView.loadUrl(initial)
     }
 
