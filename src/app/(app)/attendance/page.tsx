@@ -60,12 +60,14 @@ export default function AttendancePage() {
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
-    const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+    if (!auth.user) { setLoading(false); setError("Your session expired. Please sign in again."); return; }
+    const { data: p, error: profileError } = await supabase
+      .from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
+    if (profileError || !p?.company_id) { setLoading(false); setError(profileError?.message || "Your employee profile is not ready."); return; }
     setMe(p as Profile);
 
     const { data: c } = await supabase
-      .from("companies").select("*").eq("id", p!.company_id).single();
+      .from("companies").select("*").eq("id", p.company_id).maybeSingle();
     setCompany(c);
 
     const { data: req } = await supabase.rpc("photo_required_for_me");
@@ -73,7 +75,7 @@ export default function AttendancePage() {
 
     const { data: t } = await supabase
       .from("attendance").select("*")
-      .eq("employee_id", auth.user!.id)
+      .eq("employee_id", auth.user.id)
       .eq("work_date", todayISO())
       .maybeSingle();
     setToday(t);
@@ -88,8 +90,9 @@ export default function AttendancePage() {
 
   const loadRows = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) { setRows([]); return; }
     const { data: p } = await supabase
-      .from("profiles").select("role").eq("id", auth.user!.id).single();
+      .from("profiles").select("role").eq("id", auth.user.id).maybeSingle();
     const admin = isAdminRole(p?.role);
 
     let q = supabase
@@ -99,7 +102,7 @@ export default function AttendancePage() {
       .order("work_date", { ascending: false });
 
     if (!admin || tab === "me") {
-      q = q.eq("employee_id", auth.user!.id);
+      q = q.eq("employee_id", auth.user.id);
     } else if (emp) {
       q = q.eq("employee_id", emp);
     }
