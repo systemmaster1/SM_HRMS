@@ -29,6 +29,7 @@ class LocationTrackingService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var callback: LocationCallback? = null
     private var lastLocationEnabled: Boolean? = null
+    private var updatesStarted = false
 
     override fun onCreate() {
         super.onCreate()
@@ -73,6 +74,7 @@ class LocationTrackingService : Service() {
     @Suppress("MissingPermission")
     private fun requestUpdates() {
         callback?.let { fused.removeLocationUpdates(it) }
+        updatesStarted = true
         val ms = NativePrefs.interval(this) * 60_000L
         val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, ms)
             .setMinUpdateIntervalMillis((ms / 2).coerceAtLeast(30_000L))
@@ -113,6 +115,7 @@ class LocationTrackingService : Service() {
             val manager=getSystemService(Context.LOCATION_SERVICE) as LocationManager
             val enabled = manager.isLocationEnabled
             if (lastLocationEnabled != enabled) {
+                val wasEnabled = lastLocationEnabled
                 lastLocationEnabled = enabled
                 if (!enabled) executor.execute {
                     rpc("record_tracking_state_v7", JSONObject()
@@ -121,8 +124,16 @@ class LocationTrackingService : Service() {
                         .put("p_app_state","android_native"))
                     NativePrefs.setError(this@LocationTrackingService,"Location services OFF")
                     updateNotification("Location OFF • turn GPS on to resume")
+                } else if (wasEnabled == false) executor.execute {
+                    rpc("record_tracking_state_v7", JSONObject()
+                        .put("p_state","available")
+                        .put("p_reason","Android device Location services restored")
+                        .put("p_app_state","android_native"))
+                    NativePrefs.setError(this@LocationTrackingService,"")
+                    updateNotification("Location restored • tracking active")
                 }
             }
+            if (enabled && !updatesStarted && hasPermission()) requestUpdates()
             executor.execute {
                 val duty = rpcBoolean("is_employee_on_duty_v7", JSONObject().put("p_employee_id", NativePrefs.str(this@LocationTrackingService,"userId")))
                 if (duty == false) handler.post { stopTracking() }
@@ -209,6 +220,7 @@ class LocationTrackingService : Service() {
      */
     private fun stopTracking() {
         callback?.let { fused.removeLocationUpdates(it) }; callback=null
+        updatesStarted=false
         handler.removeCallbacks(healthLoop)
         NativePrefs.setRunning(this,false)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -217,6 +229,7 @@ class LocationTrackingService : Service() {
     }
     override fun onDestroy() {
         callback?.let { fused.removeLocationUpdates(it) }
+        updatesStarted=false
         handler.removeCallbacks(healthLoop)
         executor.shutdownNow()
         NativePrefs.setRunning(this,false)
