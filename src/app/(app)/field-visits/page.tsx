@@ -489,6 +489,17 @@ export default function FieldVisitsPage() {
       )}
 
       {manager && (
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            ["Team Visits Today", visits.filter((v)=>v.visit_date===todayStr).length],
+            ["Completed Today", visits.filter((v)=>v.visit_date===todayStr && v.status==="completed").length],
+            ["Pending / Overdue", visits.filter((v)=>v.visit_date<todayStr && isOpenVisit(v)).length],
+            ["Scheduled Ahead", visits.filter((v)=>v.visit_date>todayStr && isOpenVisit(v)).length],
+          ].map(([label,value]) => <Card key={String(label)}><div className="p-4"><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-2xl font-bold text-slate-950">{value}</p></div></Card>)}
+        </div>
+      )}
+
+      {manager && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs text-slate-500 shadow-sm">
           <div className="flex items-center gap-2">
             <Wifi className="h-3.5 w-3.5 text-emerald-600" />
@@ -615,12 +626,13 @@ export default function FieldVisitsPage() {
             <p className="mt-1 text-xs text-slate-500">{new Date(v.visit_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}{v.scheduled_at && <b className="text-slate-700"> · Planned {fmtTime(v.scheduled_at)}</b>}{v.travel_started_at && ` · Travel ${fmtTime(v.travel_started_at)}`}{v.check_in_at && ` · In ${fmtTime(v.check_in_at)}`}{v.check_out_at && ` · Out ${fmtTime(v.check_out_at)}`}</p>
             {currentLat != null && currentLng != null && <div className="mt-2 flex flex-wrap gap-3 text-xs"><button onClick={() => setLiveVisit(v)} className="inline-flex items-center gap-1 font-medium text-brand-700"><LocateFixed className="h-3 w-3" /> Live / latest map</button><span className="text-slate-400">Updated {timeAgo(v.last_location_at)}</span></div>}
             {v.outcome && <p className="mt-2 text-xs text-slate-600"><span className="font-medium">Outcome:</span> {String(v.outcome).replaceAll("_", " ")}{v.person_met ? ` · Met ${v.person_met}` : ""}</p>}
-            {isMine && v.status !== "completed" && v.status !== "cancelled" && <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-              {v.status === "assigned" && <button onClick={() => accept(v)} disabled={busy} className="flex items-center rounded-lg border border-slate-300 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-60">Accept</button>}
-              {["planned", "accepted"].includes(v.status) && <button onClick={() => start(v)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-brand-700 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-white"><Route className="h-3.5 w-3.5" /> Start travel</button>}
-              {["planned", "accepted", "on_the_way", "reached"].includes(v.status) && <button onClick={() => checkIn(v)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-emerald-600 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-white"><LogIn className="h-3.5 w-3.5" /> {busy ? "Locating…" : "Check in"}</button>}
-              {v.status === "checked_in" && <button onClick={() => beginMeeting(v)} disabled={busy} className="flex items-center rounded-lg border border-brand-300 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-brand-700">Start meeting</button>}
-              {["checked_in", "meeting"].includes(v.status) && <button onClick={() => setCompletionVisit(v)} disabled={busy} className="flex items-center gap-1.5 rounded-lg bg-rose-600 justify-center px-3 py-2.5 text-sm font-semibold sm:py-1.5 sm:text-xs text-white"><LogOut className="h-3.5 w-3.5" /> Complete visit</button>}
+            {isMine && v.status !== "completed" && v.status !== "cancelled" && <div className="mt-3">
+              {v.visit_date < todayStr && <p className="mb-2 inline-flex rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-semibold text-rose-700">Overdue · complete or reschedule this visit</p>}
+              {v.status === "assigned" ? <button onClick={() => accept(v)} disabled={busy} className="w-full rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">Accept Visit</button> :
+               ["planned","accepted"].includes(v.status) ? <button onClick={() => start(v)} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"><Route className="h-4 w-4" /> Start Travel</button> :
+               ["on_the_way","reached"].includes(v.status) ? <button onClick={() => checkIn(v)} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"><LogIn className="h-4 w-4" /> {busy ? "Locating…" : "Check In"}</button> :
+               v.status === "checked_in" ? <button onClick={() => beginMeeting(v)} disabled={busy} className="w-full rounded-xl bg-brand-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60">Start Meeting</button> :
+               v.status === "meeting" ? <button onClick={() => setCompletionVisit(v)} disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60"><LogOut className="h-4 w-4" /> Complete Visit</button> : null}
             </div>}
           </div></div></li>;
         })}</ul>}
