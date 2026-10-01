@@ -379,6 +379,26 @@ export default function FieldVisitsPage() {
     })
     .filter((row) => row.todayTotal || row.weekCompleted || row.monthCompleted || row.pending);
 
+  const managerPerformance = members
+    .map((member) => {
+      const scheduled = visits.filter((v) => v.assigned_by === member.id && v.employee_id !== member.id);
+      const todayScheduled = scheduled.filter((v) => v.visit_date === todayStr);
+      const weekScheduled = scheduled.filter((v) => v.visit_date >= weekStart && v.visit_date <= todayStr);
+      const monthScheduled = scheduled.filter((v) => v.visit_date >= monthStart && v.visit_date <= todayStr);
+      return {
+        member,
+        todayScheduled: todayScheduled.length,
+        weekScheduled: weekScheduled.length,
+        monthScheduled: monthScheduled.length,
+        completed: scheduled.filter((v) => v.status === "completed").length,
+        pending: scheduled.filter((v) => isOpenVisit(v)).length,
+        overdue: scheduled.filter((v) => v.visit_date < todayStr && isOpenVisit(v)).length,
+      };
+    })
+    .filter((row) => row.todayScheduled || row.weekScheduled || row.monthScheduled || row.pending || row.overdue)
+    .sort((a, b) => b.monthScheduled - a.monthScheduled);
+
+
   const updateTracking = async (member: Profile, patch: Partial<Profile>) => {
     setBusyId(member.id); setError("");
     const next = { ...member, ...patch };
@@ -536,6 +556,28 @@ export default function FieldVisitsPage() {
               <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${pending ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>{pending}</span></td>
               <td className="px-4 py-3 font-semibold text-slate-700">{weekCompleted}</td>
               <td className="px-4 py-3 font-semibold text-brand-700">{monthCompleted}</td>
+            </tr>)}</tbody>
+          </table></div>}
+        </Card>
+      )}
+
+      {admin && (
+        <Card className="mb-4 overflow-hidden">
+          <div className="border-b border-slate-100 px-5 py-4">
+            <h2 className="font-semibold text-slate-900">Manager activity</h2>
+            <p className="mt-1 text-xs text-slate-500">Visits scheduled for team members by each manager/admin.</p>
+          </div>
+          {managerPerformance.length === 0 ? <div className="p-6 text-center text-sm text-slate-500">No manager-assigned visits yet.</div> :
+          <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500"><tr><th className="px-5 py-3">Manager</th><th className="px-4 py-3">Today</th><th className="px-4 py-3">7 Days</th><th className="px-4 py-3">This Month</th><th className="px-4 py-3">Completed</th><th className="px-4 py-3">Pending</th><th className="px-4 py-3">Overdue</th></tr></thead>
+            <tbody className="divide-y divide-slate-100">{managerPerformance.map(({member,todayScheduled,weekScheduled,monthScheduled,completed,pending,overdue}) => <tr key={member.id}>
+              <td className="px-5 py-3"><p className="font-semibold text-slate-900">{member.full_name}</p><p className="text-xs text-slate-400">{member.designation || member.role}</p></td>
+              <td className="px-4 py-3 font-medium text-slate-700">{todayScheduled}</td>
+              <td className="px-4 py-3 font-medium text-slate-700">{weekScheduled}</td>
+              <td className="px-4 py-3 font-semibold text-brand-700">{monthScheduled}</td>
+              <td className="px-4 py-3 font-medium text-emerald-700">{completed}</td>
+              <td className="px-4 py-3 font-medium text-amber-700">{pending}</td>
+              <td className="px-4 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${overdue ? "bg-rose-50 text-rose-700" : "bg-emerald-50 text-emerald-700"}`}>{overdue}</span></td>
             </tr>)}</tbody>
           </table></div>}
         </Card>
