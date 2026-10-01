@@ -6,7 +6,7 @@ SM HRMS uses location for attendance, field visits and authorized field-employee
 1. Sign in with the supplied review account.
 2. Open Attendance and check in.
 3. Open Field Visits / Field Tracking.
-4. Read the prominent location disclosure before granting background access.
+4. Read the prominent duty-time background-location disclosure on Attendance before granting/using background access.
 5. Start the authorized field-tracking flow and observe the persistent foreground-service notification.
 6. Check out / stop tracking and verify that tracking stops.
 
