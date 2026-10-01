@@ -52,7 +52,17 @@ class LocationTrackingService : Service() {
             NativePrefs.setError(this, "Location permission not granted")
             stopSelf(); return
         }
-        startForeground(NOTIFICATION_ID, notification("Checking duty status…"))
+        try {
+            startForeground(NOTIFICATION_ID, notification("Checking duty status…"))
+        } catch (e: SecurityException) {
+            NativePrefs.setError(this, "Android blocked duty tracking permission")
+            stopSelf()
+            return
+        } catch (e: IllegalStateException) {
+            NativePrefs.setError(this, "Android blocked background tracking start")
+            stopSelf()
+            return
+        }
         NativePrefs.setRunning(this, true)
         checkDutyThenStart()
         handler.post(healthLoop)
@@ -106,7 +116,14 @@ class LocationTrackingService : Service() {
                 }
             }
         }
-        fused.requestLocationUpdates(req, callback!!, Looper.getMainLooper())
+        try {
+            fused.requestLocationUpdates(req, callback!!, Looper.getMainLooper())
+        } catch (e: SecurityException) {
+            updatesStarted = false
+            NativePrefs.setError(this, "Location permission changed while tracking")
+            updateNotification("Location permission required")
+            return
+        }
         updateNotification("Duty tracking active • GPS every ${NativePrefs.interval(this)} min")
     }
 
