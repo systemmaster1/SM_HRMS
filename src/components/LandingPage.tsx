@@ -5,7 +5,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import { LogoMark } from "@/components/Logo";
 import { motion, FadeIn, StaggerGroup, StaggerItem, HoverLift, useReducedMotion } from "@/components/motion";
 import {
-  CalendarCheck, Plane, Wallet, ListChecks, Users, LifeBuoy, MapPin,
+  CalendarCheck, Plane, Wallet, ListChecks, Users, LifeBuoy, MapPin, Bot, Sparkles,
   Camera, Navigation, ShieldCheck, Check, ArrowRight, Building2,
   Moon, Bell, FileText, Clock, User, Phone, Mail,
   Repeat, MessageSquare, CalendarClock, BarChart3, Lock, Smartphone,
@@ -57,7 +57,7 @@ const modules = [
   { icon: FileText, label: "Policies" },
   { icon: BarChart3, label: "Reports" },
   { icon: Bell, label: "Notifications" },
-  { icon: Sheet, label: "Exports" },
+  { icon: Sheet, label: "Exports" },\n  { icon: Bot, label: "AI Assistant" },
 ];
 
 
@@ -83,7 +83,7 @@ const workflowFeatures = [
   "Employee directory, documents & KYC",
   "Help desk tickets & notifications",
   "Multi-branch, departments & reporting hierarchy",
-  "CSV exports + Google Sheets backup integration",
+  "CSV exports + Google Sheets backup integration",\n  "SM AI Assistant for authorized HRMS questions",
 ];
 
 export default function LandingPage() {
@@ -341,6 +341,42 @@ export default function LandingPage() {
         </div>
       </section>
 
+
+      {/* AI Assistant */}
+      <section className="py-20">
+        <div className="mx-auto max-w-6xl px-5">
+          <div className="grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900 lg:grid-cols-2">
+            <div className="p-7 sm:p-10">
+              <span className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-violet-700 dark:bg-violet-500/10 dark:text-violet-300">
+                <Sparkles className="h-3.5 w-3.5" /> SM AI Assistant
+              </span>
+              <h2 className="mt-4 text-3xl font-bold tracking-tight">Ask your HRMS instead of searching through screens.</h2>
+              <p className="mt-4 leading-7 text-slate-500 dark:text-slate-400">
+                SM Assistant answers from the HRMS data the signed-in user is authorized to access. Ask about attendance, leave, tasks, payroll and team information from one conversational screen.
+              </p>
+              <div className="mt-6 grid gap-3 text-sm text-slate-700 dark:text-slate-300 sm:grid-cols-2">
+                {["Role-based HRMS answers","Hindi / English voice input","Chat history","Listen to answers","PDF report download","CSV export"].map((item) => (
+                  <span key={item} className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />{item}</span>
+                ))}
+              </div>
+              <p className="mt-5 text-xs leading-5 text-slate-400">AI Assistant availability can be controlled by organization and user role.</p>
+            </div>
+            <div className="bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-950 p-7 text-white sm:p-10">
+              <div className="mx-auto max-w-md rounded-2xl border border-white/10 bg-white/10 p-5 shadow-2xl backdrop-blur">
+                <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-white/10"><Bot className="h-5 w-5 text-violet-200" /></div>
+                  <div><p className="font-semibold">SM Assistant</p><p className="text-xs text-white/50">Authorized HRMS data</p></div>
+                </div>
+                <div className="mt-5 ml-auto max-w-[85%] rounded-2xl bg-brand-600 px-4 py-3 text-sm">Show my pending tasks</div>
+                <div className="mt-3 max-w-[90%] rounded-2xl bg-white/10 px-4 py-3 text-sm leading-6 text-white/80">I can check your authorized task data and summarize what is pending, due or overdue.</div>
+                <div className="mt-5 grid grid-cols-2 gap-2 text-xs text-white/65">
+                  {["Attendance this month","Leave balance","Pending team tasks","Payroll summary"].map((q)=><div key={q} className="rounded-xl border border-white/10 p-3">{q}</div>)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Trust & business operating layer */}
       <section className="border-y border-slate-100 bg-slate-50/70 py-20 dark:border-slate-800 dark:bg-slate-900/40">
