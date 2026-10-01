@@ -157,7 +157,8 @@ export default function LandingPage() {
             <a href="#features" className="transition hover:text-brand-600 dark:hover:text-brand-300">Features</a>
             <a href="#platform" className="transition hover:text-brand-600 dark:hover:text-brand-300">Platform</a>
             <a href="#apps" className="transition hover:text-brand-600 dark:hover:text-brand-300">App &amp; Web</a>
-            <a href="#pricing" className="transition hover:text-brand-600 dark:hover:text-brand-300">Pricing</a>\n            <a href="#enquiry" className="transition hover:text-brand-600 dark:hover:text-brand-300">Enquiry</a>
+            <a href="#pricing" className="transition hover:text-brand-600 dark:hover:text-brand-300">Pricing</a>
+            <a href="#enquiry" className="transition hover:text-brand-600 dark:hover:text-brand-300">Enquiry</a>
           </nav>
           <div className="flex items-center gap-3">
             <a href={LOGIN_URL} className="hidden text-sm font-medium text-slate-600 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-300 sm:block">
@@ -165,7 +166,7 @@ export default function LandingPage() {
             </a>
             <Link href="/signup"
               className="rounded-lg bg-accent-gradient px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90">
-              Start free trial
+              Start free
             </Link>
           </div>
         </div>
@@ -180,7 +181,7 @@ export default function LandingPage() {
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 py-20 lg:grid-cols-2 lg:py-28">
           <FadeIn>
             <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-accent-200 ring-1 ring-white/15">
-              <Clock className="h-3 w-3" /> Launch offer · Starter ₹29/user/month
+              <Clock className="h-3 w-3" /> SM Free · Up to 5 users · 90 days
             </span>
             <h1 className="mt-5 text-[38px] font-bold leading-[1.1] tracking-tight sm:text-5xl">
               Run your whole team from one screen.
@@ -198,7 +199,7 @@ export default function LandingPage() {
                 <Download className="h-4 w-4" /> Download Android App
               </a>
             </div>
-            <p className="mt-4 text-sm text-white/50">7-day free trial · No card required · Works on phone &amp; web</p>
+            <p className="mt-4 text-sm text-white/50">Free plan · Up to 5 users for 90 days · No card required · Android &amp; Web</p>
           </FadeIn>
 
           {/* Signature: live check-in mockup */}
