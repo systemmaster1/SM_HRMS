@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
-import { getPosition, fmtTime } from "@/lib/geo";
+import { getPosition, getPositionStrict, fmtTime } from "@/lib/geo";
 import { type Profile, canManageTeam, isAdminRole } from "@/lib/types";
 import {
   Activity, AlertTriangle, ArrowLeft, CheckCircle2, Clock3, ExternalLink,
@@ -235,8 +235,26 @@ export default function FieldVisitsPage() {
   const visitAction = async (visit: any, action: string, extra: Record<string, unknown> = {}) => {
     setBusyId(visit.id); setError("");
     let lat: number | null = null, lng: number | null = null;
-    if (["start_travel","check_in","complete"].includes(action)) {
-      const pos = await getPosition(); lat = pos.lat; lng = pos.lng;
+    if (["start_travel","check_in"].includes(action)) {
+      const pos = await getPositionStrict();
+      if (pos.error || pos.lat == null || pos.lng == null) {
+        setBusyId(null);
+        const reason = pos.error === "denied"
+          ? "Location permission is blocked. Allow location access and try again."
+          : pos.error === "timeout"
+            ? "Could not get a GPS fix in time. Move to an open area and try again."
+            : "Current location is unavailable. Turn on GPS and try again.";
+        setError(reason);
+        return false;
+      }
+      lat = pos.lat; lng = pos.lng;
+    } else if (action === "complete") {
+      // Completion must not become impossible just because a fresh GPS fix
+      // times out after the employee has already checked in. Capture a fresh
+      // position when available; otherwise the DB can use the visit/check-in
+      // location already recorded for this visit.
+      const pos = await getPosition();
+      lat = pos.lat; lng = pos.lng;
     }
     const { error: e } = await supabase.rpc("field_visit_action_v6", {
       p_visit_id: visit.id, p_action: action, p_lat: lat, p_lng: lng,
@@ -245,7 +263,7 @@ export default function FieldVisitsPage() {
       p_next_followup_at: extra.next_followup_at ? new Date(String(extra.next_followup_at)).toISOString() : null,
     });
     setBusyId(null);
-    if (e) { setError(e.message); return false; }
+    if (e) { setError(`Visit action failed: ${e.message}`); return false; }
     await load(true); return true;
   };
 
