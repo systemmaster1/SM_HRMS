@@ -37,19 +37,22 @@ export default function HelpDeskPage() {
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
-    const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+    if (!auth.user) { setLoading(false); setError("Your session expired. Please sign in again."); return; }
+    const { data: p, error: profileError } = await supabase
+      .from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
+    if (profileError || !p?.company_id) { setLoading(false); setError(profileError?.message || "Your employee profile is not ready."); return; }
     setMe(p as Profile);
 
     const { data: t } = await supabase
       .from("tickets")
       .select("*, raiser:raised_by(full_name, department), assignee:assigned_to(full_name)")
+      .eq("company_id", p.company_id)
       .order("created_at", { ascending: false });
     setTickets(t || []);
 
     if (isAdminRole((p as Profile)?.role)) {
       const { data: m } = await supabase
-        .from("profiles").select("*").eq("status", "active").order("full_name");
+        .from("profiles").select("*").eq("company_id", p.company_id).eq("status", "active").order("full_name");
       setMembers((m as Profile[]) || []);
     }
     setLoading(false);
@@ -89,7 +92,7 @@ export default function HelpDeskPage() {
 
     // Notify admins
     const { data: admins } = await supabase
-      .from("profiles").select("id").in("role", ["owner", "admin"]);
+      .from("profiles").select("id").eq("company_id", me!.company_id).eq("status", "active").in("role", ["owner", "admin"]);
 
     if (admins?.length) {
       await supabase.from("notifications").insert(
@@ -111,7 +114,7 @@ export default function HelpDeskPage() {
   };
 
   const updateTicket = async (patch: any) => {
-    await supabase.from("tickets").update(patch).eq("id", detail.id);
+    await supabase.from("tickets").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", detail.id).eq("company_id", me!.company_id);
 
     if (patch.status) {
       await supabase.from("notifications").insert({
