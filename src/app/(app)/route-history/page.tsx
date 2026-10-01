@@ -1,6 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
+import type { GpsPoint } from "@/lib/tracking";
+import { analyseDay } from "@/lib/tracking";
 import {
   ArrowLeft,
   CalendarDays,
@@ -16,6 +19,11 @@ import {
   UsersRound,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+const TrackingMap = dynamic(() => import("@/components/TrackingMap"), {
+  ssr: false,
+  loading: () => <div className="grid h-[470px] place-items-center bg-slate-50 text-sm text-slate-400">Loading route map…</div>,
+});
 
 type Profile = {
   id: string;
@@ -198,7 +206,8 @@ export default function RouteHistoryPage() {
 
   const employee = employees.find((x) => x.id === employeeId);
   const routeLink = mapUrl(points);
-  const embed = staticMapEmbed(points);
+  const analysedRoute = useMemo(() => analyseDay(points), [points]);
+  const routePoints: GpsPoint[] = analysedRoute.track;
 
   const timeline = useMemo(() => {
     const rows: { time: string; title: string; detail?: string; kind: string }[] = [];
@@ -374,16 +383,14 @@ export default function RouteHistoryPage() {
             )}
           </div>
 
-          {embed ? (
-            <iframe title="Employee route map" src={embed} className="h-[470px] w-full border-0" loading="lazy" />
+          {routePoints.length ? (
+            <TrackingMap route={routePoints} stops={analysedRoute.stops} gaps={analysedRoute.gaps} className="h-[470px] rounded-none border-0" />
           ) : (
             <div className="grid h-[470px] place-items-center px-6 text-center">
               <div>
                 <MapPinned className="mx-auto h-9 w-9 text-slate-300" />
                 <h3 className="mt-3 font-semibold">No route recorded for this date</h3>
-                <p className="mt-1 text-sm text-slate-500">
-                  Route history is available only for duty periods where tracking was enabled and GPS points were received.
-                </p>
+                <p className="mt-1 text-sm text-slate-500">Route history is available only for duty periods where tracking was enabled and GPS points were received.</p>
               </div>
             </div>
           )}
