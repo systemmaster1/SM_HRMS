@@ -11,7 +11,7 @@ import {
   Eye, LocateFixed, MapPin, Navigation, Plus, Route, Settings2, ShieldAlert,
   Users, UserCheck, XCircle, LogIn, LogOut, Download, BarChart3, RefreshCw, Wifi, WifiOff,
 } from "lucide-react";
-import { todayYMD } from "@/lib/date";
+import { addDaysYMD, fmtStampIST, todayYMD } from "@/lib/date";
 import { visitState } from "@/lib/tracking";
 import { PageLoader } from "@/components/ui";
 
