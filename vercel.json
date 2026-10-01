@@ -12,6 +12,10 @@
     {
       "path": "/api/cron/billing-reminders",
       "schedule": "30 3 * * *"
+    },
+    {
+      "path": "/api/cron/support-meeting-reminders",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
