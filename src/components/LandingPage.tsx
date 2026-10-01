@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { LogoMark } from "@/components/Logo";
 import { motion, FadeIn, StaggerGroup, StaggerItem, HoverLift, useReducedMotion } from "@/components/motion";
 import {
@@ -9,7 +9,7 @@ import {
   Camera, Navigation, ShieldCheck, Check, ArrowRight, Building2,
   Moon, Bell, FileText, Clock, User, Phone, Mail,
   Repeat, MessageSquare, CalendarClock, BarChart3, Lock, Smartphone,
-  TrendingUp, LayoutDashboard, Sheet, ClipboardCheck, Globe, Radar, MapPinned, UserCog, Route, Download, CheckCircle2, BriefcaseBusiness,
+  TrendingUp, LayoutDashboard, Sheet, ClipboardCheck, Globe, Radar, MapPinned, UserCog, Route, Download, CheckCircle2, BriefcaseBusiness, Send, MessageCircle,
 } from "lucide-react";
 import AndroidDownloadCard from "@/components/AndroidDownloadCard";
 
@@ -90,6 +90,7 @@ export default function LandingPage() {
   const reduce = useReducedMotion();
   const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [enquiry, setEnquiry] = useState({ name: "", phone: "", company: "", teamSize: "", message: "" });
 
   useEffect(() => {
     const standalone =
@@ -104,6 +105,26 @@ export default function LandingPage() {
     window.addEventListener("beforeinstallprompt", onInstall);
     return () => window.removeEventListener("beforeinstallprompt", onInstall);
   }, []);
+
+  const submitEnquiry = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const name = enquiry.name.trim();
+    const phone = enquiry.phone.trim();
+    if (!name || !phone) return;
+    const message = [
+      "Hello SystemMaster Automations,",
+      "",
+      "I am interested in SM HRMS.",
+      `Name: ${name}`,
+      `Phone: ${phone}`,
+      enquiry.company.trim() ? `Company: ${enquiry.company.trim()}` : "",
+      enquiry.teamSize ? `Team Size: ${enquiry.teamSize}` : "",
+      enquiry.message.trim() ? `Requirement: ${enquiry.message.trim()}` : "",
+      "",
+      "Please contact me for a demo / enquiry.",
+    ].filter(Boolean).join("\n");
+    window.open(`https://wa.me/919027965956?text=${encodeURIComponent(message)}`, "_blank", "noopener,noreferrer");
+  };
 
   const installApp = async () => {
     if (isStandalone) {
@@ -134,7 +155,7 @@ export default function LandingPage() {
             <a href="#features" className="transition hover:text-brand-600 dark:hover:text-brand-300">Features</a>
             <a href="#platform" className="transition hover:text-brand-600 dark:hover:text-brand-300">Platform</a>
             <a href="#apps" className="transition hover:text-brand-600 dark:hover:text-brand-300">App &amp; Web</a>
-            <a href="#pricing" className="transition hover:text-brand-600 dark:hover:text-brand-300">Pricing</a>
+            <a href="#pricing" className="transition hover:text-brand-600 dark:hover:text-brand-300">Pricing</a>\n            <a href="#enquiry" className="transition hover:text-brand-600 dark:hover:text-brand-300">Enquiry</a>
           </nav>
           <div className="flex items-center gap-3">
             <a href={LOGIN_URL} className="hidden text-sm font-medium text-slate-600 hover:text-brand-600 dark:text-slate-300 dark:hover:text-brand-300 sm:block">
@@ -311,7 +332,7 @@ export default function LandingPage() {
                 Sign in <ArrowRight className="h-4 w-4" />
               </a>
             </div>
-            <p className="mt-3 text-xs text-white/50">Android app ready · Google Play release in progress.</p>
+            <p className="mt-3 text-xs text-white/50">Android APK available for direct download · Google Play distribution will follow later.</p>
           </FadeIn>
 
           <FadeIn delay={0.1}>
@@ -468,6 +489,57 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Enquiry / demo */}
+      <section id="enquiry" className="bg-slate-950 py-20 text-white">
+        <div className="mx-auto grid max-w-6xl gap-10 px-5 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
+          <div>
+            <span className="inline-flex items-center gap-2 rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-emerald-300 ring-1 ring-emerald-400/20">
+              <MessageCircle className="h-3.5 w-3.5" /> Sales &amp; Demo
+            </span>
+            <h2 className="mt-4 text-3xl font-bold tracking-tight sm:text-4xl">See how SM HRMS fits your team.</h2>
+            <p className="mt-4 max-w-xl leading-7 text-slate-300">
+              Share your basic requirement and continue directly on WhatsApp. Our team can help with a demo, plan selection, onboarding and field-force setup.
+            </p>
+            <div className="mt-6 grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
+              <span className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> HRMS + Attendance</span>
+              <span className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> Tasks + Checklists</span>
+              <span className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> Payroll + Reports</span>
+              <span className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" /> Field Visits + Live Tracking</span>
+            </div>
+          </div>
+          <form onSubmit={submitEnquiry} className="rounded-3xl bg-white p-6 text-slate-900 shadow-2xl sm:p-8">
+            <h3 className="text-xl font-bold">Request a demo / enquiry</h3>
+            <p className="mt-1 text-sm text-slate-500">Name and phone are required. Submit opens WhatsApp with your enquiry ready to send.</p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-semibold">Name *
+                <input required value={enquiry.name} onChange={(e)=>setEnquiry({...enquiry,name:e.target.value})} placeholder="Your name" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-brand-500" />
+              </label>
+              <label className="text-sm font-semibold">Phone *
+                <input required type="tel" value={enquiry.phone} onChange={(e)=>setEnquiry({...enquiry,phone:e.target.value})} placeholder="+91 98xxxxxx" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-brand-500" />
+              </label>
+              <label className="text-sm font-semibold">Company
+                <input value={enquiry.company} onChange={(e)=>setEnquiry({...enquiry,company:e.target.value})} placeholder="Company name" className="mt-2 w-full rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-brand-500" />
+              </label>
+              <label className="text-sm font-semibold">Team size
+                <select value={enquiry.teamSize} onChange={(e)=>setEnquiry({...enquiry,teamSize:e.target.value})} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-3 font-normal outline-none focus:border-brand-500">
+                  <option value="">Select</option><option>1–5</option><option>6–10</option><option>11–30</option><option>31–100</option><option>100+</option>
+                </select>
+              </label>
+            </div>
+            <label className="mt-4 block text-sm font-semibold">Requirement
+              <textarea value={enquiry.message} onChange={(e)=>setEnquiry({...enquiry,message:e.target.value})} rows={3} placeholder="Tell us what you want to manage..." className="mt-2 w-full resize-none rounded-xl border border-slate-200 px-4 py-3 font-normal outline-none focus:border-brand-500" />
+            </label>
+            <button type="submit" className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3.5 font-bold text-white transition hover:bg-emerald-700">
+              <Send className="h-4 w-4" /> Continue on WhatsApp
+            </button>
+          </form>
+        </div>
+      </section>
+
+      <a href="https://wa.me/919027965956?text=Hello%20SystemMaster%20Automations%2C%20I%20am%20interested%20in%20SM%20HRMS." target="_blank" rel="noreferrer" aria-label="Chat about SM HRMS on WhatsApp" className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-2xl transition hover:scale-105 hover:bg-emerald-600">
+        <MessageCircle className="h-6 w-6" />
+      </a>
 
       {/* Get in touch */}
       <section className="border-t border-slate-100 py-16 dark:border-slate-800">
