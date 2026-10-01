@@ -151,6 +151,8 @@ export default function TrackingPage() {
       detail: `${r.status} · ${agoLabel(r.ago)} · ${r.km.toFixed(1)} km today`,
     })), [liveRows]);
 
+  const selectedLive = useMemo(() => liveRows.find((r) => r.p.id === emp) || null, [liveRows, emp]);
+
   /* ---------- Day review ---------- */
   const loadDay = useCallback(async () => {
     if (!emp) return;
@@ -354,6 +356,26 @@ export default function TrackingPage() {
             </div>
           )}
         </section>
+      )}
+
+      {manager && trackingOn && selectedLive && (
+        <Card className="mb-5">
+          <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-slate-500">Selected employee</p>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <p className="font-semibold text-slate-900 dark:text-slate-100">{selectedLive.p.full_name}</p>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${selectedLive.state === "live" ? "bg-emerald-100 text-emerald-700" : selectedLive.state === "stale" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>{selectedLive.status}</span>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">Last location: {agoLabel(selectedLive.ago)} · {selectedLive.km.toFixed(1)} km today</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={loadLive} disabled={liveLoading} className="rounded-lg bg-brand-700 px-3.5 py-2 text-xs font-semibold text-white disabled:opacity-60">{liveLoading ? "Checking…" : "Check Live Location"}</button>
+              {selectedLive.l?.latitude != null && selectedLive.l?.longitude != null && <a href={`https://www.google.com/maps?q=${selectedLive.l.latitude},${selectedLive.l.longitude}`} target="_blank" rel="noreferrer" className="rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:border-slate-600 dark:text-slate-200">Open Map</a>}
+              <button onClick={() => setDate(todayYMD())} className="rounded-lg border border-slate-300 px-3.5 py-2 text-xs font-semibold text-slate-700 dark:border-slate-600 dark:text-slate-200">Today Route</button>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* ================= DAY REVIEW ================= */}
