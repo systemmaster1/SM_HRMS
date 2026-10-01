@@ -17,7 +17,7 @@ import { useFeature } from "@/lib/features/client";
 import type { LivePin, VisitPin } from "@/components/TrackingMap";
 import {
   Radar, Route as RouteIcon, MapPin, Clock, PauseCircle, WifiOff, FileDown, RefreshCw,
-  ChevronLeft, ChevronRight, Navigation, CheckCircle2, Timer, Users, ArrowLeft,
+  ChevronLeft, ChevronRight, Navigation, CheckCircle2, Timer, Users, ArrowLeft, Crosshair,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui";
 
@@ -300,9 +300,9 @@ export default function TrackingPage() {
                 Refreshes every minute{lastSync ? ` · last update ${fmtClock(lastSync.getTime())}` : ""}. Tap a person to review their day.
               </p>
             </div>
-            <button onClick={loadLive}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-xs font-medium text-slate-600 transition hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700/50">
-              <RefreshCw className={`h-3.5 w-3.5 ${liveLoading ? "animate-spin" : ""}`} /> Refresh
+            <button onClick={loadLive} disabled={liveLoading}
+              className="flex items-center gap-1.5 rounded-lg bg-brand-700 px-3 py-2 text-xs font-semibold text-white transition hover:bg-brand-800 disabled:opacity-60">
+              <Crosshair className={`h-3.5 w-3.5 ${liveLoading ? "animate-pulse" : ""}`} /> {liveLoading ? "Checking…" : "Check Live Location"}
             </button>
           </div>
 
@@ -339,17 +339,14 @@ export default function TrackingPage() {
                 <ul className="max-h-[420px] divide-y divide-slate-100 overflow-y-auto dark:divide-slate-700">
                   {liveRows.map((r) => (
                     <li key={r.p.id}>
-                      <button onClick={() => { setEmp(r.p.id); setDate(todayYMD()); }}
-                        className={`flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-slate-50 dark:hover:bg-slate-700/40 ${emp === r.p.id ? "bg-brand-50/60 dark:bg-brand-500/10" : ""}`}>
+                      <div className={`flex items-center gap-3 px-4 py-3 ${emp === r.p.id ? "bg-brand-50/60 dark:bg-brand-500/10" : ""}`}>
                         <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${r.state === "live" ? "bg-emerald-500" : r.state === "stale" ? "bg-amber-500" : "bg-slate-300"}`} />
-                        <span className="min-w-0 flex-1">
+                        <button onClick={() => { setEmp(r.p.id); setDate(todayYMD()); }} className="min-w-0 flex-1 text-left">
                           <span className="block truncate text-sm font-medium text-slate-900 dark:text-slate-100">{r.p.full_name}</span>
-                          <span className="block truncate text-xs text-slate-500">{r.status} · {agoLabel(r.ago)}</span>
-                        </span>
-                        <span className="shrink-0 text-right text-xs font-semibold tabular-nums text-slate-700 dark:text-slate-200">
-                          {r.km.toFixed(1)} km
-                        </span>
-                      </button>
+                          <span className="block truncate text-xs text-slate-500">{r.status} · {agoLabel(r.ago)} · {r.km.toFixed(1)} km</span>
+                        </button>
+                        {r.l?.latitude != null && r.l?.longitude != null ? <a href={`https://www.google.com/maps?q=${r.l.latitude},${r.l.longitude}`} target="_blank" rel="noreferrer" className="shrink-0 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] font-semibold text-brand-700 hover:bg-brand-50 dark:border-slate-700">View Live</a> : <span className="shrink-0 text-[10px] text-slate-400">No GPS</span>}
+                      </div>
                     </li>
                   ))}
                 </ul>
