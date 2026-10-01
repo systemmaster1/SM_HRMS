@@ -271,22 +271,36 @@ export default function FieldVisitsPage() {
   const start = (visit: any) => visitAction(visit, "start_travel");
   const checkIn = (visit: any) => visitAction(visit, "check_in");
   const beginMeeting = async (visit: any) => {
-    // Primary path is the shared lifecycle RPC. Some older production DBs may
-    // still have a pre-meeting version of that RPC, so keep a safe RLS-scoped
-    // fallback until every tenant database has the repair migration applied.
-    const ok = await visitAction(visit, "meeting");
-    if (ok) return;
     setBusyId(visit.id);
-    const { error: fallbackError } = await supabase
+    setError("");
+    const { data, error: rpcError } = await supabase.rpc("field_visit_action_v6", {
+      p_visit_id: visit.id, p_action: "meeting", p_lat: null, p_lng: null,
+      p_person_met: null, p_outcome: null, p_completion_notes: null, p_next_followup_at: null,
+    });
+    if (!rpcError) {
+      setBusyId(null);
+      setVisits((prev) => prev.map((v) => v.id === visit.id ? { ...v, ...(data || {}), status: "meeting" } : v));
+      await load(true);
+      return;
+    }
+
+    // Compatibility fallback for a database that has not received v8 yet.
+    const { data: updated, error: fallbackError } = await supabase
       .from("field_visits")
       .update({ status: "meeting", meeting_started_at: new Date().toISOString() })
       .eq("id", visit.id)
-      .eq("employee_id", me?.id || "");
+      .eq("employee_id", me?.id || "")
+      .select("id,status,meeting_started_at")
+      .maybeSingle();
     setBusyId(null);
-    if (fallbackError) {
-      setError(`Start Meeting failed: ${fallbackError.message}. Please ask your administrator to apply the latest Field Visit database update.`);
+
+    if (fallbackError || !updated || updated.status !== "meeting") {
+      const detail = fallbackError?.message || rpcError.message || "Database did not confirm the meeting state.";
+      setError(`Start Meeting failed: ${detail}`);
       return;
     }
+
+    setVisits((prev) => prev.map((v) => v.id === visit.id ? { ...v, ...updated } : v));
     setError("");
     await load(true);
   };
