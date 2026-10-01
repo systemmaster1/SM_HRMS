@@ -549,6 +549,15 @@ export default function FieldVisitsPage() {
         }
       />
 
+      {error && !open && !settingsOpen && !completionVisit && (
+        <div role="alert" className="mb-5 rounded-2xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-800 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div><p className="font-bold">Action could not be completed</p><p className="mt-1 break-words">{error}</p></div>
+            <button type="button" onClick={() => setError("")} className="rounded-lg border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold">Dismiss</button>
+          </div>
+        </div>
+      )}
+
       {!manager && (
         <div className="mb-5 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
