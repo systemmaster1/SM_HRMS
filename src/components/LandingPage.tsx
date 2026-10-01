@@ -57,7 +57,8 @@ const modules = [
   { icon: FileText, label: "Policies" },
   { icon: BarChart3, label: "Reports" },
   { icon: Bell, label: "Notifications" },
-  { icon: Sheet, label: "Exports" },\n  { icon: Bot, label: "AI Assistant" },
+  { icon: Sheet, label: "Exports" },
+  { icon: Bot, label: "AI Assistant" },
 ];
 
 
@@ -83,7 +84,8 @@ const workflowFeatures = [
   "Employee directory, documents & KYC",
   "Help desk tickets & notifications",
   "Multi-branch, departments & reporting hierarchy",
-  "CSV exports + Google Sheets backup integration",\n  "SM AI Assistant for authorized HRMS questions",
+  "CSV exports + Google Sheets backup integration",
+  "SM AI Assistant for authorized HRMS questions",
 ];
 
 export default function LandingPage() {
