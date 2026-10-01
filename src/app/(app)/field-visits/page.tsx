@@ -256,6 +256,11 @@ export default function FieldVisitsPage() {
 
   const completeVisit = async () => {
     if (!completionVisit) return;
+    setError("");
+    if (!completion.person_met.trim()) return setError("Please enter the person met.");
+    if (!completion.outcome) return setError("Please select the visit outcome.");
+    if (!completion.completion_notes.trim()) return setError("Please add a short visit note.");
+    if (completion.outcome === "follow_up_required" && !completion.next_followup_at) return setError("Please select the next follow-up date and time.");
     const ok = await visitAction(completionVisit, "complete", completion);
     if (!ok) return;
     setCompletionVisit(null);
@@ -883,11 +888,12 @@ export default function FieldVisitsPage() {
       </div></div>}
 
       <Modal open={!!completionVisit} onClose={() => setCompletionVisit(null)} title="Complete field visit"><div className="space-y-4">
-        <div><label className="text-sm font-medium text-slate-700">Person met</label><input className={`mt-1.5 ${inputCls}`} value={completion.person_met} onChange={(e) => setCompletion((p) => ({ ...p, person_met: e.target.value }))} placeholder="Mr. Rajesh Sharma" /></div>
-        <div><label className="text-sm font-medium text-slate-700">Outcome</label><select className={`mt-1.5 ${inputCls}`} value={completion.outcome} onChange={(e) => setCompletion((p) => ({ ...p, outcome: e.target.value }))}><option value="successful">Successful</option><option value="follow_up_required">Follow-up required</option><option value="client_not_available">Client not available</option><option value="no_response">No response</option><option value="cancelled">Cancelled</option></select></div>
-        <div><label className="text-sm font-medium text-slate-700">Visit notes</label><textarea className={`mt-1.5 min-h-24 ${inputCls}`} value={completion.completion_notes} onChange={(e) => setCompletion((p) => ({ ...p, completion_notes: e.target.value }))} placeholder="What happened in the meeting?" /></div>
-        <div><label className="text-sm font-medium text-slate-700">Next follow-up</label><input type="datetime-local" className={`mt-1.5 ${inputCls}`} value={completion.next_followup_at} onChange={(e) => setCompletion((p) => ({ ...p, next_followup_at: e.target.value }))} /></div>
-        <button onClick={completeVisit} disabled={!!busyId} className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 py-2.5 font-medium text-white"><CheckCircle2 className="h-4 w-4" /> Save & complete</button>
+        <div className="rounded-xl bg-emerald-50 p-3"><p className="text-xs font-semibold text-emerald-800">Final step</p><p className="mt-1 text-xs text-emerald-700">Record the meeting result so your next follow-up is clear.</p></div>
+        <div><label className="text-sm font-medium text-slate-700">1. Person Met *</label><input className={`mt-1.5 ${inputCls}`} value={completion.person_met} onChange={(e) => setCompletion((p) => ({ ...p, person_met: e.target.value }))} placeholder="Mr. Rajesh Sharma" /></div>
+        <div><label className="text-sm font-medium text-slate-700">2. Outcome *</label><select className={`mt-1.5 ${inputCls}`} value={completion.outcome} onChange={(e) => setCompletion((p) => ({ ...p, outcome: e.target.value, next_followup_at: e.target.value === "follow_up_required" ? p.next_followup_at : "" }))}><option value="successful">Successful</option><option value="follow_up_required">Follow-up required</option><option value="client_not_available">Client not available</option><option value="no_response">No response</option><option value="cancelled">Cancelled</option></select></div>
+        <div><label className="text-sm font-medium text-slate-700">3. Visit Notes *</label><textarea className={`mt-1.5 min-h-24 ${inputCls}`} value={completion.completion_notes} onChange={(e) => setCompletion((p) => ({ ...p, completion_notes: e.target.value }))} placeholder="What happened and what was agreed?" /></div>
+        {completion.outcome === "follow_up_required" && <div><label className="text-sm font-medium text-slate-700">4. Next Follow-up *</label><input type="datetime-local" className={`mt-1.5 ${inputCls}`} value={completion.next_followup_at} onChange={(e) => setCompletion((p) => ({ ...p, next_followup_at: e.target.value }))} /><p className="mt-1 text-xs text-slate-500">Required because this visit needs another follow-up.</p></div>}
+        <button onClick={completeVisit} disabled={!!busyId} className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 font-semibold text-white disabled:opacity-60"><CheckCircle2 className="h-4 w-4" /> {busyId ? "Saving…" : "Complete Visit"}</button>
       </div></Modal>
     </div>
   );
