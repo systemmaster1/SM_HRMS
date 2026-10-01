@@ -20,9 +20,12 @@ export default function SupportCenterTab({onOpenOrg}:{onOpenOrg:(id:string)=>voi
  const updateTicket=async(r:any,patch:any)=>{const {error}=await supabase.rpc("system_admin_update_support_ticket",{
   p_ticket:r.id,p_status:patch.status??null,p_priority:patch.priority??null,p_plan:patch.plan??null,p_target_date:patch.target_date??null});
   if(error)return toast(error.message,"error");toast("Ticket updated.");load();};
- const updateMeeting=async(r:any,patch:any)=>{const {error}=await supabase.rpc("system_admin_update_support_meeting",{
-  p_meeting:r.id,p_status:patch.status??null,p_meeting_url:patch.meeting_url??null,p_notes:patch.internal_notes??null});
-  if(error)return toast(error.message,"error");toast("Meeting updated.");load();};
+ const updateMeeting=async(r:any,patch:any)=>{
+  const {data:{session}}=await supabase.auth.getSession(); if(!session)return toast("Session expired. Please sign in again.","error");
+  const res=await fetch("/api/system-admin/support-meeting",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({meetingId:r.id,status:patch.status,meetingUrl:patch.meeting_url,notes:patch.internal_notes})});
+  const data=await res.json(); if(!res.ok)return toast(data.error||"Meeting update failed.","error");
+  toast(data.emailError?"Meeting updated, but email could not be sent.":"Meeting updated and client notified."); load();
+ };
  const open=tickets.filter(x=>["open","in_progress"].includes(x.status)).length;
  const upcoming=meetings.filter(x=>!["completed","cancelled"].includes(x.status)&&new Date(x.ends_at)>=new Date()).length;
  return <div className="space-y-6">
