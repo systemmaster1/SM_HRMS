@@ -3,15 +3,17 @@ import { MapPin, Users, CalendarCheck, Plane } from "lucide-react";
 import { canManageTeam, isAdminRole, type Role } from "@/lib/types";
 import DashboardClient from "@/components/DashboardClient";
 import { todayYMD } from "@/lib/date";
+import { redirect } from "next/navigation";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login?reason=session");
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("full_name, role, id")
-    .eq("id", user!.id)
+    .eq("id", user.id)
     .single();
 
   const admin = isAdminRole(profile?.role as Role);
@@ -20,8 +22,8 @@ export default async function DashboardPage() {
   const today = todayYMD(); // server runs in UTC - always use IST
 
   let teamQuery = supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active");
-  if (manager) teamQuery = teamQuery.eq("manager_id", user!.id);
-  if (!teamView) teamQuery = teamQuery.eq("id", user!.id);
+  if (manager) teamQuery = teamQuery.eq("manager_id", user.id);
+  if (!teamView) teamQuery = teamQuery.eq("id", user.id);
 
   const [team, present, onField, onLeave, tracked, completedVisits, liveLocations] = await Promise.all([
     teamQuery,
