@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LogoMark, LogoFull } from "@/components/Logo";
 import {
   LogIn, ArrowLeft, CalendarCheck, ListChecks, MapPin,
-  BarChart3, ShieldCheck, Repeat,
+  BarChart3, ShieldCheck, Repeat, Eye, EyeOff,
 } from "lucide-react";
 
 const inputCls =
@@ -27,6 +27,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -185,14 +186,25 @@ export default function LoginPage() {
                   Forgot password?
                 </Link>
               </div>
-              <input
-                type="password"
-                className={`mt-1.5 ${inputCls}`}
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <div className="relative mt-1.5">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className={`${inputCls} pr-12`}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute inset-y-0 right-0 grid w-12 place-items-center text-slate-400 transition hover:text-brand-600"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
 
             {error && (
