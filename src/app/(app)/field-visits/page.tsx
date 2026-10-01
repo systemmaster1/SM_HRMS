@@ -270,7 +270,26 @@ export default function FieldVisitsPage() {
   const accept = (visit: any) => visitAction(visit, "accept");
   const start = (visit: any) => visitAction(visit, "start_travel");
   const checkIn = (visit: any) => visitAction(visit, "check_in");
-  const beginMeeting = (visit: any) => visitAction(visit, "meeting");
+  const beginMeeting = async (visit: any) => {
+    // Primary path is the shared lifecycle RPC. Some older production DBs may
+    // still have a pre-meeting version of that RPC, so keep a safe RLS-scoped
+    // fallback until every tenant database has the repair migration applied.
+    const ok = await visitAction(visit, "meeting");
+    if (ok) return;
+    setBusyId(visit.id);
+    const { error: fallbackError } = await supabase
+      .from("field_visits")
+      .update({ status: "meeting", meeting_started_at: new Date().toISOString() })
+      .eq("id", visit.id)
+      .eq("employee_id", me?.id || "");
+    setBusyId(null);
+    if (fallbackError) {
+      setError(`Start Meeting failed: ${fallbackError.message}. Please ask your administrator to apply the latest Field Visit database update.`);
+      return;
+    }
+    setError("");
+    await load(true);
+  };
 
   const completeVisit = async () => {
     if (!completionVisit) return;
