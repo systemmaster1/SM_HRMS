@@ -1,0 +1,14 @@
+import { sendGmailMessage } from "@/lib/gmail";
+
+const esc=(v:unknown)=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]||c));
+const when=(v:string)=>new Intl.DateTimeFormat("en-IN",{timeZone:"Asia/Kolkata",dateStyle:"full",timeStyle:"short"}).format(new Date(v));
+function shell(title:string,intro:string,body:string){
+ return '<!doctype html><html><body style="margin:0;background:#f4f7fb;font-family:Arial,sans-serif;color:#0f172a"><table width="100%" cellpadding="0" cellspacing="0" style="padding:28px 12px"><tr><td align="center"><table width="620" cellpadding="0" cellspacing="0" style="max-width:620px;width:100%;background:#fff;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden"><tr><td style="padding:24px 28px;background:#0f2747;color:#fff"><div style="font-size:12px;letter-spacing:1.4px;text-transform:uppercase;opacity:.8">SystemMaster Automations</div><h1 style="margin:7px 0 0;font-size:22px">'+esc(title)+'</h1></td></tr><tr><td style="padding:28px"><p style="margin:0 0 18px;line-height:1.65;color:#475569">'+esc(intro)+'</p>'+body+'<p style="margin:26px 0 0;font-size:12px;line-height:1.6;color:#64748b">This is an automated SM HRMS support notification. For assistance, contact <b>connect@systemmaster.in</b>.</p></td></tr></table></td></tr></table></body></html>';
+}
+function button(url?:string|null){return url?'<p style="margin:24px 0"><a href="'+esc(url)+'" style="display:inline-block;background:#1d4ed8;color:#fff;text-decoration:none;padding:12px 20px;border-radius:9px;font-weight:700">Join Meeting</a></p>':""}
+export async function sendSupportMeetingEmail(input:{to:string;attendeeName?:string|null;orgName?:string|null;title:string;startsAt:string;endsAt:string;meetingUrl?:string|null;kind:"confirmed"|"reminder_60"|"reminder_10"|"rescheduled"|"cancelled"}){
+ const names={confirmed:"Meeting Confirmed",reminder_60:"Meeting Reminder · 1 Hour",reminder_10:"Meeting Reminder · 10 Minutes",rescheduled:"Meeting Rescheduled",cancelled:"Meeting Cancelled"} as const;
+ const intros={confirmed:"Your SM HRMS support meeting has been scheduled successfully.",reminder_60:"Your SM HRMS support meeting starts in about 1 hour.",reminder_10:"Your SM HRMS support meeting starts in about 10 minutes.",rescheduled:"Your SM HRMS support meeting schedule has been updated.",cancelled:"Your SM HRMS support meeting has been cancelled."} as const;
+ const body='<div style="border:1px solid #e2e8f0;border-radius:12px;padding:18px"><p style="margin:0 0 10px"><b>'+esc(input.title)+'</b></p><p style="margin:6px 0;color:#475569">Date & time: '+esc(when(input.startsAt))+' IST</p>'+(input.orgName?'<p style="margin:6px 0;color:#475569">Organization: '+esc(input.orgName)+'</p>':"")+'</div>'+(input.kind!=="cancelled"?button(input.meetingUrl):"");
+ return sendGmailMessage(input.to,names[input.kind]+" · SM HRMS",shell(names[input.kind],intros[input.kind],body));
+}
