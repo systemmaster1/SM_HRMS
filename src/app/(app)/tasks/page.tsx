@@ -312,13 +312,15 @@ export default function TasksPage() {
 
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) { setLoading(false); return; }
     const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+      .from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
+    if (!p?.company_id) { setLoading(false); return; }
     setMe(p as Profile);
 
     if (isAdminRole((p as Profile)?.role)) {
       const [{ data: c }, { data: m }, { data: dpts }] = await Promise.all([
-        supabase.from("companies").select("*").eq("id", (p as Profile)!.company_id).single(),
+        supabase.from("companies").select("*").eq("id", (p as Profile).company_id).single(),
         supabase.from("profiles").select("*").eq("status", "active").order("full_name"),
         supabase.from("departments").select("*").order("name"),
       ]);
