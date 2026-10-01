@@ -1,8 +1,8 @@
-# SM HRMS — Google Play release checklist (Android 1.7.0)
+# SM HRMS — Google Play release checklist (Android 1.8.2)
 
 ## Build
 - Package: `in.systemmaster.hrms`
-- Version: 1.7.0 (versionCode 8)
+- Version: 1.8.2 (versionCode 11)
 - compileSdk / targetSdk: 36
 - GitHub workflow builds both signed APK and signed AAB.
 - Play artifact: GitHub Actions artifact `SM-HRMS-PlayStore-AAB`.
@@ -16,5 +16,9 @@
 6. Complete Play Console App content, Data safety and background-location declaration using the drafts in this folder.
 7. Upload the AAB first to Internal testing. Complete a real-device smoke test before Production.
 
-## HOLD
-AUTH-SMTP / Forgot Password email OTP remains on hold and must not be represented as complete.
+## Current release status
+- Email OTP signup/reset and admin 2FA are live; verify once on the final signed build.
+- Native app opens the branded Sign In screen instead of the marketing landing page.
+- Public account-deletion page: `/delete-account`.
+- Duty-time background-location disclosure is shown on Attendance for tracking-enabled employees.
+- Official SM HRMS launcher/splash PNG assets still need to be placed in Android resources before the final Play Store AAB.
