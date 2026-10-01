@@ -485,29 +485,29 @@ export default function LandingPage() {
           <p className="text-sm font-semibold uppercase tracking-wide text-brand-600 dark:text-brand-300">Pricing</p>
           <h2 className="mt-2 text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Choose the plan that fits your team</h2>
           <p className="mx-auto mt-3 max-w-2xl text-slate-500 dark:text-slate-400">
-            Transparent per-user pricing. Start with core HR and add field operations, automation and enterprise controls as you grow.
+            Start free and upgrade as your team grows. Paid plans add payroll, tasks, field operations, advanced reporting and SM AI Assistant.
           </p>
         </FadeIn>
         <div className="mt-10 grid gap-5 text-left md:grid-cols-2 xl:grid-cols-4">
           {[
-            {name:"Starter",price:"₹29",tag:"HR essentials",features:["Attendance + GPS/selfie","Leave & employee self-service","Directory & documents","App + Web","Notifications"]},
-            {name:"Business",price:"₹79",tag:"Growing teams",features:["Everything in Starter","Tasks + subtasks + comments","Recurring checklists","Payroll & payslips","Reports + CSV export"],popular:true},
-            {name:"Pro",price:"₹99",tag:"Field & sales teams",features:["Everything in Business","Live field tracking","Client visit workflow","Manager team visibility","Google Sheets backup"]},
-            {name:"Enterprise",price:"From ₹149",tag:"Advanced control",features:["Everything in Pro","Multi-branch controls","Advanced role permissions","Priority onboarding/support","Custom integrations & workflows"]},
+            {name:"SM Free",price:"₹0",tag:"Up to 5 users · 90 days",features:["Attendance IN / OUT","Leave management","Basic employee management","Basic attendance reports","Ads included","AI Assistant: Not included"]},
+            {name:"SM Pro",price:"Subscription",tag:"Up to 10 users",features:["Everything in SM Free","Payroll & payslips","Task management","Better reports","Ad-free","AI Assistant: Included"],popular:true},
+            {name:"SM Business",price:"Subscription",tag:"Up to 30 users",features:["Everything in SM Pro","Task delegation + checklists","Field tracking + visits","Advanced reports","Ad-free","AI Assistant: Included"]},
+            {name:"SM Enterprise",price:"Custom",tag:"Unlimited* users",features:["Everything in SM Business","Custom workflows & integrations","Custom reports","Advanced controls","Ad-free","AI Assistant: Included + configurable access"]},
           ].map((p) => (
             <div key={p.name} className={`relative rounded-2xl border bg-white p-6 shadow-card dark:bg-slate-800 ${p.popular ? "border-2 border-brand-600" : "border-slate-200 dark:border-slate-700"}`}>
               {p.popular && <span className="absolute -top-3 left-5 rounded-full bg-brand-600 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-white">Popular</span>}
               <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{p.name}</p>
               <p className="mt-1 text-xs text-slate-500">{p.tag}</p>
-              <p className="mt-5"><span className="text-4xl font-bold">{p.price}</span><span className="text-xs text-slate-400"> / user / month</span></p>
+              <p className="mt-5"><span className="text-4xl font-bold">{p.price}</span>{p.price === "₹0" && <span className="text-xs text-slate-400"> / 90 days</span>}</p>
               <ul className="mt-5 space-y-2.5 text-sm text-slate-600 dark:text-slate-300">
                 {p.features.map(f => <li key={f} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600"/>{f}</li>)}
               </ul>
-              <Link href="/signup" className="mt-6 flex w-full items-center justify-center rounded-lg bg-accent-gradient py-2.5 text-sm font-semibold text-white">Start 7-day trial</Link>
+              <Link href="/signup" className="mt-6 flex w-full items-center justify-center rounded-lg bg-accent-gradient py-2.5 text-sm font-semibold text-white">{p.name === "SM Free" ? "Start free" : "Get started"}</Link>
             </div>
           ))}
         </div>
-        <p className="mt-5 text-xs text-slate-400">Taxes, onboarding scope and custom integrations may vary by organization. Final commercial terms are confirmed before activation.</p>
+        <p className="mt-5 text-xs text-slate-400">*Enterprise supports technically high/unlimited users subject to deployment terms. Paid subscription pricing and onboarding scope are confirmed before activation.</p>
       </section>
 
       {/* Roadmap */}
