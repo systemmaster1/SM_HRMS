@@ -12,6 +12,7 @@ import {
   ArrowLeft,
   CreditCard,
   UserCog,
+  LifeBuoy,
   ExternalLink,
   LogOut,
 } from "lucide-react";
@@ -21,6 +22,7 @@ import OrganizationsTab from "@/components/sysadmin/OrganizationsTab";
 import AccountsTab from "@/components/sysadmin/AccountsTab";
 import BillingTab from "@/components/sysadmin/BillingTab";
 import RequestsTab from "@/components/sysadmin/RequestsTab";
+import SupportCenterTab from "@/components/sysadmin/SupportCenterTab";
 import FeaturesTab from "@/components/sysadmin/FeaturesTab";
 import AuditTab from "@/components/sysadmin/AuditTab";
 import OrgDrawer from "@/components/sysadmin/OrgDrawer";
@@ -31,6 +33,7 @@ type Tab =
   | "accounts"
   | "billing"
   | "requests"
+  | "support"
   | "features"
   | "audit";
 
@@ -70,6 +73,12 @@ const TABS: TabItem[] = [
     key: "requests",
     label: "Module Requests",
     icon: Inbox,
+    ready: true,
+  },
+  {
+    key: "support",
+    label: "Help Desk & Meetings",
+    icon: LifeBuoy,
     ready: true,
   },
   {
@@ -270,6 +279,10 @@ export default function SystemAdminPage() {
           <RequestsTab
             onOpenOrg={openOrganization}
           />
+        )}
+
+        {tab === "support" && (
+          <SupportCenterTab onOpenOrg={openOrganization} />
         )}
 
         {/* =====================================================
