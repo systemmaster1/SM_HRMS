@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { friendlyError } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
 import { FadeIn, StaggerGroup, StaggerItem, HoverLift, MotionButton, SkeletonRows, motion } from "@/components/motion";
@@ -126,6 +127,7 @@ export default function LeavePage() {
   const isSingle = ["first_half", "second_half", "short_morning", "short_evening"].includes(f.day_type);
 
   const apply = async () => {
+    if (saving) return; // prevent double submit
     setError("");
     if (!f.from_date) return setError("Please select a date.");
     if (isFullDay && !f.to_date) return setError("Please select the end date.");
@@ -152,7 +154,7 @@ export default function LeavePage() {
       buddy_note: f.buddy_note,
     }).select().single();
 
-    if (err) { setSaving(false); return setError(err.message); }
+    if (err) { setSaving(false); return setError(friendlyError(err, "submit the leave request")); }
 
     // Notify the reporting manager. If none is configured, fall back to
     // active company admins/owners only. Keep recipients company-scoped and

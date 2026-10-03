@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { friendlyError } from "@/lib/errors";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
@@ -196,6 +197,7 @@ export default function FieldVisitsPage() {
   }, [load, me?.company_id, me?.role, supabase]);
 
   const create = async () => {
+    if (saving) return; // prevent double submit
     setError("");
     if (!f.client_name.trim()) return setError("Please enter the client or site name.");
     const missingCustom = visitCustomFields.find((field: any) => {
@@ -225,7 +227,7 @@ export default function FieldVisitsPage() {
       status: assignee === me.id ? "planned" : "assigned",
     });
     setSaving(false);
-    if (insertError) return setError(insertError.message);
+    if (insertError) return setError(friendlyError(insertError, "save the visit"));
     setOpen(false);
     setF({ client_name: "", company_name: "", contact_person: "", contact_number: "", contact_email: "", purpose: "", address: "", visit_date: todayYMD(), scheduled_at: "", target_duration_minutes: "60", employee_id: "" });
     setCustomValues({});
@@ -233,6 +235,7 @@ export default function FieldVisitsPage() {
   };
 
   const visitAction = async (visit: any, action: string, extra: Record<string, unknown> = {}) => {
+    if (busyId) return false; // prevent double taps sending the action twice
     setBusyId(visit.id); setError("");
     let lat: number | null = null, lng: number | null = null;
     if (["start_travel","check_in"].includes(action)) {
@@ -263,45 +266,30 @@ export default function FieldVisitsPage() {
       p_next_followup_at: extra.next_followup_at ? new Date(String(extra.next_followup_at)).toISOString() : null,
     });
     setBusyId(null);
-    if (e) { setError(`Visit action failed: ${e.message}`); return false; }
+    if (e) { setError(`Visit action failed: ${friendlyError(e, "update the visit")}`); return false; }
     await load(true); return true;
   };
 
   const accept = (visit: any) => visitAction(visit, "accept");
   const start = (visit: any) => visitAction(visit, "start_travel");
   const checkIn = (visit: any) => visitAction(visit, "check_in");
+  // Start Meeting goes ONLY through the server lifecycle RPC. The old direct
+  // table-update fallback skipped the status rules and used the phone clock,
+  // which allowed invalid transitions; it has been removed on purpose.
   const beginMeeting = async (visit: any) => {
+    if (busyId) return;
     setBusyId(visit.id);
     setError("");
     const { data, error: rpcError } = await supabase.rpc("field_visit_action_v6", {
       p_visit_id: visit.id, p_action: "meeting", p_lat: null, p_lng: null,
       p_person_met: null, p_outcome: null, p_completion_notes: null, p_next_followup_at: null,
     });
-    if (!rpcError) {
-      setBusyId(null);
-      setVisits((prev) => prev.map((v) => v.id === visit.id ? { ...v, ...(data || {}), status: "meeting" } : v));
-      await load(true);
-      return;
-    }
-
-    // Compatibility fallback for a database that has not received v8 yet.
-    const { data: updated, error: fallbackError } = await supabase
-      .from("field_visits")
-      .update({ status: "meeting", meeting_started_at: new Date().toISOString() })
-      .eq("id", visit.id)
-      .eq("employee_id", me?.id || "")
-      .select("id,status,meeting_started_at")
-      .maybeSingle();
     setBusyId(null);
-
-    if (fallbackError || !updated || updated.status !== "meeting") {
-      const detail = fallbackError?.message || rpcError.message || "Database did not confirm the meeting state.";
-      setError(`Start Meeting failed: ${detail}`);
+    if (rpcError) {
+      setError(`Start Meeting failed: ${friendlyError(rpcError, "start the meeting")}`);
       return;
     }
-
-    setVisits((prev) => prev.map((v) => v.id === visit.id ? { ...v, ...updated } : v));
-    setError("");
+    setVisits((prev) => prev.map((v) => v.id === visit.id ? { ...v, ...(data || {}), status: "meeting" } : v));
     await load(true);
   };
 
