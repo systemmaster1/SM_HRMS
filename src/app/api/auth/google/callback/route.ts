@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isVerifiedPlatformAdmin } from "@/lib/server/org-actor";
 
 const REDIRECT_URI =
   "https://hrms.systemmaster.in/api/auth/google/callback";
@@ -43,6 +44,9 @@ function page(title: string, body: string, status = 200) {
 }
 
 export async function GET(request: Request) {
+  if (!(await isVerifiedPlatformAdmin({ require2fa: false }))) {
+    return page("Not available", "<p>This page is not available.</p>", 404);
+  }
   const url = new URL(request.url);
 
   const code = url.searchParams.get("code");

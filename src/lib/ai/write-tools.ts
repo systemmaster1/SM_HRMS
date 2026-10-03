@@ -7,6 +7,13 @@ const AssignTask=z.object({employee_id:z.string().uuid(),title:z.string().trim()
 const UpdateDue=z.object({task_id:z.string().uuid(),due_date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),due_time:z.string().regex(/^\d{2}:\d{2}/).optional()});
 const SupportTicket=z.object({subject:z.string().trim().min(1).max(200),description:z.string().max(4000).optional(),category:z.enum(["general","it","hr","payroll","facilities","other"]).default("general"),priority:z.enum(["low","medium","high","urgent"]).default("medium"),meeting_required:z.boolean().default(false)});
 const SupportMeeting=z.object({title:z.string().trim().min(1).max(200).default("SM HRMS support meeting"),description:z.string().max(3000).optional(),starts_at:z.string().min(1),ends_at:z.string().optional(),ticket_id:z.string().uuid().optional(),attendee_email:z.string().email().optional(),attendee_name:z.string().max(200).optional()});
+/** Re-validates a stored payload at execution time (rows are user-writable under RLS). */
+export function validateActionPayload(action:string,payload:unknown):any{
+ const schema=action==="assign_task"?AssignTask:action==="update_task_due"?UpdateDue:action==="raise_support_ticket"?SupportTicket:action==="request_support_meeting"?SupportMeeting.extend({ends_at:z.string().min(1),timezone:z.literal("Asia/Kolkata").optional()}):null;
+ if(!schema)throw new Error("Unsupported action.");
+ const r=schema.safeParse(payload);if(!r.success)throw new Error("This action is no longer valid. Ask SM Assistant to prepare it again.");
+ return r.data;
+}
 export const writeProposalDefinitions:ToolDefinition[]=[
  {name:"propose_assign_task",description:"Prepare a task assignment for explicit user confirmation. Never executes immediately.",parameters:{type:"object",properties:{employee_id:{type:"string"},title:{type:"string"},description:{type:"string"},priority:{type:"string",enum:["low","medium","high","urgent"]},due_date:{type:"string"},due_time:{type:"string"}},required:["employee_id","title","due_date"]}},
  {name:"propose_raise_support_ticket",description:"Prepare an SM HRMS Help Desk ticket from the user's support issue. Requires explicit confirmation before creation.",parameters:{type:"object",properties:{subject:{type:"string"},description:{type:"string"},category:{type:"string",enum:["general","it","hr","payroll","facilities","other"]},priority:{type:"string",enum:["low","medium","high","urgent"]},meeting_required:{type:"boolean"}},required:["subject"]}},

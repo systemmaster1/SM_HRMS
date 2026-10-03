@@ -1,10 +1,15 @@
 import { randomBytes } from "crypto";
 import { NextResponse } from "next/server";
+import { isVerifiedPlatformAdmin } from "@/lib/server/org-actor";
 
 const REDIRECT_URI = "https://hrms.systemmaster.in/api/auth/google/callback";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  // One-time SystemMaster setup tool (Gmail sender). Never open to the public.
+  if (!(await isVerifiedPlatformAdmin())) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const clientId = process.env.GOOGLE_GMAIL_CLIENT_ID;
   if (!clientId) {
     return NextResponse.json({ error: "Gmail OAuth is not configured" }, { status: 500 });

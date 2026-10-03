@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { friendlyError } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
 import { FadeIn, StaggerGroup, StaggerItem, HoverLift, MotionButton, SkeletonRows, motion } from "@/components/motion";
@@ -101,12 +102,14 @@ export default function LeavePage() {
     setLeaves(l || []);
 
     // possible buddies
-    let q = supabase.from("profiles").select("*").eq("status", "active").neq("id", auth.user.id);
+    // Only the fields the buddy picker needs — never pull colleagues' personal
+    // details (bank, address, emergency contacts) into an employee's browser.
+    let q = supabase.from("profiles").select("id, full_name, department, designation").eq("status", "active").neq("id", auth.user.id);
     if (c?.buddy_scope === "department" && p?.department) {
       q = q.eq("department", p.department);
     }
     const { data: co } = await q.order("full_name");
-    setColleagues((co as Profile[]) || []);
+    setColleagues(((co || []) as unknown) as Profile[]);
 
     setLoading(false);
   }, [supabase, year]);
@@ -126,6 +129,7 @@ export default function LeavePage() {
   const isSingle = ["first_half", "second_half", "short_morning", "short_evening"].includes(f.day_type);
 
   const apply = async () => {
+    if (saving) return; // prevent double submit
     setError("");
     if (!f.from_date) return setError("Please select a date.");
     if (isFullDay && !f.to_date) return setError("Please select the end date.");
@@ -152,7 +156,7 @@ export default function LeavePage() {
       buddy_note: f.buddy_note,
     }).select().single();
 
-    if (err) { setSaving(false); return setError(err.message); }
+    if (err) { setSaving(false); return setError(friendlyError(err, "submit the leave request")); }
 
     // Notify the reporting manager. If none is configured, fall back to
     // active company admins/owners only. Keep recipients company-scoped and

@@ -33,6 +33,8 @@ export async function updateSession(request: NextRequest) {
   const publicRoutes = [
     "/login", "/signup", "/forgot-password", "/privacy", "/terms", "/",
     "/download/android",
+    // Google Play requires the account-deletion page to open without signing in.
+    "/delete-account",
   ];
   const isAuthRoute = path === "/login" || path === "/signup";
   const isPublic =

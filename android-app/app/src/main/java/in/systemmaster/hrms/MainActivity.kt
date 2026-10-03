@@ -8,12 +8,14 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.webkit.*
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.firebase.messaging.FirebaseMessaging
@@ -24,9 +26,53 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pageProgress: ProgressBar
     private lateinit var loadingText: TextView
 
+    /**
+     * True while the WebView shows our own web app. The JavaScript bridge
+     * (SMHRMSNative) refuses to work for any other page, so a link to a
+     * look-alike site can never read push tokens or redirect GPS uploads.
+     */
+    @Volatile var trustedPageLoaded: Boolean = false
+        private set
+
+    // Web page asked for location (navigator.geolocation) — answered after
+    // the disclosure dialog and the Android permission prompt.
+    private var pendingGeoOrigin: String? = null
+    private var pendingGeoCallback: GeolocationPermissions.Callback? = null
+    private var locationDisclosureShowing = false
+
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* WebView/native tracker re-checks permissions */ }
+    ) {
+        val granted = hasLocationPermission()
+        pendingGeoCallback?.invoke(pendingGeoOrigin, granted, false)
+        pendingGeoCallback = null
+        pendingGeoOrigin = null
+        if (::webView.isInitialized) {
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('smhrms-location-permission',{detail:${granted}}));", null
+            )
+        }
+    }
+
+    private var backgroundDisclosureShowing = false
+
+    private val backgroundLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (::webView.isInitialized) {
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('smhrms-background-location',{detail:${granted}}));", null
+            )
+        }
+    }
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        if (::webView.isInitialized) {
+            webView.evaluateJavascript("window.dispatchEvent(new Event('smhrms-push-token'));", null)
+        }
+    }
 
     // ---- <input type="file"> support (photo, logo, documents, CSV import) ----
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -80,7 +126,7 @@ class MainActivity : AppCompatActivity() {
         webView.settings.userAgentString =
             webView.settings.userAgentString + " SMHRMS-Android/2.0"
 
-        webView.addJavascriptInterface(NativeBridge(this), "SMHRMSNative")
+        webView.addJavascriptInterface(NativeBridge(this) { trustedPageLoaded }, "SMHRMSNative")
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
@@ -94,6 +140,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                trustedPageLoaded = isAppUrl(url)
                 loadingView.visibility = View.VISIBLE
                 webView.visibility = View.INVISIBLE
                 loadingText.text = "Opening secure workspace…"
@@ -101,7 +148,9 @@ class MainActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
+                trustedPageLoaded = isAppUrl(url)
                 pageProgress.progress = 100
+                maybeAskNotificationPermission(url)
                 view?.evaluateJavascript(
                     "window.__SM_HRMS_NATIVE__=true;window.dispatchEvent(new Event('smhrms-native-ready'));",
                     null
@@ -173,14 +222,27 @@ class MainActivity : AppCompatActivity() {
                 origin: String?,
                 callback: GeolocationPermissions.Callback?
             ) {
-                callback?.invoke(origin, hasLocationPermission(), false)
+                // Only our own web app may use location.
+                if (!isAppUrl(origin)) {
+                    callback?.invoke(origin, false, false)
+                    return
+                }
+                if (hasLocationPermission()) {
+                    callback?.invoke(origin, true, false)
+                    return
+                }
+                // First time: explain, then ask Android for permission.
+                pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                pendingGeoOrigin = origin
+                pendingGeoCallback = callback
+                showLocationDisclosure()
             }
         }
 
         // Native app must open directly to authentication, never the marketing landing page.
         // Existing web session is preserved, so an already signed-in user is redirected to dashboard.
         val initial = linkFrom(intent)
-            ?: intent?.dataString?.takeIf { it.startsWith(BuildConfig.WEB_APP_URL) }
+            ?: intent?.dataString?.takeIf { isAppUrl(it) }
             ?: (BuildConfig.WEB_APP_URL.trimEnd('/') + "/login")
         webView.loadUrl(initial)
     }
@@ -190,7 +252,7 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         val url = linkFrom(intent)
-            ?: intent.dataString?.takeIf { it.startsWith(BuildConfig.WEB_APP_URL) }
+            ?: intent.dataString?.takeIf { isAppUrl(it) }
         if (url != null && ::webView.isInitialized) webView.loadUrl(url)
     }
 
@@ -228,8 +290,122 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Exact origin check. A prefix check would also accept look-alike hosts
+     * such as "https://hrms.systemmaster.in.example.com".
+     */
+    private fun isAppUrl(url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        return try {
+            val u = Uri.parse(url)
+            val app = Uri.parse(BuildConfig.WEB_APP_URL)
+            u.scheme.equals("https", ignoreCase = true) &&
+                u.host.equals(app.host, ignoreCase = true) &&
+                (u.port == -1 || u.port == 443)
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Prominent disclosure shown before Android's location prompt (Google
+     * Play User Data policy). Text must match the Privacy Policy and Data
+     * Safety form.
+     */
+    private fun showLocationDisclosure() {
+        if (locationDisclosureShowing || isFinishing) return
+        locationDisclosureShowing = true
+        AlertDialog.Builder(this)
+            .setTitle("Allow location for attendance and field work")
+            .setMessage(
+                "SM HRMS uses your phone's location to:\n\n" +
+                "• record where you mark Attendance IN / OUT, when your organization requires it\n" +
+                "• check in and out of customer visits\n" +
+                "• if your organization has turned on Field Tracking for you: record your duty route and KM, also in the background with the screen off, ONLY between Attendance IN and Attendance OUT\n\n" +
+                "Tracking stops when you mark Attendance OUT. Your location is visible only to authorized people in your organization (Owner/Admin and your reporting manager). " +
+                "You can turn this off anytime in Android Settings."
+            )
+            .setCancelable(false)
+            .setPositiveButton("Continue") { _, _ ->
+                locationDisclosureShowing = false
+                permissionLauncher.launch(arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ))
+            }
+            .setNegativeButton("Not now") { _, _ ->
+                locationDisclosureShowing = false
+                pendingGeoCallback?.invoke(pendingGeoOrigin, false, false)
+                pendingGeoCallback = null
+                pendingGeoOrigin = null
+            }
+            .show()
+    }
+
+    /**
+     * Second, separate disclosure for "Allow all the time" (background
+     * location). Shown only to employees whose organization has Field
+     * Tracking ON and who are individually enabled for it, after foreground
+     * location is granted. Asked at most once a day if the person declines.
+     */
+    fun requestBackgroundLocationFromBridge() {
+        runOnUiThread {
+            if (Build.VERSION.SDK_INT < 29 || backgroundDisclosureShowing || isFinishing) return@runOnUiThread
+            if (!hasLocationPermission()) return@runOnUiThread
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED) return@runOnUiThread
+            val prefs = getSharedPreferences("sm_hrms_ui", MODE_PRIVATE)
+            val last = prefs.getLong("bg_location_asked_at", 0L)
+            if (System.currentTimeMillis() - last < 24L * 60 * 60 * 1000) return@runOnUiThread
+            prefs.edit().putLong("bg_location_asked_at", System.currentTimeMillis()).apply()
+            backgroundDisclosureShowing = true
+            AlertDialog.Builder(this)
+                .setTitle("Allow duty tracking in the background")
+                .setMessage(
+                    "Your organization has turned on Field Tracking for you.\n\n" +
+                    "To record your duty route and distance (KM) even when the screen is off or you are using another app, " +
+                    "SM HRMS needs location access \"Allow all the time\".\n\n" +
+                    "• Location is collected ONLY between your Attendance IN and Attendance OUT.\n" +
+                    "• A \"Duty Tracking\" notification is always visible while tracking is on.\n" +
+                    "• Tracking stops automatically at Attendance OUT.\n" +
+                    "• Only your organization's Owner/Admin and your reporting manager can see it.\n" +
+                    "• Your organization can switch Field Tracking off; you can change this permission anytime in Android Settings.\n\n" +
+                    "On the next screen choose \"Allow all the time\"."
+                )
+                .setCancelable(false)
+                .setPositiveButton("Continue") { _, _ ->
+                    backgroundDisclosureShowing = false
+                    backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                }
+                .setNegativeButton("Not now") { _, _ -> backgroundDisclosureShowing = false }
+                .show()
+        }
+    }
+
+    /** Called by the bridge when the web app needs location for duty tracking. */
+    fun requestLocationFromBridge() {
+        runOnUiThread { if (!hasLocationPermission()) showLocationDisclosure() }
+    }
+
+    /**
+     * Android 13+ blocks notifications until the user allows them. Ask once,
+     * after sign-in (never on the login/sign-up screens).
+     */
+    private fun maybeAskNotificationPermission(url: String?) {
+        if (Build.VERSION.SDK_INT < 33 || !isAppUrl(url)) return
+        val path = try { Uri.parse(url).path ?: "" } catch (_: Exception) { "" }
+        if (path == "/" || path.startsWith("/login") || path.startsWith("/signup") ||
+            path.startsWith("/forgot-password") || path.startsWith("/onboarding")) return
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED) return
+        val prefs = getSharedPreferences("sm_hrms_ui", MODE_PRIVATE)
+        if (prefs.getBoolean("notif_permission_asked", false)) return
+        prefs.edit().putBoolean("notif_permission_asked", true).apply()
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+
     private fun openExternalIfNeeded(url: String): Boolean {
-        return if (url.startsWith(BuildConfig.WEB_APP_URL)) {
+        return if (isAppUrl(url)) {
             false
         } else {
             try {
@@ -259,7 +435,7 @@ class MainActivity : AppCompatActivity() {
         if (request == null) return
         val origin = request.origin?.toString() ?: ""
         val wantsCamera = request.resources.contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)
-        if (!origin.startsWith(BuildConfig.WEB_APP_URL) || !wantsCamera) {
+        if (!isAppUrl(origin) || !wantsCamera) {
             request.deny()
             return
         }

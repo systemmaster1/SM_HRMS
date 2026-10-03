@@ -7,7 +7,7 @@ export const metadata = {
   description: "How SM HRMS collects, uses and protects your data.",
 };
 
-const LAST_UPDATED = "30 September 2026";
+const LAST_UPDATED = "4 October 2026";
 
 /* A small helper for consistent section headings */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
           <p>We collect only the information needed to run your organization&rsquo;s HR operations:</p>
           <ul className="ml-5 list-disc space-y-1.5">
             <li><strong>Account details</strong> — your name, email address, mobile number, role and department.</li>
-            <li><strong>Location data</strong> — GPS coordinates used for attendance, field visits and, where your organization enables field tracking for your role, duty-time location visibility. Field tracking is bounded by attendance: it can begin only after Attendance IN and stops after Attendance OUT.</li>
+            <li><strong>Location data</strong> — GPS location used for attendance and field visits and, where your organization enables Field Tracking for you, <strong>background location during duty</strong> (between Attendance IN and Attendance OUT). See section 3.</li>
             <li><strong>Photos</strong> — a selfie taken at check-in when your organization enables photo verification.</li>
             <li><strong>Employment records</strong> — attendance, leave, tasks, payroll figures, documents and KYC information added by you or your administrator.</li>
             <li><strong>Device &amp; usage data</strong> — basic technical information such as your IP address and app interactions, used for security and to keep the service working.</li>
@@ -78,12 +78,49 @@ export default function PrivacyPage() {
           <p>We do <strong>not</strong> sell your personal data, and we do not use it for advertising.</p>
         </Section>
 
-        <Section title="3. Location &amp; camera permissions">
+        <Section title="3. Location, background location &amp; camera">
           <p>
-            The app requests <strong>location</strong> and <strong>camera</strong> permissions because attendance and field work may depend on them. If your organization enables field tracking for your role, location may be collected at configured intervals <strong>only while you are on duty</strong> (after Attendance IN and before Attendance OUT), or only during an active field visit if your organization chooses that narrower mode. After Attendance OUT the tracking service records an <strong>Employee Off Duty</strong> state and does not store new GPS coordinates.
+            Location is a core part of SM HRMS: it is how organizations verify attendance and manage field staff.
+            This section explains exactly when and why the app uses it.
           </p>
+
+          <h3 className="pt-1 font-semibold text-slate-800 dark:text-slate-100">a) Attendance and field visits (while you use the app)</h3>
+          <ul className="ml-5 list-disc space-y-1.5">
+            <li>When you mark <strong>Attendance IN / OUT</strong>, your current location can be recorded if your organization requires location for attendance.</li>
+            <li>When you <strong>start travel, check in or complete a customer visit</strong>, your location at that moment is recorded with the visit.</li>
+          </ul>
+
+          <h3 className="pt-1 font-semibold text-slate-800 dark:text-slate-100">b) Field Tracking — location in the background during duty</h3>
           <p>
-            GPS permission denied/unavailable states, silent tracking gaps and later restoration may be recorded for audit and operational reporting. Silent gaps are marked as <strong>inferred</strong> when the server does not receive an expected heartbeat. The camera is used only for user-initiated photo capture such as attendance verification.
+            If your organization uses <strong>Field Tracking</strong> and has enabled it for you, SM HRMS collects your location
+            <strong> in the background</strong> — including when the app is closed, the screen is off or you are using another app —
+            so that your duty route, distance travelled (KM) and visit history are accurate. For this the Android app asks for the
+            location permission <strong>&ldquo;Allow all the time&rdquo;</strong>, after showing an explanation on screen.
+          </p>
+          <ul className="ml-5 list-disc space-y-1.5">
+            <li><strong>When:</strong> only on duty — tracking starts after <strong>Attendance IN</strong> and stops automatically at <strong>Attendance OUT</strong>. No new GPS points are stored while you are off duty.</li>
+            <li><strong>Always visible:</strong> while tracking is running, Android shows a permanent <strong>&ldquo;SM HRMS &bull; Duty Tracking&rdquo;</strong> notification.</li>
+            <li><strong>What is collected:</strong> GPS latitude/longitude, accuracy, speed and direction, time (set by our server), and whether device location/GPS was turned off or unavailable.</li>
+            <li><strong>How often:</strong> at the interval set by your organization (default every 5 minutes).</li>
+            <li><strong>Phone restart:</strong> if the phone restarts while you are on duty, tracking resumes automatically, and it stops at once if the server shows you are no longer on duty.</li>
+            <li><strong>Who can see it:</strong> only your organization&rsquo;s Owner/Admin and your reporting / field manager. It is never visible to other organizations, never sold and never used for advertising.</li>
+          </ul>
+
+          <h3 className="pt-1 font-semibold text-slate-800 dark:text-slate-100">c) Who controls it</h3>
+          <ul className="ml-5 list-disc space-y-1.5">
+            <li><strong>Your organization</strong> can switch the Field Tracking module off for the whole organization, or switch tracking off for individual employees. Organizations that do not use field visits or tracking do not collect background location at all.</li>
+            <li><strong>You</strong> can change or revoke location permission at any time in Android Settings &rarr; Apps &rarr; SM HRMS &rarr; Permissions &rarr; Location. If you do, tracking stops; your organization may still require location for attendance or field visits.</li>
+          </ul>
+
+          <h3 className="pt-1 font-semibold text-slate-800 dark:text-slate-100">d) Tracking status records</h3>
+          <p>
+            For audit and reporting, the app may record when location permission was denied, when GPS was off or unavailable,
+            and when it was restored. Gaps where the server did not receive an expected update are marked as <strong>inferred</strong>.
+          </p>
+
+          <h3 className="pt-1 font-semibold text-slate-800 dark:text-slate-100">e) Camera</h3>
+          <p>
+            The camera is used only when you take a photo yourself, for example a selfie for attendance verification if your organization enables it.
           </p>
         </Section>
 
