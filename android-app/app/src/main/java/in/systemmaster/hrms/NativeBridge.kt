@@ -14,18 +14,42 @@ import androidx.core.view.WindowCompat
 import org.json.JSONObject
 import java.io.File
 
-class NativeBridge(private val activity: Activity) {
+/**
+ * JavaScript bridge exposed as window.SMHRMSNative.
+ * Every method first checks [isTrustedPage]: the bridge only works while the
+ * WebView shows our own web app (exact https host match), never another site.
+ */
+class NativeBridge(
+    private val activity: Activity,
+    private val isTrustedPage: () -> Boolean,
+) {
+    private fun trusted(): Boolean = try { isTrustedPage() } catch (_: Exception) { false }
+
+    /** Only https Supabase endpoints are accepted for the native GPS uploader. */
+    private fun safeConfig(configJson: String): JSONObject? {
+        val json = JSONObject(configJson)
+        val url = json.optString("supabaseUrl")
+        return try {
+            val u = android.net.Uri.parse(url)
+            if (u.scheme.equals("https", true) && !u.host.isNullOrBlank()) json else null
+        } catch (_: Exception) { null }
+    }
+
     @JavascriptInterface
     fun startDutyTracking(configJson: String): String {
+        if (!trusted()) return "error:untrusted_page"
         return try {
-            val json = JSONObject(configJson)
+            val json = safeConfig(configJson) ?: return "error:invalid_config"
             NativePrefs.save(activity, json)
             val intent = Intent(activity, LocationTrackingService::class.java).apply {
                 action = LocationTrackingService.ACTION_START
             }
             val fine = ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
             val coarse = ContextCompat.checkSelfPermission(activity, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-            if (!fine && !coarse) return "permission_required"
+            if (!fine && !coarse) {
+                (activity as? MainActivity)?.requestLocationFromBridge()
+                return "permission_required"
+            }
             try {
                 ContextCompat.startForegroundService(activity, intent)
                 "started"
@@ -44,14 +68,17 @@ class NativeBridge(private val activity: Activity) {
 
     @JavascriptInterface
     fun updateTrackingConfig(configJson: String): String {
+        if (!trusted()) return "error:untrusted_page"
         return try {
-            NativePrefs.save(activity, JSONObject(configJson))
+            val json = safeConfig(configJson) ?: return "error:invalid_config"
+            NativePrefs.save(activity, json)
             "updated"
-        } catch (e: Exception) { "error:${e.message}" }
+        } catch (e: Exception) { "error:config" }
     }
 
     @JavascriptInterface
     fun stopDutyTracking(): String {
+        if (!trusted()) return "error:untrusted_page"
         val intent = Intent(activity, LocationTrackingService::class.java).apply {
             action = LocationTrackingService.ACTION_STOP
         }
@@ -61,7 +88,7 @@ class NativeBridge(private val activity: Activity) {
 
     /** Firebase token of this phone ("" until Firebase has issued one). */
     @JavascriptInterface
-    fun getPushToken(): String = NativePrefs.pushToken(activity)
+    fun getPushToken(): String = if (trusted()) NativePrefs.pushToken(activity) else ""
 
     /** False if the user switched off notifications for SM HRMS. */
     @JavascriptInterface
@@ -77,7 +104,7 @@ class NativeBridge(private val activity: Activity) {
     }
 
     @JavascriptInterface
-    fun getTrackingStatus(): String = JSONObject().apply {
+    fun getTrackingStatus(): String = if (!trusted()) "{}" else JSONObject().apply {
         put("native", true)
         put("running", NativePrefs.isRunning(activity))
         put("lastUploadAt", NativePrefs.lastUploadAt(activity))
@@ -92,6 +119,7 @@ class NativeBridge(private val activity: Activity) {
      */
     @JavascriptInterface
     fun saveFile(fileName: String, mimeType: String, base64: String): String {
+        if (!trusted()) return "error:untrusted_page"
         return try {
             val safe = fileName.replace(Regex("[^A-Za-z0-9._ -]"), "_").take(120).ifBlank { "export" }
             val dir = File(activity.cacheDir, "exports").apply { mkdirs() }
@@ -115,7 +143,7 @@ class NativeBridge(private val activity: Activity) {
             }
             "saved"
         } catch (e: Exception) {
-            "error:${e.message}"
+            "error:save_failed"
         }
     }
 
