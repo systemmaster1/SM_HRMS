@@ -67,3 +67,21 @@ export async function idsBelongToCompany(
   if (error) return false;
   return (data || []).length === wanted.length;
 }
+
+/**
+ * True only for a signed-in platform (SystemMaster) administrator who has
+ * completed System Admin 2-step verification in this browser.
+ * `require2fa:false` is only for OAuth redirect callbacks: the 2FA cookie is
+ * SameSite=Strict and is not sent on the cross-site redirect back from Google
+ * (the flow is still bound to the browser by the OAuth state cookie).
+ */
+export async function isVerifiedPlatformAdmin(opts: { require2fa?: boolean } = {}): Promise<boolean> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+  const { data: allowed, error } = await supabase.rpc("is_platform_admin");
+  if (error || allowed !== true) return false;
+  if (opts.require2fa === false) return true;
+  const { hasVerifiedSystemAdmin2fa } = await import("@/lib/system-admin-2fa");
+  return hasVerifiedSystemAdmin2fa(user.id);
+}
