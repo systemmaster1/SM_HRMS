@@ -54,6 +54,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private var backgroundDisclosureShowing = false
+
+    private val backgroundLocationLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (::webView.isInitialized) {
+            webView.evaluateJavascript(
+                "window.dispatchEvent(new CustomEvent('smhrms-background-location',{detail:${granted}}));", null
+            )
+        }
+    }
+
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {
@@ -309,7 +321,7 @@ class MainActivity : AppCompatActivity() {
                 "SM HRMS uses your phone's location to:\n\n" +
                 "• record where you mark Attendance IN / OUT, when your organization requires it\n" +
                 "• check in and out of customer visits\n" +
-                "• show your route to your manager ONLY while you are on duty, if your organization has enabled field tracking for you\n\n" +
+                "• if your organization has turned on Field Tracking for you: record your duty route and KM, also in the background with the screen off, ONLY between Attendance IN and Attendance OUT\n\n" +
                 "Tracking stops when you mark Attendance OUT. Your location is visible only to authorized people in your organization (Owner/Admin and your reporting manager). " +
                 "You can turn this off anytime in Android Settings."
             )
@@ -328,6 +340,46 @@ class MainActivity : AppCompatActivity() {
                 pendingGeoOrigin = null
             }
             .show()
+    }
+
+    /**
+     * Second, separate disclosure for "Allow all the time" (background
+     * location). Shown only to employees whose organization has Field
+     * Tracking ON and who are individually enabled for it, after foreground
+     * location is granted. Asked at most once a day if the person declines.
+     */
+    fun requestBackgroundLocationFromBridge() {
+        runOnUiThread {
+            if (Build.VERSION.SDK_INT < 29 || backgroundDisclosureShowing || isFinishing) return@runOnUiThread
+            if (!hasLocationPermission()) return@runOnUiThread
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_BACKGROUND_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED) return@runOnUiThread
+            val prefs = getSharedPreferences("sm_hrms_ui", MODE_PRIVATE)
+            val last = prefs.getLong("bg_location_asked_at", 0L)
+            if (System.currentTimeMillis() - last < 24L * 60 * 60 * 1000) return@runOnUiThread
+            prefs.edit().putLong("bg_location_asked_at", System.currentTimeMillis()).apply()
+            backgroundDisclosureShowing = true
+            AlertDialog.Builder(this)
+                .setTitle("Allow duty tracking in the background")
+                .setMessage(
+                    "Your organization has turned on Field Tracking for you.\n\n" +
+                    "To record your duty route and distance (KM) even when the screen is off or you are using another app, " +
+                    "SM HRMS needs location access \"Allow all the time\".\n\n" +
+                    "• Location is collected ONLY between your Attendance IN and Attendance OUT.\n" +
+                    "• A \"Duty Tracking\" notification is always visible while tracking is on.\n" +
+                    "• Tracking stops automatically at Attendance OUT.\n" +
+                    "• Only your organization's Owner/Admin and your reporting manager can see it.\n" +
+                    "• Your organization can switch Field Tracking off; you can change this permission anytime in Android Settings.\n\n" +
+                    "On the next screen choose \"Allow all the time\"."
+                )
+                .setCancelable(false)
+                .setPositiveButton("Continue") { _, _ ->
+                    backgroundDisclosureShowing = false
+                    backgroundLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                }
+                .setNegativeButton("Not now") { _, _ -> backgroundDisclosureShowing = false }
+                .show()
+        }
     }
 
     /** Called by the bridge when the web app needs location for duty tracking. */

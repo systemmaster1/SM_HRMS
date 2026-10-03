@@ -11,8 +11,8 @@ _Last updated: 4 Oct 2026 · branch `hardening/phase-1-2-audit-p0`_
 | 3 | Production web build | PASS (branch) | `tsc` + `next build` pass locally; CI on PR |
 | 4 | Android signed build | PASS (CI run 37146841623) | Real-device test pending |
 | 5 | Core workflow tests | **NEEDS LIVE E2E TEST** | `docs/RELEASE_TEST_MATRIX.md` (Phase 3) |
-| 6 | Background location tests | **BLOCKED ON DECISION** | OWNER A7, then real-device test |
-| 7 | Privacy behaviour matches app | **OPEN** | Disclosure text added in app; Privacy Policy + Data Safety must be aligned after A7 |
+| 6 | Background location tests | **NEEDS REAL DEVICE TEST** | Decision: keep. Two-step disclosure + boot resume implemented |
+| 7 | Privacy behaviour matches app | CODE COMPLETE | Privacy §3, in-app disclosures and declaration draft aligned; fill Play Data Safety from `LOCATION_DECLARATION.md` §7 |
 | 8 | Account deletion process exists | PARTIAL | Public page fixed (was login-protected). Operational workflow (request intake, identity check, deletion/anonymisation, confirmation) still to document |
 | 9 | Official branding installed | **OPEN** | No approved launcher/Play icon in repo |
 | 10 | Critical email/notification flows tested | **NEEDS LIVE TEST** | Android 13 notification permission now requested |

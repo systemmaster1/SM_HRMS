@@ -5,9 +5,9 @@
 - A2 security audit — DONE (run by Claude via Supabase connector)
 - A3 schema baseline — DONE (`supabase/baseline/20261004_production_schema_snapshot.sql`)
 - A4 P0 guards — DONE (applied; live test PASS)
-- **A4b — TO DO:** run `supabase/migrations/20261004_p0b_storage_and_function_grants.sql` in SQL Editor (same way as A4). Verify query is at the bottom of the file (expect 0).
+- A4b storage + function grants — DONE (applied; verified: 0 anonymous definer functions)
 - A6 Android build — DONE (CI pass); **real-device test TO DO**
-- A7 background-location decision — TO DO
+- A7 background-location decision — DONE: keep it (Field Tracking). Two-step disclosure in app, Privacy Policy section 3 and `docs/play-store/LOCATION_DECLARATION.md` updated
 - A8 assetlinks fingerprint — TO DO
 
 Only steps that cannot be done from the repository are listed. Do them **in this order**.

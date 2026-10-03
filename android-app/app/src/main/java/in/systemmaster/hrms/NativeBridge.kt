@@ -52,6 +52,9 @@ class NativeBridge(
             }
             try {
                 ContextCompat.startForegroundService(activity, intent)
+                // Duty tracking also needs "Allow all the time" so it keeps
+                // working with the screen off. Separate disclosure first.
+                (activity as? MainActivity)?.requestBackgroundLocationFromBridge()
                 "started"
             } catch (e: SecurityException) {
                 NativePrefs.setError(activity, "Tracking start blocked by Android permission or app-state rules")
