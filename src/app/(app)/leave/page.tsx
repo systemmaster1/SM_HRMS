@@ -102,12 +102,14 @@ export default function LeavePage() {
     setLeaves(l || []);
 
     // possible buddies
-    let q = supabase.from("profiles").select("*").eq("status", "active").neq("id", auth.user.id);
+    // Only the fields the buddy picker needs — never pull colleagues' personal
+    // details (bank, address, emergency contacts) into an employee's browser.
+    let q = supabase.from("profiles").select("id, full_name, department, designation").eq("status", "active").neq("id", auth.user.id);
     if (c?.buddy_scope === "department" && p?.department) {
       q = q.eq("department", p.department);
     }
     const { data: co } = await q.order("full_name");
-    setColleagues((co as Profile[]) || []);
+    setColleagues(((co || []) as unknown) as Profile[]);
 
     setLoading(false);
   }, [supabase, year]);

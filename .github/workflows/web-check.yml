@@ -2,6 +2,7 @@ name: Web typecheck and build
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 jobs:
   verify:
@@ -19,4 +20,5 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx tsc --noEmit
+      - run: npm run test:db
       - run: npm run build
