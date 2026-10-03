@@ -26,7 +26,7 @@ import { ACCESS_KEY_FEATURE, isFeatureOn } from "@/lib/features/registry";
 
 const randomPassword = () => {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  return Array.from({ length: 10 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+  return Array.from({ length: 10 }, () => chars[crypto.getRandomValues(new Uint32Array(1))[0] % chars.length]).join("");
 };
 
 const fieldCls =

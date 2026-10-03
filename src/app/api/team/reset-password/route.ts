@@ -1,36 +1,26 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { friendlyError } from "@/lib/errors";
+import { getOrgActor } from "@/lib/server/org-actor";
 
 /**
  * An owner/admin (or the employee's reporting manager) sets a new
  * password for a team member who has forgotten theirs.
  */
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const actor = await getOrgActor();
+  if (!actor) {
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
+  const supabase = actor.supabase;
+  const user = { id: actor.userId };
+  const me = { company_id: actor.companyId, role: actor.role };
 
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("company_id, role")
-    .eq("id", user.id)
-    .single();
+  const { employee_id, password } = await req.json().catch(() => ({}));
 
-  if (!me?.company_id) {
-    return NextResponse.json({ error: "No organization" }, { status: 403 });
-  }
-
-  const { employee_id, password } = await req.json();
-
-  if (!employee_id || !password || password.length < 6) {
+  if (!employee_id || typeof password !== "string" || password.length < 8) {
     return NextResponse.json(
-      { error: "Password must be at least 6 characters." },
+      { error: "Password must be at least 8 characters." },
       { status: 400 }
     );
   }
@@ -38,7 +28,7 @@ export async function POST(req: Request) {
   // Target must be in the same company
   const { data: target } = await supabase
     .from("profiles")
-    .select("id, company_id, role, manager_id")
+    .select("id, company_id, role, manager_id, status")
     .eq("id", employee_id)
     .single();
 
@@ -56,6 +46,17 @@ export async function POST(req: Request) {
     );
   }
 
+  // Admin passwords are reset only by the Owner (or by the Admin via email OTP).
+  if (target.role === "admin" && me.role !== "owner") {
+    return NextResponse.json(
+      { error: "Only the Organization Owner can reset an Admin's password." },
+      { status: 403 }
+    );
+  }
+  if (target.status && target.status !== "active") {
+    return NextResponse.json({ error: "This employee is not active." }, { status: 400 });
+  }
+
   // Nobody may reset the owner's password this way — the owner uses email OTP.
   if (target.role === "owner") {
     return NextResponse.json(
@@ -68,7 +69,7 @@ export async function POST(req: Request) {
 
   const { error } = await admin.auth.admin.updateUserById(employee_id, { password });
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: friendlyError(error, "reset the password") }, { status: 400 });
   }
 
   await admin

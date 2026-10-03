@@ -1,23 +1,20 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { friendlyError } from "@/lib/errors";
+import { getOrgActor, isOrgAdmin } from "@/lib/server/org-actor";
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const actor = await getOrgActor();
+  if (!actor) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+  const supabase = actor.supabase;
+  const user = { id: actor.userId };
+  const me = { company_id: actor.companyId, role: actor.role };
 
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("company_id,role")
-    .eq("id", user.id)
-    .single();
-
-  if (!me?.company_id || !["owner","admin"].includes(me.role)) {
+  if (!isOrgAdmin(me.role)) {
     return NextResponse.json({ error: "Only Owner/Admin can remove employees." }, { status: 403 });
   }
 
-  const { employee_id } = await req.json();
+  const { employee_id } = await req.json().catch(() => ({}));
   if (!employee_id) return NextResponse.json({ error: "Employee is required." }, { status: 400 });
 
   const { data: target } = await supabase
@@ -31,6 +28,12 @@ export async function POST(req: Request) {
   }
   if (target.role === "owner") {
     return NextResponse.json({ error: "Company Owner cannot be removed." }, { status: 403 });
+  }
+  if (target.id === user.id) {
+    return NextResponse.json({ error: "You cannot remove your own account." }, { status: 403 });
+  }
+  if (target.role === "admin" && me.role !== "owner") {
+    return NextResponse.json({ error: "Only the Organization Owner can remove an Admin." }, { status: 403 });
   }
 
   const admin = createAdminClient();
@@ -47,7 +50,7 @@ export async function POST(req: Request) {
     .eq("id", employee_id)
     .eq("company_id", me.company_id);
 
-  if (profErr) return NextResponse.json({ error: profErr.message }, { status: 400 });
+  if (profErr) return NextResponse.json({ error: friendlyError(profErr, "remove the employee") }, { status: 400 });
 
   // Disable login while preserving the auth UUID referenced by historical records.
   const { error: authErr } = await admin.auth.admin.updateUserById(employee_id, {
@@ -55,8 +58,9 @@ export async function POST(req: Request) {
   });
 
   if (authErr) {
+    console.error("team/remove: ban failed", employee_id, authErr);
     return NextResponse.json({
-      error: `Employee was removed from active team, but login disable failed: ${authErr.message}`,
+      error: "Employee was removed from the active team, but their login could not be disabled. Please try again.",
     }, { status: 400 });
   }
 

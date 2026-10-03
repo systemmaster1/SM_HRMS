@@ -1,33 +1,26 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalisePhone, isEmail } from "@/lib/phone";
+import { friendlyError } from "@/lib/errors";
+import { getOrgActor, isOrgAdmin, canAssignRole, idsBelongToCompany } from "@/lib/server/org-actor";
 
 export async function POST(req: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const actor = await getOrgActor();
+  if (!actor) {
+    return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
   }
+  const supabase = actor.supabase;
+  const me = { company_id: actor.companyId, role: actor.role };
 
-  // Caller must be an owner/admin of a company
-  const { data: me } = await supabase
-    .from("profiles")
-    .select("company_id, role")
-    .eq("id", user.id)
-    .single();
-
-  if (!me?.company_id || !["owner", "admin"].includes(me.role)) {
+  // Caller must be an active owner/admin of a company
+  if (!isOrgAdmin(me.role)) {
     return NextResponse.json(
       { error: "Only an owner or admin can add team members." },
       { status: 403 }
     );
   }
 
-  const body = await req.json();
+  const body = await req.json().catch(() => ({}));
   const fullName = (body.full_name || "").trim();
   const email = (body.email || "").trim().toLowerCase();
   const password = body.password || "";
@@ -40,14 +33,17 @@ export async function POST(req: Request) {
   if (!isEmail(email)) {
     return NextResponse.json({ error: "A valid email is required." }, { status: 400 });
   }
-  if (password.length < 6) {
+  if (typeof password !== "string" || password.length < 8) {
     return NextResponse.json(
-      { error: "Password must be at least 6 characters." },
+      { error: "Password must be at least 8 characters." },
       { status: 400 }
     );
   }
   if (!["admin", "manager", "employee"].includes(role)) {
     return NextResponse.json({ error: "Invalid role." }, { status: 400 });
+  }
+  if (!canAssignRole(me.role, null, role)) {
+    return NextResponse.json({ error: "Only the Organization Owner can add an Admin." }, { status: 403 });
   }
 
   let phone: string | null = null;
@@ -63,11 +59,18 @@ export async function POST(req: Request) {
 
   const admin = createAdminClient();
 
+  const okPeople = await idsBelongToCompany(admin, me.company_id, "profiles",
+    [body.manager_id, body.work_manager_id, body.field_manager_id]);
+  const okBranch = await idsBelongToCompany(admin, me.company_id, "branches", [body.branch_id]);
+  if (!okPeople || !okBranch) {
+    return NextResponse.json({ error: "Selected manager or branch is not part of your organization." }, { status: 400 });
+  }
+
   let employeeCode = (body.employee_code || "").trim();
   if (!employeeCode) {
     const { data: nextCode, error: codeErr } = await supabase.rpc("next_employee_code_v9");
     if (codeErr || !nextCode) {
-      return NextResponse.json({ error: codeErr?.message || "Could not generate employee code." }, { status: 400 });
+      return NextResponse.json({ error: codeErr ? friendlyError(codeErr, "generate the employee code") : "Could not generate employee code." }, { status: 400 });
     }
     employeeCode = nextCode;
   }
@@ -86,7 +89,7 @@ export async function POST(req: Request) {
       {
         error: msg.toLowerCase().includes("already")
           ? "An account with this email already exists."
-          : msg,
+          : friendlyError(createErr, "create the account"),
       },
       { status: 400 }
     );
@@ -115,8 +118,8 @@ export async function POST(req: Request) {
       field_tracking_enabled: !!body.field_tracking_enabled,
       employee_type: body.employee_type || "office",
       tracking_mode: body.tracking_mode || "working_hours",
-      tracking_interval_minutes: Number(body.tracking_interval_minutes || 5),
-      tracking_stale_after_minutes: Number(body.tracking_stale_after_minutes || 10),
+      tracking_interval_minutes: Math.min(60, Math.max(1, Math.round(Number(body.tracking_interval_minutes) || 5))),
+      tracking_stale_after_minutes: Math.min(240, Math.max(2, Math.round(Number(body.tracking_stale_after_minutes) || 10))),
       route_history_enabled: body.route_history_enabled !== false,
       notify_hr_manager: body.notify_hr_manager !== false,
       notify_work_manager: body.notify_work_manager !== false,
@@ -131,7 +134,7 @@ export async function POST(req: Request) {
   if (profErr) {
     // Roll back the auth user so we don't leave an orphan
     await admin.auth.admin.deleteUser(created.user.id);
-    return NextResponse.json({ error: profErr.message }, { status: 400 });
+    return NextResponse.json({ error: friendlyError(profErr, "save the employee") }, { status: 400 });
   }
 
   return NextResponse.json({ ok: true, id: created.user.id, employee_code: employeeCode });
