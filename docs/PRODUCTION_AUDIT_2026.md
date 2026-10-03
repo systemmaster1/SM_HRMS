@@ -82,7 +82,7 @@ Roles: `owner`, `admin`, `manager`, `employee` (+ per-module `access_permissions
 | S-02 | Team · `api/team/update`, `create` | Admin could set any member's role to `owner` / create admins | Multiple owners, admin self-replication, privilege escalation | P0 | CODE COMPLETE | `owner` never assignable; only Owner grants/removes Admin | DB guard | No | `canAssignRole` + DB tests |
 | S-03 | Team · all team routes | Only `role` checked, not `status` | Removed/disabled admin with a still-valid token keeps calling admin APIs | P1 | CODE COMPLETE | `getOrgActor()` requires `status='active'` | — | No | Disabled admin → 401 |
 | S-04 | Team · `reset-password`, `remove`, `access` | Admin could reset/remove/restrict another Admin | Admin-vs-admin takeover | P1 | CODE COMPLETE | Owner-only for Admin targets; access levels validated | — | No | — |
-| S-05 | DB · `profiles` | Only tracking fields protected by a trigger; other columns depend on unknown RLS | Employee may be able to `update profiles set role='owner'` from the browser console | **P0** | CODE COMPLETE · **NEEDS PRODUCTION MIGRATION** | `20261004_p0_security_guards.sql` profiles guard | **Yes** | Run migration | `npm run test:db` (32 profile cases) + live test 02 |
+| S-05 | DB · `profiles` | No guard; `profiles_update_self` has no WITH CHECK (confirmed live) | Employee could `update profiles set role='owner'` / move org from the browser console | **P0** | **FIXED IN PRODUCTION** (migration applied, live test PASS) | `20261004_p0_security_guards.sql` profiles guard | **Yes** | Run migration | `npm run test:db` (32 profile cases) + live test 02 |
 | S-06 | DB · `profiles` SELECT | Pages load colleagues with `select("*")` (bank account, address, emergency contact) | Any employee can read colleagues' bank numbers if profiles SELECT is company-wide | P1 | Leave page narrowed; **NEEDS LIVE TEST** | Move bank/address/emergency to `employee_private_details` with self+admin RLS | Yes (design) | — | Live test 02 "read colleagues' bank" |
 | S-07 | System Admin · 2FA | 2FA only gates the `/system-admin` page; `system_admin_*` RPCs check `is_platform_admin()` only | Stolen platform-admin password works via direct API calls without OTP | P1 | Partly: `/api/system-admin/support-meeting` now requires 2FA | Make RPCs require an unexpired row in `system_admin_2fa_sessions` | Yes | — | Call RPC without 2FA → denied |
 | S-08 | Auth · `api/auth/google/start|callback` | Public; displays a Gmail refresh token to whoever authorizes | Setup tool exposed to the internet | P2 | CODE COMPLETE | Platform admin only | — | — | Anonymous → 404 |
@@ -191,3 +191,25 @@ Full gate: `docs/PLAY_STORE_RELEASE_GATE.md`.
 
 - `tests/db/security-guards.test.mjs` — runs the real migrations in embedded PostgreSQL: 64 checks (privilege escalation, cross-org edits, Owner protection, field-visit lifecycle incl. **Start Meeting regression**, leave overlap/approval, support meetings, GPS immutability, organization delete). `npm run test:db`, also in CI.
 - `docs/sql/02_live_tenant_isolation_test.sql` — production tenant-isolation probe (read-only in effect).
+
+---
+
+## 9. Live production verification (4 Oct 2026, Supabase project `SM HRMS`)
+
+Read-only catalog audit run directly against production through the Supabase connector.
+
+| Finding | Evidence | Status |
+|---|---|---|
+| `profiles_update_self` = `USING (id = auth.uid())`, **no WITH CHECK, no column guard**, no trigger on `profiles` → any employee could set own `role='owner'` or move to another org's `company_id` | `pg_policies`, `pg_trigger` | **P0 CONFIRMED → FIXED.** `20261004_p0_security_guards.sql` applied by owner; live test: *employee → owner* blocked, *employee → other org* blocked |
+| `profiles_select_colleagues` company-wide → colleagues' bank numbers readable | `pg_policies` | P1 OPEN (design: `employee_private_details`) |
+| `leaves_update` lets the employee update own row (could self-approve) | `pg_policies` | FIXED by leaves guard (applied) |
+| Attendance IN/OUT timestamps | trigger `enforce_server_attendance_time_v6` forces server time, blocks non-admin edits of existing punches | VERIFIED |
+| Tenant feature gates `smhrms_org_feature_gate` | RESTRICTIVE policies | VERIFIED |
+| All tenant-table policies filter by `my_company_id()`/`auth.uid()` | audit §2 returned 0 rows | VERIFIED (catalog) |
+| Storage `avatars`: any user may overwrite any avatar; `company-logos`: admin of org A may overwrite org B logo | storage policies without folder check | P2 → fix in `20261004_p0b_storage_and_function_grants.sql` (**to apply**) |
+| 50 SECURITY DEFINER functions executable by `anon` | `has_function_privilege` | P1 → same migration (**to apply**) |
+| `enforce_location_mandatory()` definer without `search_path` | `pg_proc.proconfig` | P2 → same migration |
+| `notifications_insert` allows any member to notify any colleague | `pg_policies` | P2 OPEN |
+| Size | 22 MB DB, ~1.3k GPS rows, 6 orgs, 32 users | INFO |
+
+Production schema snapshot (structure only, no data): `supabase/baseline/20261004_production_schema_snapshot.sql` — 75 tables, 140 functions, 158 policies, 30 triggers.

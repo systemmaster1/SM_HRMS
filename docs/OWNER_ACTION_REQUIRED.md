@@ -1,5 +1,15 @@
 # Owner actions required — Phase 1 + 2
 
+## Status (4 Oct 2026)
+- A1 GitHub access — DONE
+- A2 security audit — DONE (run by Claude via Supabase connector)
+- A3 schema baseline — DONE (`supabase/baseline/20261004_production_schema_snapshot.sql`)
+- A4 P0 guards — DONE (applied; live test PASS)
+- **A4b — TO DO:** run `supabase/migrations/20261004_p0b_storage_and_function_grants.sql` in SQL Editor (same way as A4). Verify query is at the bottom of the file (expect 0).
+- A6 Android build — DONE (CI pass); **real-device test TO DO**
+- A7 background-location decision — TO DO
+- A8 assetlinks fingerprint — TO DO
+
 Only steps that cannot be done from the repository are listed. Do them **in this order**.
 
 ---
