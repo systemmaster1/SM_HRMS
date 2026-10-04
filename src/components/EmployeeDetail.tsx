@@ -315,7 +315,7 @@ export default function EmployeeDetail({
                       <Download className="h-4 w-4" />
                     </PrivateLink>
                     <button onClick={() => removeDoc(d.id)}
-                      className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 transition hover:border-rose-300 hover:text-rose-600">
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 dark:border-slate-600 text-slate-400 transition hover:border-rose-300 hover:text-rose-600" aria-label="Delete">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </li>

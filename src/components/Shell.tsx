@@ -18,7 +18,7 @@ import {
   LayoutDashboard, Users, CalendarCheck, Plane,
   ListChecks, MapPin, LogOut, Menu, Settings, X, CalendarDays, FileText, Building2,
   Contact, LifeBuoy, Wallet, WalletCards, ChevronDown, HelpCircle, BarChart3, Download, Sheet, Sparkles,
-  Home, MoreHorizontal, Radar, ArrowLeft,
+  Home, MoreHorizontal, Radar, ArrowLeft, Inbox,
 } from "lucide-react";
 
 interface Leaf {
@@ -26,6 +26,8 @@ interface Leaf {
   label: string;
   icon: React.ReactNode;
   adminOnly?: boolean;
+  /** Owner, Admin and Manager (people who approve requests). */
+  managerOnly?: boolean;
   accessKey?: string;
 }
 interface Group {
@@ -41,6 +43,7 @@ const isGroup = (e: NavEntry): e is Group => "items" in e;
 
 const nav: NavEntry[] = [
   { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard className="h-[18px] w-[18px]" /> },
+  { href: "/approvals", label: "Approvals", icon: <Inbox className="h-[18px] w-[18px]" />, managerOnly: true },
 
   {
     key: "attendance",
@@ -103,13 +106,38 @@ const roleLabel: Record<Role, string> = {
   employee: "Employee",
 };
 
-/** Mobile bottom bar: the four screens field staff use every day, plus "More". */
-const bottomNav: { href: string; label: string; icon: React.ElementType; accessKey?: string }[] = [
-  { href: "/dashboard",    label: "Home",       icon: Home },
-  { href: "/attendance",   label: "Attendance", icon: CalendarCheck, accessKey: "attendance" },
-  { href: "/tasks",        label: "Tasks",      icon: ListChecks,    accessKey: "tasks" },
-  { href: "/field-visits", label: "Visits",     icon: MapPin,        accessKey: "field_visits" },
-];
+type BottomItem = { href: string; label: string; icon: React.ElementType; accessKey?: string };
+
+/**
+ * Mobile bottom bar, by role: employees get the screens they use every day,
+ * managers and admins get Approvals within one tap. "More" opens the full menu.
+ */
+const bottomNavFor = (role: Role): BottomItem[] => {
+  const home: BottomItem = { href: "/dashboard", label: "Home", icon: Home };
+  if (role === "owner" || role === "admin") {
+    return [
+      home,
+      { href: "/approvals", label: "Approvals", icon: Inbox },
+      { href: "/team", label: "Team", icon: Users, accessKey: "team" },
+      { href: "/attendance", label: "Attendance", icon: CalendarCheck, accessKey: "attendance" },
+    ];
+  }
+  if (role === "manager") {
+    return [
+      home,
+      { href: "/approvals", label: "Approvals", icon: Inbox },
+      { href: "/tasks", label: "Tasks", icon: ListChecks, accessKey: "tasks" },
+      { href: "/attendance", label: "Attendance", icon: CalendarCheck, accessKey: "attendance" },
+    ];
+  }
+  return [
+    home,
+    { href: "/attendance", label: "Attendance", icon: CalendarCheck, accessKey: "attendance" },
+    { href: "/tasks", label: "Tasks", icon: ListChecks, accessKey: "tasks" },
+    { href: "/field-visits", label: "Visits", icon: MapPin, accessKey: "field_visits" },
+    { href: "/leave", label: "Leave", icon: Plane, accessKey: "leave" },
+  ];
+};
 
 const isActivePath = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
@@ -163,6 +191,7 @@ export default function Shell({
   }, [open]);
 
   const admin = isAdminRole(profile.role);
+  const approver = admin || profile.role === "manager";
   const hasAccess = (key?: string) => admin || !key || (profile.access_permissions?.[key] && profile.access_permissions[key] !== "none");
   // Organization modules (plan + SystemMaster settings): a menu entry is shown
   // only when its route's feature is enabled. Routes are mapped in one place:
@@ -240,6 +269,7 @@ export default function Shell({
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {nav.map((entry) => {
           if (entry.adminOnly && !admin) return null;
+          if (!isGroup(entry) && entry.managerOnly && !approver) return null;
           if (!isGroup(entry) && (!hasAccess(entry.accessKey) || !moduleOn(entry.href))) return null;
 
           if (!isGroup(entry)) {
@@ -338,6 +368,7 @@ export default function Shell({
           <button
             onClick={doLogout}
             title="Sign out"
+            aria-label="Sign out"
             className="rounded-md p-1.5 text-slate-400 transition hover:bg-white/5 hover:text-white"
           >
             <LogOut className="h-[18px] w-[18px]" />
@@ -392,7 +423,7 @@ export default function Shell({
           <span className="hidden lg:block" />
           <div className="flex items-center gap-2">
             <LiveClock className="hidden text-slate-500 dark:text-slate-400 sm:flex" />
-            <Link href="/help" title="Help & user guide"
+            <Link href="/help" title="Help & user guide" aria-label="Help and user guide"
               className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
               <HelpCircle className="h-[18px] w-[18px]" />
             </Link>
@@ -423,7 +454,7 @@ export default function Shell({
       <nav aria-label="Primary"
         className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200/80 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/95 lg:hidden">
         <div className="mx-auto flex max-w-md items-stretch justify-around">
-          {bottomNav.filter((b) => hasAccess(b.accessKey) && moduleOn(b.href)).map((b) => {
+          {bottomNavFor(profile.role).filter((b) => hasAccess(b.accessKey) && moduleOn(b.href)).slice(0, 4).map((b) => {
             const active = isActivePath(pathname, b.href);
             const Icon = b.icon;
             return (
@@ -437,7 +468,7 @@ export default function Shell({
               </Link>
             );
           })}
-          <button onClick={() => setOpen(true)}
+          <button onClick={() => setOpen(true)} aria-label="More: open the full menu"
             className="flex min-h-[58px] flex-1 flex-col items-center justify-center gap-1 text-[11px] font-medium text-slate-500 transition active:scale-95 dark:text-slate-400">
             <MoreHorizontal className="h-[22px] w-[22px]" strokeWidth={1.8} />
             More

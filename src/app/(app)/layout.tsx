@@ -114,7 +114,7 @@ export default async function AppLayout({
         <ActiveVisitTracker />
         <PushRegistrar />
         <DialogHost />
-        <FirstLoginGuide userId={profile.id} />
+        <FirstLoginGuide userId={profile.id} role={profile.role} />
         {(profile.role === "owner" || profile.role === "admin") && <OrgAdmin2FARecommendation />}
       </Shell>
     </EntitlementsProvider>

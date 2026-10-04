@@ -204,7 +204,7 @@ export default function EMReportPage() {
               <button
                 onClick={() => { const p = shiftWeek(year, week, -1); setYear(p.year); setWeek(p.week); }}
                 className="grid h-9 w-9 place-items-center rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700"
-              >
+               aria-label="Previous">
                 <ChevronLeft className="h-4 w-4" />
               </button>
 
@@ -218,7 +218,7 @@ export default function EMReportPage() {
               <button
                 onClick={() => { const n = shiftWeek(year, week, 1); setYear(n.year); setWeek(n.week); }}
                 className="grid h-9 w-9 place-items-center rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700"
-              >
+               aria-label="Next">
                 <ChevronRight className="h-4 w-4" />
               </button>
 

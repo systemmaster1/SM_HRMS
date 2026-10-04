@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark, LogoFull } from "@/components/Logo";
+import WebOnly from "@/components/WebOnly";
 import {
   UserPlus,
   Check,
@@ -382,13 +383,14 @@ export default function SignUpPage() {
             </span>
           </div>
 
-          <Link
-            href="/"
+          <WebOnly>
+          <Link href="/"
             className="flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-sm font-medium text-white/90 transition hover:bg-white/10"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to home
           </Link>
+          </WebOnly>
         </div>
 
         <div className="relative max-w-md">
@@ -425,13 +427,14 @@ export default function SignUpPage() {
       </section>
 
       <section className="relative flex items-center justify-center bg-white p-6 dark:bg-slate-950 sm:p-12">
-        <Link
-          href="/"
+        <WebOnly>
+        <Link href="/"
           className="absolute left-5 top-5 flex items-center gap-1.5 text-sm font-medium text-slate-500 transition hover:text-brand-600 lg:hidden dark:text-slate-400"
         >
           <ArrowLeft className="h-4 w-4" />
           Home
         </Link>
+        </WebOnly>
 
         <div className="w-full max-w-sm">
           <div className="mb-8 flex justify-center lg:hidden">

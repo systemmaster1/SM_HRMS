@@ -2,16 +2,31 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, ListChecks, Plane, MapPin, ArrowRight, X, CheckCircle2 } from "lucide-react";
+import { CalendarCheck, ListChecks, Plane, MapPin, ArrowRight, X, CheckCircle2, Inbox, Users, ShieldCheck } from "lucide-react";
 
-const slides = [
+const employeeSlides = [
   { icon: CalendarCheck, title: "Attendance made simple", text: "Check in, check out and see today's attendance from one place." },
   { icon: ListChecks, title: "Know what to do today", text: "Your due tasks and checklists stay together. Open a task to update status or add work proof." },
   { icon: Plane, title: "Leave without confusion", text: "Apply for leave and follow its approval status without calling HR." },
   { icon: MapPin, title: "Field work, when enabled", text: "Start visits and field activity only when your organization has enabled these features." },
 ];
 
-export default function FirstLoginGuide({ userId }: { userId: string }) {
+const managerSlides = [
+  { icon: CalendarCheck, title: "Your day first", text: "Home shows your own attendance and tasks, and how many requests are waiting for you." },
+  { icon: Inbox, title: "Approvals in one tap", text: "Leave and due-date requests from your team collect in Approvals. Approve or reject them from your phone." },
+  { icon: ListChecks, title: "Assign and follow up", text: "Give tasks to your team and see what is done, due or overdue." },
+  { icon: MapPin, title: "Field team, when enabled", text: "See today's visits and where your field staff are while they are on duty." },
+];
+
+const adminSlides = [
+  { icon: Users, title: "Add your team", text: "Team → Add employee. Each person gets a temporary password and must set their own on first sign-in." },
+  { icon: CalendarCheck, title: "Set your rules", text: "Organization and Settings hold office timings, weekly offs, leave types and payroll rules." },
+  { icon: Inbox, title: "Approvals", text: "Every leave and due-date request waiting for you is in Approvals, also on the bottom bar of the app." },
+  { icon: ShieldCheck, title: "Protect your organization", text: "Turn on 2-Step Verification in Settings. Only the Owner can add Admins or transfer ownership." },
+];
+
+export default function FirstLoginGuide({ userId, role }: { userId: string; role?: string }) {
+  const slides = role === "owner" || role === "admin" ? adminSlides : role === "manager" ? managerSlides : employeeSlides;
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(0);

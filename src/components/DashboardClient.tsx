@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin, Users, CalendarCheck, CalendarPlus, Plane, ArrowUpRight, Activity, WifiOff, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { MapPin, Users, CalendarCheck, CalendarPlus, Plane, ArrowUpRight, Activity, WifiOff, AlertTriangle, CheckCircle2, ListChecks, Inbox, Clock } from "lucide-react";
 import TodayUpdates from "@/components/TodayUpdates";
 import { FadeIn, StaggerGroup, StaggerItem, HoverLift } from "@/components/motion";
 import { useEntitlements } from "@/lib/features/client";
@@ -22,8 +22,57 @@ const iconMap: Record<string, any> = {
   plane: Plane,
 };
 
+type TodayCard = { checkIn: string | null; checkOut: string | null; tasksDue: number; overdue: number; approvals: number | null };
+
+const timeIST = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
+
+/** The signed-in person's own day: punch status, tasks due, approvals waiting. */
+function TodayCardView({ t, moduleOn }: { t: TodayCard; moduleOn: (href: string) => boolean }) {
+  const status = !t.checkIn ? "Not checked in" : t.checkOut ? "Day complete" : "On duty";
+  const tone = !t.checkIn ? "text-amber-700 bg-amber-50 dark:bg-amber-500/10 dark:text-amber-300"
+    : t.checkOut ? "text-slate-700 bg-slate-100 dark:bg-slate-700 dark:text-slate-200"
+    : "text-emerald-700 bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-300";
+  const tiles = [
+    moduleOn("/attendance") && {
+      href: "/attendance", icon: Clock, label: "Attendance",
+      value: status,
+      sub: t.checkIn ? `IN ${timeIST(t.checkIn)}${t.checkOut ? ` · OUT ${timeIST(t.checkOut)}` : ""}` : "Tap to check in",
+      tone,
+    },
+    moduleOn("/tasks") && {
+      href: "/tasks", icon: ListChecks, label: "My tasks due",
+      value: String(t.tasksDue),
+      sub: t.overdue ? `${t.overdue} overdue` : t.tasksDue ? "Due today" : "Nothing due",
+      tone: t.overdue ? "text-rose-700 bg-rose-50 dark:bg-rose-500/10 dark:text-rose-300" : "text-brand-700 bg-brand-50 dark:bg-brand-500/10 dark:text-brand-300",
+    },
+    t.approvals !== null && {
+      href: "/approvals", icon: Inbox, label: "Waiting for you",
+      value: String(t.approvals),
+      sub: t.approvals ? "Leave & due-date requests" : "All caught up",
+      tone: t.approvals ? "text-violet-700 bg-violet-50 dark:bg-violet-500/10 dark:text-violet-300" : "text-slate-600 bg-slate-100 dark:bg-slate-700 dark:text-slate-300",
+    },
+  ].filter(Boolean) as { href: string; icon: any; label: string; value: string; sub: string; tone: string }[];
+  if (!tiles.length) return null;
+  return (
+    <section aria-label="Today" className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      {tiles.map((x) => (
+        <Link key={x.href} href={x.href}
+          className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 transition-colors hover:border-brand-400 dark:border-slate-700 dark:bg-slate-800">
+          <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${x.tone}`}><x.icon className="h-5 w-5" aria-hidden /></span>
+          <span className="min-w-0">
+            <span className="block text-xs text-slate-500 dark:text-slate-400">{x.label}</span>
+            <span className="block truncate text-base font-semibold text-slate-900 dark:text-slate-100">{x.value}</span>
+            <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{x.sub}</span>
+          </span>
+        </Link>
+      ))}
+    </section>
+  );
+}
+
 export default function DashboardClient({
-  greeting, firstName, admin, stats, visits, fieldSummary,
+  greeting, firstName, admin, stats, visits, fieldSummary, today,
 }: {
   greeting: string;
   firstName: string;
@@ -31,6 +80,7 @@ export default function DashboardClient({
   stats: { label: string; value: number; icon: string; color: string; href: string }[];
   visits: any[];
   fieldSummary?: { tracked: number; liveNow: number; onVisit: number; completed: number; gpsBlocked: number; stale: number };
+  today?: TodayCard;
 }) {
   // Only show shortcuts and widgets for modules this organization has.
   const entitlements = useEntitlements();
@@ -59,7 +109,9 @@ export default function DashboardClient({
         </div>
       </FadeIn>
 
-      <StaggerGroup className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      {today && <TodayCardView t={today} moduleOn={moduleOn} />}
+
+      {admin && <StaggerGroup className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {visibleStats.map((s) => {
           const Icon = iconMap[s.icon] || Users;
           return (
@@ -79,7 +131,7 @@ export default function DashboardClient({
             </StaggerItem>
           );
         })}
-      </StaggerGroup>
+      </StaggerGroup>}
 
       {admin && fieldSummary && trackingOn && <FadeIn delay={0.08}>
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">

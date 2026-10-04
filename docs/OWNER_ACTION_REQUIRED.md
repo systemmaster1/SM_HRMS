@@ -87,3 +87,22 @@ Tell Claude which option.
 ---
 
 **Nothing else is required for Phases 1–2.** Supabase/Vercel environment variables do not change in this branch.
+
+## Phases 2b–5: database migrations and order (updated 4 Oct 2026)
+
+Applied in production: P0, P0b, 2b1 private-details RPC, 2b2 System Admin DB 2FA, 2b3 offline GPS batch, 2b5 cron schedules.
+
+Waiting for your approval (Claude applies them through the Supabase connector; each needs one "Allow" click), in this order:
+
+| # | File | Safe before the new app is deployed? |
+|---|---|---|
+| 1 | `20261005_2b4_notifications_and_misc_security.sql` | Yes |
+| 2 | `20261006_p3_core_reliability.sql` | Yes |
+| 3 | `20261007_p4_ownership_transfer.sql` | Yes (UI arrives with the deploy) |
+| 4 | `20261008_p5_task_extension_guard.sql` | Yes |
+| 5 | re-run `20261005_2b5_cron_schedules.sql` | adds the `smhrms-cleanup` job after #1 |
+
+**Only after PRs #1–#5 are merged and Vercel has deployed:**
+`20261005_2b1_profiles_column_privileges.sql`, then `20261006_p3_post_deploy_company_column_privileges.sql`.
+
+Data notes (nothing changed automatically): organization `SM-RAZORPAY-DEMO` has no Owner (its only member is an Admin). Decide whether to delete this demo org or make that person Owner — `docs/sql/03_owner_integrity.sql` lists it.

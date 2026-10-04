@@ -367,7 +367,7 @@ export default function PayrollPage() {
                           </button>
                         ))}
                         <button onClick={() => reject(a.id)} title="Reject"
-                          className="grid h-7 w-7 place-items-center rounded-lg bg-rose-50 text-rose-600 transition hover:bg-rose-100">
+                          className="grid h-7 w-7 place-items-center rounded-lg bg-rose-50 text-rose-600 transition hover:bg-rose-100" aria-label="Reject">
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>

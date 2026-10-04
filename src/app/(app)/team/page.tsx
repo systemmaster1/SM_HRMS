@@ -388,7 +388,7 @@ export default function TeamPage() {
               <input className={inputCls} value={f.password} onChange={(e) => set("password", e.target.value)} />
               <button type="button" onClick={() => set("password", randomPassword())}
                 title="Generate new"
-                className="grid w-11 shrink-0 place-items-center rounded-lg border border-slate-300 text-slate-500 transition hover:border-brand-600 hover:text-brand-700">
+                className="grid w-11 shrink-0 place-items-center rounded-lg border border-slate-300 text-slate-500 transition hover:border-brand-600 hover:text-brand-700" aria-label="Generate new">
                 <RefreshCw className="h-4 w-4" />
               </button>
             </div>
@@ -467,7 +467,7 @@ export default function TeamPage() {
             <div className="mt-1.5 flex gap-2">
               <input className={inputCls} value={newPw} onChange={(e) => setNewPw(e.target.value)} />
               <button type="button" onClick={() => setNewPw(randomPassword())}
-                className="grid w-11 shrink-0 place-items-center rounded-lg border border-slate-300 text-slate-500 transition hover:border-brand-600 hover:text-brand-700">
+                className="grid w-11 shrink-0 place-items-center rounded-lg border border-slate-300 text-slate-500 transition hover:border-brand-600 hover:text-brand-700" aria-label="Generate a new password">
                 <RefreshCw className="h-4 w-4" />
               </button>
             </div>

@@ -35,6 +35,35 @@ export default async function DashboardPage() {
     supabase.from("employee_live_locations").select("employee_id, permission_state, tracking_state, last_seen_at"),
   ]);
 
+  // "Today" card: the signed-in person's own day, for every role.
+  const since = new Date(Date.now() - 20 * 3600 * 1000).toISOString();
+  const [myDay, openDuty, myTasks, myOverdue, leaveApprovals, extApprovals] = await Promise.all([
+    supabase.from("attendance").select("check_in, check_out").eq("employee_id", user.id).eq("work_date", today).maybeSingle(),
+    supabase.from("attendance").select("check_in").eq("employee_id", user.id).is("check_out", null).gt("check_in", since)
+      .order("check_in", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("delegations").select("id", { count: "exact", head: true }).eq("assigned_to", user.id).is("completed_at", null).lte("due_date", today),
+    supabase.from("delegations").select("id", { count: "exact", head: true }).eq("assigned_to", user.id).is("completed_at", null).lt("due_date", today),
+    teamView
+      ? (admin
+          ? supabase.from("leaves").select("id", { count: "exact", head: true }).eq("status", "pending").neq("employee_id", user.id)
+          : supabase.from("leaves").select("id, profiles:employee_id!inner(manager_id)", { count: "exact", head: true })
+              .eq("status", "pending").eq("profiles.manager_id", user.id))
+      : Promise.resolve({ count: 0 }),
+    teamView
+      ? (admin
+          ? supabase.from("task_extensions").select("id", { count: "exact", head: true }).eq("status", "pending").neq("requested_by", user.id)
+          : supabase.from("task_extensions").select("id, delegations:delegation_id!inner(assigned_by)", { count: "exact", head: true })
+              .eq("status", "pending").eq("delegations.assigned_by", user.id).neq("requested_by", user.id))
+      : Promise.resolve({ count: 0 }),
+  ]);
+  const todayCard = {
+    checkIn: (openDuty.data?.check_in || myDay.data?.check_in || null) as string | null,
+    checkOut: (openDuty.data ? null : myDay.data?.check_out || null) as string | null,
+    tasksDue: myTasks.count ?? 0,
+    overdue: myOverdue.count ?? 0,
+    approvals: teamView ? (leaveApprovals.count ?? 0) + (extApprovals.count ?? 0) : null,
+  };
+
   const { data: visits } = await supabase
     .from("field_visits")
     .select("id, client_name, address, status, profiles:employee_id(full_name)")
@@ -77,6 +106,7 @@ export default async function DashboardPage() {
       stats={stats}
       visits={visits || []}
       fieldSummary={fieldSummary}
+      today={todayCard}
     />
   );
 }

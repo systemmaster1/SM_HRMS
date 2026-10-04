@@ -1349,7 +1349,7 @@ export default function TasksPage() {
                                   </span>
                                   {canManage && (
                                     <button onClick={() => deleteSubtask(s)}
-                                      className="ml-auto text-slate-300 opacity-0 transition hover:text-rose-500 group-hover:opacity-100">
+                                      className="ml-auto text-slate-300 opacity-0 transition hover:text-rose-500 group-hover:opacity-100" aria-label="Delete">
                                       <Trash2 className="h-3.5 w-3.5" />
                                     </button>
                                   )}
@@ -1366,7 +1366,7 @@ export default function TasksPage() {
                                   onKeyDown={(e) => e.key === "Enter" && addSubtask(d)}
                                 />
                                 <button onClick={() => addSubtask(d)}
-                                  className="grid shrink-0 place-items-center rounded-lg border border-slate-300 dark:border-slate-600 px-3 text-slate-600 dark:text-slate-300 transition hover:bg-white">
+                                  className="grid shrink-0 place-items-center rounded-lg border border-slate-300 dark:border-slate-600 px-3 text-slate-600 dark:text-slate-300 transition hover:bg-white" aria-label="Add">
                                   <Plus className="h-3.5 w-3.5" />
                                 </button>
                               </div>
@@ -1546,7 +1546,7 @@ export default function TasksPage() {
                                 onKeyDown={(e) => e.key === "Enter" && !commentSaving && postComment(d)}
                               />
                               <button onClick={() => postComment(d)} disabled={commentSaving}
-                                className="grid shrink-0 place-items-center rounded-lg bg-brand-700 px-3 text-white transition hover:bg-brand-800 disabled:opacity-60">
+                                className="grid shrink-0 place-items-center rounded-lg bg-brand-700 px-3 text-white transition hover:bg-brand-800 disabled:opacity-60" aria-label="Send">
                                 <Send className="h-3.5 w-3.5" />
                               </button>
                             </div>
@@ -1657,7 +1657,7 @@ export default function TasksPage() {
                           {t.active ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
                         </button>
                         <button onClick={() => deleteTemplate(t.id)} title="Delete"
-                          className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 transition hover:border-rose-300 hover:text-rose-600">
+                          className="grid h-8 w-8 place-items-center rounded-lg border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 transition hover:border-rose-300 hover:text-rose-600" aria-label="Delete">
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
@@ -1731,7 +1731,7 @@ export default function TasksPage() {
                 value={df.kra_id} onChange={(e) => setD("kra_id", e.target.value)} />
               <button type="button"
                 onClick={async () => { const id = await genKra(); if (id) setD("kra_id", id); }}
-                className="shrink-0 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                className="shrink-0 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700/50" aria-label="Generate a new KRA ID">
                 <RotateCcw className="h-4 w-4" />
               </button>
             </div>
@@ -1845,7 +1845,7 @@ export default function TasksPage() {
                 value={cf.kra_id} onChange={(e) => setC("kra_id", e.target.value)} />
               <button type="button"
                 onClick={async () => { const id = await genKra(); if (id) setC("kra_id", id); }}
-                className="shrink-0 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700/50">
+                className="shrink-0 rounded-lg border border-slate-300 dark:border-slate-600 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-300 transition hover:bg-slate-50 dark:hover:bg-slate-700/50" aria-label="Generate a new KRA ID">
                 <RotateCcw className="h-4 w-4" />
               </button>
             </div>
