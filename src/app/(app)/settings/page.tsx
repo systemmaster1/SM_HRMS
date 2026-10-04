@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import AIAssistantSettings from "@/components/AIAssistantSettings";
 import OrgAdmin2FASettings from "@/components/OrgAdmin2FASettings";
+import OwnershipTransferCard from "@/components/OwnershipTransferCard";
 import { COMPANY_COLUMNS } from "@/lib/profile-columns";
 
 export default async function SettingsPage() {
@@ -29,6 +30,7 @@ export default async function SettingsPage() {
     <>
       <PlanFeaturesCard />
       <SettingsForm company={company} activeUsers={activeUsers ?? 0} />
+      <OwnershipTransferCard />
       <OrgAdmin2FASettings />
       <AIAssistantSettings />
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">

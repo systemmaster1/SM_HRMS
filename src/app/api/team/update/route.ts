@@ -63,7 +63,7 @@ export async function POST(req: Request) {
   if (role !== current.role && !canAssignRole(me.role, current.role, role)) {
     return NextResponse.json({
       error: role === "owner"
-        ? "Ownership can only be moved with Transfer Ownership."
+        ? "Ownership can only be moved with Settings → Ownership & Administration."
         : "Only the Organization Owner can grant or remove the Admin role.",
     }, { status: 403 });
   }
