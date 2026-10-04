@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Check, CreditCard, Loader2, WalletCards, Download, ReceiptText } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyError } from "@/lib/errors";
 
 declare global { interface Window { Razorpay?: any } }
 
@@ -72,7 +73,7 @@ export default function SubscriptionPage(){
     }catch(e:any){setMessage(e?.message||"Unable to start payment.");setBusy(false)}
   };
 
-  const requestCancel=async()=>{const {error}=await supabase.rpc("customer_set_cancel_at_period_end",{p_cancel:true});setMessage(error?error.message:"Cancellation scheduled for the end of the billing period.");if(!error)load()};
+  const requestCancel=async()=>{const {error}=await supabase.rpc("customer_set_cancel_at_period_end",{p_cancel:true});setMessage(error?friendlyError(error):"Cancellation scheduled for the end of the billing period.");if(!error)load()};
 
   const fallback:Record<string,string[]>={
     starter:["Attendance","Leave Management","Team & Organization","Employee self-service"],

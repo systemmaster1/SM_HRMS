@@ -103,7 +103,7 @@ export default function EmployeeDetail({
     const ext = file.name.split(".").pop();
     const path = `${employee.company_id}/${employee.id}/${Date.now()}.${ext}`;
     const { error: upErr } = await supabase.storage.from("employee-docs").upload(path, file);
-    if (upErr) { setUploading(false); return setError(upErr.message); }
+    if (upErr) { setUploading(false); return setError(friendlyError(upErr)); }
 
     // Private bucket: keep only the path; files open through a signed URL.
     const url = path;
@@ -117,7 +117,7 @@ export default function EmployeeDetail({
       file_size: file.size,
     });
     setUploading(false);
-    if (dbErr) return setError(dbErr.message);
+    if (dbErr) return setError(friendlyError(dbErr));
     setDocTitle("");
     loadDocs();
   };
@@ -135,7 +135,7 @@ export default function EmployeeDetail({
     });
     setSaving(false);
     setConfirming(null);
-    if (error) return setError(error.message);
+    if (error) return setError(friendlyError(error));
     onChanged();
     onClose();
   };

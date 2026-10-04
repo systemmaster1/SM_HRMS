@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { promptDialog, toast } from "@/components/Dialogs";
 import { card, btnPrimary, btnGhost, fmtDateTime, Chip, featureName } from "./shared";
+import { friendlyError } from "@/lib/errors";
 
 export default function RequestsTab({ onOpenOrg }: { onOpenOrg: (id: string) => void }) {
   const supabase = createClient();
@@ -16,7 +17,7 @@ export default function RequestsTab({ onOpenOrg }: { onOpenOrg: (id: string) => 
     setLoading(true);
     const { data, error } = await supabase.rpc("system_admin_module_requests", { p_status: status || null });
     setLoading(false);
-    if (error) return toast(error.message, "error");
+    if (error) return toast(friendlyError(error), "error");
     setRows((data as any[]) || []);
   }, [supabase, status]);
   useEffect(() => { load(); }, [load]);
@@ -32,7 +33,7 @@ export default function RequestsTab({ onOpenOrg }: { onOpenOrg: (id: string) => 
     setBusy(r.id);
     const { error } = await supabase.rpc("system_admin_decide_module_request", { p_request: r.id, p_approve: approve, p_note: note || null });
     setBusy(null);
-    if (error) return toast(error.message, "error");
+    if (error) return toast(friendlyError(error), "error");
     toast(approve ? "Approved: module enabled." : "Request declined.");
     load();
   };

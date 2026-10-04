@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { confirmDialog } from "@/components/Dialogs";
+import { friendlyError } from "@/lib/errors";
 
 type FieldType =
   | "text"
@@ -108,7 +109,7 @@ export default function VisitFormBuilderPage() {
     const { error } = await supabase.from("visit_form_settings")
       .update({ [key]: required, updated_by: me.id, updated_at: new Date().toISOString() })
       .eq("company_id", me.company_id);
-    setMessage(error ? error.message : "Visit requirements saved.");
+    setMessage(error ? friendlyError(error) : "Visit requirements saved.");
     if (error) await load();
   };
 
@@ -145,7 +146,7 @@ export default function VisitFormBuilderPage() {
 
     setSaving(false);
     if (error) {
-      setMessage(error.message);
+      setMessage(friendlyError(error));
       return;
     }
     setDraft({ label: "", field_type: "text", placeholder: "", is_required: false, options_text: "" });
@@ -158,7 +159,7 @@ export default function VisitFormBuilderPage() {
       .from("visit_custom_fields")
       .update({ ...patch, updated_at: new Date().toISOString() })
       .eq("id", field.id);
-    if (error) setMessage(error.message);
+    if (error) setMessage(friendlyError(error));
     else await load();
   };
 
@@ -170,7 +171,7 @@ export default function VisitFormBuilderPage() {
     });
     if (!ok) return;
     const { error } = await supabase.from("visit_custom_fields").delete().eq("id", field.id);
-    if (error) setMessage(error.message);
+    if (error) setMessage(friendlyError(error));
     else {
       setMessage("Field removed from future visit forms.");
       await load();

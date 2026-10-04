@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Info, XCircle, X } from "lucide-react";
+import { friendlyError } from "@/lib/errors";
 
 /**
  * App-styled replacements for window.alert / confirm / prompt, plus toasts.
  *
  *   if (await confirmDialog({ title: "Delete field?", danger: true })) …
  *   const reason = await promptDialog({ title: "Reason", required: true });
- *   toast("Saved");                 toast(error.message, "error");
+ *   toast("Saved");                 toast(friendlyError(error), "error");
  *
  * They work from any client code. If the host is not mounted (public pages),
  * they fall back to the browser's own dialogs.

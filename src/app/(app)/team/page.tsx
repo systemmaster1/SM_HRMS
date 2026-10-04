@@ -9,6 +9,7 @@ import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
 import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2, IdCard, Search, Trash2, LoaderCircle, Workflow, MapPinned, Pencil } from "lucide-react";
 import EmployeeDetail from "@/components/EmployeeDetail";
 import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 const randomPassword = () => {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -97,7 +98,7 @@ export default function TeamPage() {
       // Regular employees see the privacy-respecting directory view
       // (honours the company's visibility settings for email/phone/scope).
       const { data: dir, error: dirErr } = await supabase.rpc("directory");
-      if (dirErr) setLoadError(dirErr.message);
+      if (dirErr) setLoadError(friendlyError(dirErr));
       setMembers(
         ((dir as any[]) || []).map((r) => ({
           ...r,

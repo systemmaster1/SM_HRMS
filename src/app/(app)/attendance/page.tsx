@@ -18,7 +18,8 @@ import {
   LogIn, LogOut, MapPin, CalendarCheck, Clock, AlertTriangle,
   Camera, Globe, Loader2, Download, Printer, ExternalLink, Navigation, ShieldCheck,
 } from "lucide-react";
-import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { PROFILE_COLUMNS, COMPANY_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 type Mode = "in" | "out";
 
@@ -68,7 +69,7 @@ export default function AttendancePage() {
     setMe(p as Profile);
 
     const { data: c } = await supabase
-      .from("companies").select("*").eq("id", p.company_id).maybeSingle();
+      .from("companies").select(COMPANY_COLUMNS).eq("id", p.company_id).maybeSingle();
     setCompany(c);
 
     const { data: req } = await supabase.rpc("photo_required_for_me");
@@ -178,7 +179,7 @@ export default function AttendancePage() {
 
       if (upErr) {
         setSubmitting(false);
-        return setError(`Photo upload failed: ${upErr.message}`);
+        return setError(`Photo upload failed: ${friendlyError(upErr)}`);
       }
       // Private bucket: store only the path. The photo is shown through a
       // short-lived signed URL to the employee, admins and their manager.
@@ -191,7 +192,7 @@ export default function AttendancePage() {
     });
 
     setSubmitting(false);
-    if (rpcErr) return setError(rpcErr.message);
+    if (rpcErr) return setError(friendlyError(rpcErr));
 
     setMode(null);
     load();

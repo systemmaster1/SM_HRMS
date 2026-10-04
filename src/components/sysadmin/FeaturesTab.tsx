@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { confirmDialog, toast } from "@/components/Dialogs";
 import { FEATURES, type FeatureKey } from "@/lib/features/registry";
 import { card, inputCls } from "./shared";
+import { friendlyError } from "@/lib/errors";
 
 const OPTIONS: [string, string, string][] = [
   ["free", "Free", "On by default for every organization"],
@@ -38,7 +39,7 @@ export default function FeaturesTab() {
     });
     if (!ok) return;
     const { error } = await supabase.rpc("system_admin_set_feature_availability", { p_key: key, p_availability: value });
-    if (error) return toast(error.message, "error");
+    if (error) return toast(friendlyError(error), "error");
     toast("Availability updated.");
     load();
   };

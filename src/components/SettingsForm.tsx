@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, inputCls } from "@/components/ui";
 import { Building2, CreditCard, Upload, Check, ImageIcon, Clock, Camera, Eye, Navigation, IndianRupee, ClipboardCheck } from "lucide-react";
+import { friendlyError } from "@/lib/errors";
 
 export default function SettingsForm({
   company,
@@ -98,7 +99,7 @@ export default function SettingsForm({
 
     if (upErr) {
       setUploading(false);
-      return setError(upErr.message);
+      return setError(friendlyError(upErr));
     }
 
     const { data } = supabase.storage.from("company-logos").getPublicUrl(path);
@@ -161,7 +162,7 @@ export default function SettingsForm({
       .eq("id", company.id);
     setSaving(false);
 
-    if (error) return setError(error.message);
+    if (error) return setError(friendlyError(error));
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);

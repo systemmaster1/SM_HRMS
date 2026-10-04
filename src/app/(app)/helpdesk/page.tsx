@@ -6,6 +6,7 @@ import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/componen
 import { type Profile, isAdminRole } from "@/lib/types";
 import { LifeBuoy, Plus, Send, MessageSquare, HelpCircle } from "lucide-react";
 import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 const CATEGORIES = [
   { v: "general", l: "General" }, { v: "it", l: "IT" }, { v: "hr", l: "HR" },
@@ -89,7 +90,7 @@ export default function HelpDeskPage() {
       priority: f.priority,
     }).select().single();
 
-    if (err) { setSaving(false); return setError(err.message); }
+    if (err) { setSaving(false); return setError(friendlyError(err)); }
 
     // Notify admins
     const { data: admins } = await supabase

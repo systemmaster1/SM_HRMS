@@ -8,6 +8,7 @@ import { FadeIn, StaggerGroup, StaggerItem, HoverLift, MotionButton, SkeletonRow
 import { type Profile, isAdminRole } from "@/lib/types";
 import { Users2, SlidersHorizontal, History, Search, Check, X, Clock, Plane } from "lucide-react";
 import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 const DAY_LABELS: Record<string, string> = {
   full_day: "Full day", first_half: "First half", second_half: "Second half",
@@ -99,7 +100,7 @@ export default function TeamLeaveBalancePage() {
       p_reason: af.reason,
     });
     setAdjSaving(false);
-    if (error) return setAdjError(error.message);
+    if (error) return setAdjError(friendlyError(error));
 
     setAdjOpen(false);
     load();

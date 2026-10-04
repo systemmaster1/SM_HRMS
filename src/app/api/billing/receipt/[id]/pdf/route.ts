@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+// Only what a receipt shows (never integration secrets). Typed as string on purpose.
+const RECEIPT_COMPANY_COLUMNS: string = "id,name,address,city,state,pincode,phone,email,gst_number,org_code,logo_url";
 
 export const dynamic="force-dynamic";
 
@@ -22,10 +24,11 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
   if(!profile?.company_id)return new NextResponse("Organization not found",{status:404});
   const {data:p}=await admin.from("billing_payments").select("*").eq("id",id).eq("company_id",profile.company_id).maybeSingle();
   if(!p)return new NextResponse("Receipt not found",{status:404});
-  const [{data:c},{data:s}]=await Promise.all([
-   admin.from("companies").select("*").eq("id",profile.company_id).maybeSingle(),
+  const [{data:cRaw},{data:s}]=await Promise.all([
+   admin.from("companies").select(RECEIPT_COMPANY_COLUMNS).eq("id",profile.company_id).maybeSingle(),
    admin.from("company_subscriptions").select("*").eq("company_id",profile.company_id).maybeSingle()
   ]);
+  const c: any = cRaw;
   const address=c?.billing_address||c?.address||c?.registered_address||"";
   const gst=c?.gstin||c?.gst_number||c?.gst_no||"";
   const phone=c?.phone||c?.mobile||c?.contact_number||"";

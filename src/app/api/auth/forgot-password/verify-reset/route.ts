@@ -241,6 +241,9 @@ export async function POST(request: Request) {
       throw passwordError;
     }
 
+    // The person chose this password themselves: no forced change on next login.
+    await supabase.from("profiles").update({ must_change_password: false }).eq("id", authUser.id);
+
     /*
      * OTP becomes unusable immediately after successful reset.
      */

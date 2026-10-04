@@ -7,6 +7,7 @@ import { exportCsv } from "@/lib/export";
 import { FEATURES, type FeatureKey } from "@/lib/features/registry";
 import OrgDrawer from "./OrgDrawer";
 import { card, inputCls, btnGhost, fmtDate, ago, billingChip, statusChip, Chip, featureName } from "./shared";
+import { friendlyError } from "@/lib/errors";
 
 const PAGE = 25;
 const topModules = (Object.keys(FEATURES) as FeatureKey[]).filter((k) => !FEATURES[k].parent);
@@ -38,7 +39,7 @@ export default function OrganizationsTab() {
       p_module: moduleKey || null, p_sort: sort, p_dir: dir, p_limit: PAGE, p_offset: page * PAGE,
     });
     setLoading(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(friendlyError(error)); return; }
     setError("");
     setRows((data as any)?.rows || []);
     setTotal((data as any)?.total || 0);

@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyError } from "@/lib/errors";
 import { ArrowRight, ArrowLeft, Check, Building2, UserRound, LayoutGrid, ClipboardCheck, ImagePlus, Copy } from "lucide-react";
 import { LogoFull } from "@/components/Logo";
 import ModulePicker, { defaultSelection, type CatalogItem } from "@/components/ModulePicker";
@@ -180,7 +181,7 @@ export default function OnboardingPage() {
         setLoading(false);
         setError(looksLikeClockError(e.message)
           ? "Your device clock looks slightly ahead of the correct time, so sign-in was rejected. Set date & time to automatic, then try again."
-          : e.message);
+          : friendlyError(e, "create your organization"));
         return;
       }
       prof = (await supabase.from("profiles").select("company_id").eq("id", auth.user!.id).maybeSingle()).data;
