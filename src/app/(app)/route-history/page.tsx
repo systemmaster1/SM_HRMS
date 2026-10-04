@@ -318,7 +318,7 @@ export default function RouteHistoryPage() {
       </section>
 
       <section className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950">
-        <button onClick={() => changeDate(-1)} className="rounded-lg border border-slate-200 p-2 dark:border-slate-800">
+        <button onClick={() => changeDate(-1)} className="rounded-lg border border-slate-200 p-2 dark:border-slate-800" aria-label="Previous">
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="flex min-w-[190px] items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 dark:border-slate-800">
@@ -330,7 +330,7 @@ export default function RouteHistoryPage() {
             className="w-full bg-transparent text-sm outline-none"
           />
         </div>
-        <button onClick={() => changeDate(1)} className="rounded-lg border border-slate-200 p-2 dark:border-slate-800">
+        <button onClick={() => changeDate(1)} className="rounded-lg border border-slate-200 p-2 dark:border-slate-800" aria-label="Next">
           <ChevronRight className="h-4 w-4" />
         </button>
         <button

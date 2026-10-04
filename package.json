@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:db": "node tests/db/security-guards.test.mjs && node tests/db/phase2b.test.mjs && node tests/db/phase3.test.mjs && node tests/db/phase4.test.mjs"
+    "test:db": "node tests/db/security-guards.test.mjs && node tests/db/phase2b.test.mjs && node tests/db/phase3.test.mjs && node tests/db/phase4.test.mjs && node tests/db/phase5.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.1",

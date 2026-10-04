@@ -97,7 +97,7 @@ export default function LeavePage() {
 
     const { data: l } = await supabase
       .from("leaves")
-      .select("*, profiles:employee_id(full_name, department), buddy:buddy_id(full_name), leave_types:leave_type_id(code, name)")
+      .select("*, profiles:employee_id(full_name, department, manager_id, work_manager_id, field_manager_id), buddy:buddy_id(full_name), leave_types:leave_type_id(code, name)")
       .gte("from_date", `${year}-01-01`).lte("from_date", `${year}-12-31`)
       .order("created_at", { ascending: false });
     setLeaves(l || []);
@@ -266,7 +266,11 @@ export default function LeavePage() {
   const admin = isAdminRole(me?.role);
   const mine = leaves.filter((l) => l.employee_id === me?.id);
   const buddyReqs = leaves.filter((l) => l.buddy_id === me?.id);
-  const teamReqs = leaves.filter((l) => l.employee_id !== me?.id);
+  // Reporting managers decide their team's leave too (the database enforces the same rule).
+  const managesEmployee = (l: any) =>
+    !!me && [l.profiles?.manager_id, l.profiles?.work_manager_id, l.profiles?.field_manager_id].includes(me.id);
+  const approver = admin || me?.role === "manager";
+  const teamReqs = leaves.filter((l) => l.employee_id !== me?.id && (admin || managesEmployee(l)));
   const pending = teamReqs.filter((l) => l.status === "pending").length;
   const pendingBuddy = buddyReqs.filter((l) => l.buddy_status === "pending").length;
 
@@ -386,7 +390,7 @@ export default function LeavePage() {
               Buddy{pendingBuddy ? ` (${pendingBuddy})` : ""}
             </TabBtn>
           )}
-          {admin && (
+          {approver && (
             <TabBtn on={tab === "team"} onClick={() => setTab("team")}>
               Requests{pending ? ` (${pending})` : ""}
             </TabBtn>
@@ -472,14 +476,14 @@ export default function LeavePage() {
                 )}
 
                 {/* Admin actions */}
-                {tab === "team" && admin && l.status === "pending" && (
+                {tab === "team" && approver && l.status === "pending" && (
                   <div className="flex shrink-0 gap-2">
                     <button onClick={() => decide(l, "approved")} title="Approve"
-                      className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100">
+                      className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-600 transition hover:bg-emerald-100" aria-label="Approve">
                       <Check className="h-4 w-4" />
                     </button>
                     <button onClick={() => decide(l, "rejected")} title="Reject"
-                      className="grid h-8 w-8 place-items-center rounded-lg bg-rose-50 text-rose-600 transition hover:bg-rose-100">
+                      className="grid h-8 w-8 place-items-center rounded-lg bg-rose-50 text-rose-600 transition hover:bg-rose-100" aria-label="Reject">
                       <X className="h-4 w-4" />
                     </button>
                   </div>

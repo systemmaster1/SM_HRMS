@@ -187,7 +187,7 @@ export default function OrganizationPage() {
           <input autoFocus value={editValue} onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") saveEdit(); if (e.key === "Escape") setEditing(null); }}
             className="w-28 border-none bg-transparent text-sm text-slate-900 outline-none dark:text-slate-100" />
-          <button onClick={saveEdit} className="grid h-6 w-6 place-items-center rounded text-emerald-600 hover:bg-emerald-50">
+          <button onClick={saveEdit} className="grid h-6 w-6 place-items-center rounded text-emerald-600 hover:bg-emerald-50" aria-label="Save">
             <Check className="h-3.5 w-3.5" />
           </button>
         </span>
@@ -197,11 +197,11 @@ export default function OrganizationPage() {
       <span className="group flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1.5 pl-3 pr-2 text-sm text-slate-700 dark:text-slate-200">
         {item.name}
         <button onClick={() => startEdit(table, item)}
-          className="text-slate-300 transition hover:text-brand-600">
+          className="text-slate-300 transition hover:text-brand-600" aria-label="Edit">
           <Pencil className="h-3.5 w-3.5" />
         </button>
         <button onClick={() => del(table, item.id)}
-          className="text-slate-300 transition hover:text-rose-600">
+          className="text-slate-300 transition hover:text-rose-600" aria-label="Delete">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </span>
@@ -258,7 +258,7 @@ export default function OrganizationPage() {
                     <Navigation className="h-3.5 w-3.5" /> Location
                   </button>
                   <button onClick={() => del("branches", b.id)}
-                    className="text-slate-300 transition hover:text-rose-600">
+                    className="text-slate-300 transition hover:text-rose-600" aria-label="Delete">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </li>
@@ -342,7 +342,7 @@ export default function OrganizationPage() {
                     className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm tabular-nums outline-none focus:border-brand-600" />
                   <span className="text-xs text-slate-400">/ year</span>
                   <button onClick={() => del("leave_types", t.id)}
-                    className="ml-1 text-slate-300 transition hover:text-rose-600">
+                    className="ml-1 text-slate-300 transition hover:text-rose-600" aria-label="Delete">
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>

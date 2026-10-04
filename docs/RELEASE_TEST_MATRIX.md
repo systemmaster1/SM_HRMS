@@ -2,7 +2,7 @@
 
 Run before every Internal Testing / Production release. Record **PASS / FAIL / N/A**, tester, device and date in the copy you keep for that release.
 
-Automated (must be green in CI): `npx tsc --noEmit` · `npm run build` · `npm run test:db` (security guards, Phase 2b, Phase 3) · Android workflow build.
+Automated (must be green in CI): `npx tsc --noEmit` · `npm run build` · `npm run test:db` (security guards, Phase 2b, 3, 4, 5) · Android workflow build.
 
 ## Accounts and data
 
@@ -54,6 +54,12 @@ Devices: at least two real Android phones (one Android 13+, one Android 10–12)
 | 30 | Google Sheet backup | Integrations → sync now | Sheet updated; failure visible in sync log | AA | web |
 | 31 | Suspension | SA suspends ORG-A | ORG-A users see suspended screen; punches refused | SA, EA | both |
 | 32 | Account deletion | Open /delete-account signed out | Page opens without login; request path works | anyone | web |
+| 33 | Approvals | EA applies leave + asks task extension; MA opens Approvals | Both listed; approve leave; approve extension → task due date moves; EA notified | EA, MA | Android |
+| 34 | Approvals scope | EA2 (not reporting to MA) applies leave | Not in MA's Approvals; AA sees it | MA, AA | web |
+| 35 | Role bottom bar | Sign in as EA, MA, AA | EA: Home/Attendance/Tasks/Visits·Leave; MA: Home/Approvals/Tasks/Attendance; AA: Home/Approvals/Team/Attendance | all | Android |
+| 36 | Today card | EA before/after IN | "Not checked in" → "On duty IN hh:mm"; tasks due count | EA | Android |
+| 37 | No landing page in app | Open app signed out; sign out | Opens /login; no "Back to home"; web /login still shows it | — | Android + web |
+| 38 | Screen reader | TalkBack on Home, Tasks, Organization | Every icon button is announced (Delete, Edit, Next…) | EA, AA | Android |
 
 ## Cross-tenant checks (must all be refused)
 
@@ -65,6 +71,8 @@ Devices: at least two real Android phones (one Android 13+, one Android 10–12)
 | X4 | AA | Overwrite ORG-B logo in Storage |
 | X5 | EA | `select bank_account_number from profiles` (after post-deploy step B) |
 | X6 | OA | Call `system_admin_*` RPC |
+| X7 | EA | Approve own task extension from console (`update task_extensions set status='approved'`) |
+| X8 | AA | `update companies set owner_id = '<self>'` |
 
 ## Regression tests for historical bugs
 

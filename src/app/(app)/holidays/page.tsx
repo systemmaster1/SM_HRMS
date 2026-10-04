@@ -90,7 +90,7 @@ export default function HolidaysPage() {
       </div>
       {admin && (
         <button onClick={() => remove(h.id)}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:text-rose-600">
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-rose-300 hover:text-rose-600" aria-label="Delete">
           <Trash2 className="h-4 w-4" />
         </button>
       )}
