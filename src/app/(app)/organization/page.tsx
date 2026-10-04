@@ -7,7 +7,8 @@ import { type Profile, isAdminRole } from "@/lib/types";
 import { Building2, Briefcase, Plane, Plus, Trash2, Check, Users2, MapPinned, Navigation, Pencil } from "lucide-react";
 import { confirmDialog } from "@/components/Dialogs";
 import { PageLoader } from "@/components/ui";
-import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { PROFILE_COLUMNS, COMPANY_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 const DAY_TYPES = [
   { v: "full_day",       l: "Full day" },
@@ -61,7 +62,7 @@ export default function OrganizationPage() {
     setMe(p as Profile);
 
     const { data: c } = await supabase
-      .from("companies").select("*").eq("id", p!.company_id).single();
+      .from("companies").select(COMPANY_COLUMNS).eq("id", p!.company_id).single();
     setCompany(c);
 
     const [d, g, t, br] = await Promise.all([
@@ -108,7 +109,7 @@ export default function OrganizationPage() {
     }
 
     setSaving(false);
-    if (err) return setError(err.message.includes("duplicate") ? "This already exists." : err.message);
+    if (err) return setError(err.message.includes("duplicate") ? "This already exists." : friendlyError(err));
 
     setModal(null);
     setName(""); setCode(""); setQuota("12");

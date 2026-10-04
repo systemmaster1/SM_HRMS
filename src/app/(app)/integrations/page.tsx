@@ -11,7 +11,7 @@ import {
   ShieldCheck, Clock, ExternalLink,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui";
-import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { PROFILE_COLUMNS, COMPANY_COLUMNS } from "@/lib/profile-columns";
 
 const SCRIPT_VERSION = "2.0";
 
@@ -203,7 +203,7 @@ export default function IntegrationsPage() {
       setMe(p as Profile);
 
       const { data: c } = await supabase
-        .from("companies").select("*").eq("id", (p as Profile).company_id).single();
+        .from("companies").select(COMPANY_COLUMNS).eq("id", (p as Profile).company_id).single();
       setCompany(c);
       setEnabled(!!c?.gsheet_backup_enabled);
 

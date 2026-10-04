@@ -8,6 +8,7 @@ import { CalendarDays, Plus, Trash2 } from "lucide-react";
 import { todayYMD } from "@/lib/date";
 import { confirmDialog } from "@/components/Dialogs";
 import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 export default function HolidaysPage() {
   const supabase = createClient();
@@ -47,7 +48,7 @@ export default function HolidaysPage() {
       holiday_type: type,
     });
     setSaving(false);
-    if (error) return setError(error.message.includes("duplicate") ? "This holiday already exists." : error.message);
+    if (error) return setError(error.message.includes("duplicate") ? "This holiday already exists." : friendlyError(error));
     setOpen(false);
     setName(""); setDate(""); setType("public");
     load();

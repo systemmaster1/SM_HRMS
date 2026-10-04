@@ -15,6 +15,7 @@ import {
 import { addDaysYMD, fmtStampIST, todayYMD } from "@/lib/date";
 import { visitState } from "@/lib/tracking";
 import { PageLoader } from "@/components/ui";
+import { promptDialog } from "@/components/Dialogs";
 import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const activeStatuses = ["accepted", "on_the_way", "reached", "checked_in", "meeting"];
@@ -452,7 +453,7 @@ export default function FieldVisitsPage() {
       p_route_history: next.route_history_enabled !== false,
     });
     setBusyId(null);
-    if (e) setError(`Tracking setup failed: ${e.message}`);
+    if (e) setError(`Tracking setup failed: ${friendlyError(e, "save tracking settings")}`);
     else await load(true);
   };
 
@@ -815,7 +816,7 @@ export default function FieldVisitsPage() {
                         .update({ scheduled_at: when.toISOString(), visit_date: reschedAt.slice(0, 10) })
                         .eq("id", selectedVisitDetail.id);
                       setReschedBusy(false);
-                      if (e) { setReschedMsg(`Could not update: ${e.message}`); return; }
+                      if (e) { setReschedMsg(`Could not update: ${friendlyError(e, "change the planned time")}`); return; }
                       setReschedMsg("Planned time updated.");
                       setSelectedVisitDetail({ ...selectedVisitDetail, scheduled_at: when.toISOString(), visit_date: reschedAt.slice(0, 10) });
                       setReschedAt("");
@@ -826,6 +827,36 @@ export default function FieldVisitsPage() {
                   </button>
                 </div>
                 {reschedMsg && <p className={`mt-2 text-xs ${reschedMsg.startsWith("Could") ? "text-rose-600" : "text-emerald-600"}`}>{reschedMsg}</p>}
+              </div>
+            )}
+
+            {!["completed", "cancelled"].includes(selectedVisitDetail.status) &&
+              (selectedVisitDetail.employee_id !== me?.id || !["checked_in", "meeting"].includes(selectedVisitDetail.status) || manager) && (
+              <div className="rounded-xl border border-rose-200 bg-rose-50/60 p-4 dark:border-rose-500/30 dark:bg-rose-500/10">
+                <p className="text-sm font-semibold text-rose-800 dark:text-rose-200">Cancel this visit</p>
+                <p className="mt-1 text-xs text-rose-700/80 dark:text-rose-200/80">The visit is kept in reports as Cancelled with your reason.</p>
+                <button
+                  disabled={!!busyId}
+                  onClick={async () => {
+                    const reason = await promptDialog({
+                      title: "Cancel visit?",
+                      message: `Why is the visit to ${selectedVisitDetail.client_name || "this client"} cancelled?`,
+                      placeholder: "e.g. Customer postponed the meeting",
+                      confirmText: "Cancel visit",
+                      required: true, multiline: true,
+                    });
+                    if (!reason) return;
+                    setBusyId(selectedVisitDetail.id);
+                    const { error: e } = await supabase.rpc("field_visit_cancel_v1", { p_visit_id: selectedVisitDetail.id, p_reason: reason });
+                    setBusyId(null);
+                    if (e) { setReschedMsg(`Could not cancel: ${friendlyError(e, "cancel the visit")}`); return; }
+                    setSelectedVisitDetail(null);
+                    load(true);
+                  }}
+                  className="mt-3 rounded-lg border border-rose-300 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-500/40 dark:bg-transparent dark:text-rose-200"
+                >
+                  {busyId === selectedVisitDetail.id ? "Cancelling…" : "Cancel visit"}
+                </button>
               </div>
             )}
 

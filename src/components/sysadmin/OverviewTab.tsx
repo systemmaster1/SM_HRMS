@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Building2, CheckCircle2, Ban, Gift, CreditCard, Megaphone, ShieldOff, Users, UserCheck, Sparkles, Inbox, Hourglass } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { card, featureName } from "./shared";
+import { friendlyError } from "@/lib/errors";
 
 export default function OverviewTab({ onOpenRequests }: { onOpenRequests: () => void }) {
   const supabase = createClient();
@@ -12,7 +13,7 @@ export default function OverviewTab({ onOpenRequests }: { onOpenRequests: () => 
 
   useEffect(() => {
     supabase.rpc("system_admin_overview").then(({ data, error }) => {
-      if (error) setError(error.message); else setD(data);
+      if (error) setError(friendlyError(error)); else setD(data);
     });
   }, [supabase]);
 

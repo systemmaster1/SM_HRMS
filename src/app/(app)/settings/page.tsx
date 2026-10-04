@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import AIAssistantSettings from "@/components/AIAssistantSettings";
 import OrgAdmin2FASettings from "@/components/OrgAdmin2FASettings";
+import { COMPANY_COLUMNS } from "@/lib/profile-columns";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
@@ -16,7 +17,7 @@ export default async function SettingsPage() {
   if (!["owner", "admin"].includes(profile?.role || "")) redirect("/dashboard");
 
   const { data: company } = await supabase
-    .from("companies").select("*").eq("id", profile!.company_id).single();
+    .from("companies").select(COMPANY_COLUMNS).eq("id", profile!.company_id).single();
 
   const { count: activeUsers } = await supabase
     .from("profiles")

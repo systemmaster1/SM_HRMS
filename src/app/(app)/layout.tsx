@@ -13,7 +13,8 @@ import OrganizationSuspended from "@/components/OrganizationSuspended";
 import { EntitlementsProvider } from "@/lib/features/client";
 import { getEntitlements } from "@/lib/features/server";
 import { hasVerifiedOrgAdmin2fa } from "@/lib/org-admin-2fa";
-import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
+import { PROFILE_COLUMNS, COMPANY_COLUMNS } from "@/lib/profile-columns";
 
 export default async function AppLayout({
   children,
@@ -48,8 +49,8 @@ export default async function AppLayout({
             Something went wrong reading your account. Please refresh the page,
             or sign out and sign back in.
           </p>
-          <p className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-left font-mono text-[11px] text-slate-600 dark:bg-slate-900 dark:text-slate-400">
-            {profileError.message}
+          <p className="mt-3 rounded-lg bg-slate-100 px-3 py-2 text-left text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-400">
+            {friendlyError(profileError, "load your account")}
           </p>
           <div className="mt-5 flex justify-center gap-3">
             <a href="/dashboard"
@@ -77,9 +78,12 @@ export default async function AppLayout({
   // Profile exists but no company -> must create one
   if (!profile.company_id) redirect("/onboarding");
 
+  // Temporary password set by an Owner/Admin -> employee must choose their own.
+  if (profile.must_change_password) redirect("/change-password");
+
   const { data: company } = await supabase
     .from("companies")
-    .select("*")
+    .select(COMPANY_COLUMNS)
     .eq("id", profile.company_id)
     .maybeSingle();
 

@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/Dialogs";
 import { PageLoader } from "@/components/ui";
-import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { PROFILE_COLUMNS, COMPANY_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 export default function PayrollPage() {
   const supabase = createClient();
@@ -52,7 +53,7 @@ export default function PayrollPage() {
     setMe(p as Profile);
 
     const { data: c } = await supabase
-      .from("companies").select("*").eq("id", p!.company_id).single();
+      .from("companies").select(COMPANY_COLUMNS).eq("id", p!.company_id).single();
     setCompany(c);
 
     if (isAdminRole((p as Profile)?.role)) {
@@ -132,7 +133,7 @@ export default function PayrollPage() {
       created_by: me!.id,
     });
     setSaving(false);
-    if (error) return setDedError(error.message);
+    if (error) return setDedError(friendlyError(error));
     setDedOpen(false);
     setDf({ employee_id: "", reason: "", deduction_days: "0.5" });
     loadActions();
@@ -140,7 +141,7 @@ export default function PayrollPage() {
 
   const approve = async (id: string, from: string) => {
     const { error } = await supabase.rpc("approve_payroll_action", { p_action_id: id, p_deduct_from: from });
-    if (error) toast(error.message, "error");
+    if (error) toast(friendlyError(error), "error");
     else toast("Approved.");
     loadActions();
     loadSheet();

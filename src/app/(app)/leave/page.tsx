@@ -9,7 +9,7 @@ import { type Profile, isAdminRole } from "@/lib/types";
 import { MONTHS } from "@/lib/geo";
 import { Plane, Plus, Check, X, Users2, Clock, SlidersHorizontal, Users, Wallet, CalendarDays } from "lucide-react";
 import Link from "next/link";
-import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { PROFILE_COLUMNS, COMPANY_COLUMNS } from "@/lib/profile-columns";
 
 const DAY_LABELS: Record<string, string> = {
   full_day: "Full day",
@@ -73,13 +73,13 @@ export default function LeavePage() {
     setMe(p as Profile);
 
     const { data: c } = await supabase
-      .from("companies").select("*").eq("id", p.company_id).maybeSingle();
+      .from("companies").select(COMPANY_COLUMNS).eq("id", p.company_id).maybeSingle();
     setCompany(c);
 
     const { data: t, error: tErr } = await supabase
       .from("leave_types").select("*").eq("active", true).order("sort_order");
     setTypes(t || []);
-    if (tErr) setLoadError((prev) => prev || `Leave types: ${tErr.message}`);
+    if (tErr) setLoadError((prev) => prev || `Leave types: ${friendlyError(tErr)}`);
     if (t?.length) {
       setF((prev) => ({ ...prev, leave_type_id: prev.leave_type_id || t[0].id }));
       setAf((prev) => ({ ...prev, leave_type_id: prev.leave_type_id || t[0].id }));
@@ -93,7 +93,7 @@ export default function LeavePage() {
 
     const { data: bal, error: balErr } = await supabase.rpc("leave_balance");
     setBalances(bal || []);
-    if (balErr) setLoadError((prev) => prev || `Leave balance: ${balErr.message}`);
+    if (balErr) setLoadError((prev) => prev || `Leave balance: ${friendlyError(balErr)}`);
 
     const { data: l } = await supabase
       .from("leaves")
@@ -213,7 +213,7 @@ export default function LeavePage() {
       .eq("id", l.id);
 
     if (updErr) {
-      setLoadError(`Could not ${status === "approved" ? "approve" : "reject"}: ${updErr.message}`);
+      setLoadError(`Could not ${status === "approved" ? "approve" : "reject"}: ${friendlyError(updErr)}`);
       return;
     }
 
@@ -243,7 +243,7 @@ export default function LeavePage() {
       p_reason: af.reason,
     });
     setAdjSaving(false);
-    if (error) return setAdjError(error.message);
+    if (error) return setAdjError(friendlyError(error));
 
     setAdjOpen(false);
     setAf({ employee_id: "", leave_type_id: types[0]?.id || "", delta_days: "1", reason: "" });

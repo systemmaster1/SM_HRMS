@@ -38,6 +38,7 @@ import {
   btnDanger,
   featureName,
 } from "./shared";
+import { friendlyError } from "@/lib/errors";
 
 const SOURCE_LABEL: Record<string, string> = {
   platform: "SystemMaster",
@@ -122,7 +123,7 @@ export default function OrgDrawer({
       );
 
     if (error) {
-      setError(error.message);
+      setError(friendlyError(error));
       return;
     }
 

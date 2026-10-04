@@ -7,6 +7,7 @@ import { type Profile, isAdminRole } from "@/lib/types";
 import { FileText, Upload, Download, Trash2, Plus } from "lucide-react";
 import { confirmDialog } from "@/components/Dialogs";
 import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 const CATEGORIES = [
   { v: "policy", l: "Policy" },
@@ -61,7 +62,7 @@ export default function PoliciesPage() {
     const { error: upErr } = await supabase.storage
       .from("company-docs").upload(path, file);
 
-    if (upErr) { setSaving(false); return setError(upErr.message); }
+    if (upErr) { setSaving(false); return setError(friendlyError(upErr)); }
 
     const { data } = supabase.storage.from("company-docs").getPublicUrl(path);
 
@@ -76,7 +77,7 @@ export default function PoliciesPage() {
       uploaded_by: me!.id,
     });
     setSaving(false);
-    if (dbErr) return setError(dbErr.message);
+    if (dbErr) return setError(friendlyError(dbErr));
 
     setOpen(false);
     setTitle(""); setDesc(""); setCategory("policy"); setFile(null);

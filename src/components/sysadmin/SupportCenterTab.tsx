@@ -4,6 +4,7 @@ import {createClient} from "@/lib/supabase/client";
 import {toast} from "@/components/Dialogs";
 import {card,btnPrimary,btnGhost,fmtDateTime,Chip,inputCls} from "./shared";
 import {ExternalLink,LifeBuoy,CalendarClock,RefreshCw} from "lucide-react";
+import { friendlyError } from "@/lib/errors";
 
 const TS=["open","in_progress","on_hold","resolved","closed"];
 const MS=["requested","confirmed","rescheduled","completed","cancelled"];
@@ -14,12 +15,12 @@ export default function SupportCenterTab({onOpenOrg}:{onOpenOrg:(id:string)=>voi
  const load=useCallback(async()=>{setLoading(true);const [t,m]=await Promise.all([
   supabase.rpc("system_admin_support_tickets",{p_status:ticketStatus||null}),
   supabase.rpc("system_admin_support_meetings",{p_status:meetingStatus||null})
- ]);setLoading(false);if(t.error)toast(t.error.message,"error");else setTickets((t.data as any[])||[]);
- if(m.error)toast(m.error.message,"error");else setMeetings((m.data as any[])||[]);},[supabase,ticketStatus,meetingStatus]);
+ ]);setLoading(false);if(t.error)toast(friendlyError(t.error),"error");else setTickets((t.data as any[])||[]);
+ if(m.error)toast(friendlyError(m.error),"error");else setMeetings((m.data as any[])||[]);},[supabase,ticketStatus,meetingStatus]);
  useEffect(()=>{load()},[load]);
  const updateTicket=async(r:any,patch:any)=>{const {error}=await supabase.rpc("system_admin_update_support_ticket",{
   p_ticket:r.id,p_status:patch.status??null,p_priority:patch.priority??null,p_plan:patch.plan??null,p_target_date:patch.target_date??null});
-  if(error)return toast(error.message,"error");toast("Ticket updated.");load();};
+  if(error)return toast(friendlyError(error),"error");toast("Ticket updated.");load();};
  const updateMeeting=async(r:any,patch:any)=>{
   const {data:{session}}=await supabase.auth.getSession(); if(!session)return toast("Session expired. Please sign in again.","error");
   const res=await fetch("/api/system-admin/support-meeting",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({meetingId:r.id,status:patch.status,meetingUrl:patch.meeting_url,notes:patch.internal_notes})});

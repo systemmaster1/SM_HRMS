@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+// Only what a receipt shows (never integration secrets). Typed as string on purpose.
+const RECEIPT_COMPANY_COLUMNS: string = "id,name,address,city,state,pincode,phone,email,gst_number,org_code,logo_url";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +27,12 @@ export async function GET(_request:Request,{params}:{params:Promise<{id:string}>
   if(paymentError)throw paymentError;
   if(!payment)return NextResponse.json({error:"Receipt not found for this organization."},{status:404});
   const [{data:company},{data:subscription}]=await Promise.all([
-   admin.from("companies").select("*").eq("id",profile.company_id).maybeSingle(),
+   admin.from("companies").select(RECEIPT_COMPANY_COLUMNS).eq("id",profile.company_id).maybeSingle(),
    admin.from("company_subscriptions").select("plan_code,licensed_users,current_period_start,current_period_end,next_billing_at,billing_cycle").eq("company_id",profile.company_id).maybeSingle()
   ]);
   return NextResponse.json({payment,company,subscription},{headers:{"Cache-Control":"no-store, max-age=0"}});
  }catch(error:any){
   console.error("Customer receipt failed:",error);
-  return NextResponse.json({error:String(error?.message||"Unable to load receipt.")},{status:500});
+  return NextResponse.json({error:"Unable to load receipt. Please try again."},{status:500});
  }
 }

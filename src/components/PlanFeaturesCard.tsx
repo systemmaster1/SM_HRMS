@@ -9,6 +9,7 @@ import { FEATURES, isFeatureOn, type FeatureKey } from "@/lib/features/registry"
 import { Modal } from "@/components/ui";
 import ModulePicker, { type CatalogItem } from "@/components/ModulePicker";
 import { toast } from "@/components/Dialogs";
+import { friendlyError } from "@/lib/errors";
 
 /**
  * Settings → Plan & Features.
@@ -40,7 +41,7 @@ export default function PlanFeaturesCard() {
     setSaving(true);
     const { data, error } = await supabase.rpc("org_set_modules", { p_modules: draft });
     setSaving(false);
-    if (error) return toast(error.message, "error");
+    if (error) return toast(friendlyError(error), "error");
     const r = data as any;
     const req = (r?.requested || []).filter((k: string) => !FEATURES[k as FeatureKey]?.parent);
     toast(req.length
@@ -54,7 +55,7 @@ export default function PlanFeaturesCard() {
     setBusyKey(k);
     const { data, error } = await supabase.rpc("org_request_module", { p_key: k, p_note: null });
     setBusyKey(null);
-    if (error) return toast(error.message, "error");
+    if (error) return toast(friendlyError(error), "error");
     toast(data === "already_active" ? "This module is already active." : `Request sent. SystemMaster will contact you to activate ${FEATURES[k].label}.`);
     router.refresh();
   };

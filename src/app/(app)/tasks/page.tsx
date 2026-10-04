@@ -18,7 +18,8 @@ import { confirmDialog, promptDialog, alertDialog, toast } from "@/components/Di
 import { PageLoader } from "@/components/ui";
 import { useFeature } from "@/lib/features/client";
 import ModuleLocked from "@/components/ModuleLocked";
-import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { PROFILE_COLUMNS, COMPANY_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 /** Completed tasks older than this are not loaded on the Tasks screen. */
 const HISTORY_DAYS = 90;
@@ -321,7 +322,7 @@ export default function TasksPage() {
 
     if (isAdminRole((p as Profile)?.role)) {
       const [{ data: c }, { data: m }, { data: dpts }] = await Promise.all([
-        supabase.from("companies").select("*").eq("id", (p as Profile).company_id).single(),
+        supabase.from("companies").select(COMPANY_COLUMNS).eq("id", (p as Profile).company_id).single(),
         supabase.from("profiles").select(PROFILE_COLUMNS).eq("status", "active").order("full_name"),
         supabase.from("departments").select("*").order("name"),
       ]);
@@ -407,7 +408,7 @@ export default function TasksPage() {
     }).select().single();
     setDSaving(false);
 
-    if (error) return setDError(error.message);
+    if (error) return setDError(friendlyError(error));
 
     await supabase.from("notifications").insert({
       company_id: me!.company_id,
@@ -477,7 +478,7 @@ export default function TasksPage() {
     const { error } = await supabase.from("delegations")
       .update({ completed_at: new Date().toISOString(), status: "complete" })
       .eq("id", d.id);
-    if (error) return toast(error.message, "error");
+    if (error) return toast(friendlyError(error, "complete the task"), "error");
     toast("Task completed successfully.");
     setExpandedId(null);
     load();
@@ -540,7 +541,7 @@ export default function TasksPage() {
       requested_time: extForm.time || null,
       reason: extForm.reason.trim() || null,
     });
-    if (error) return setExtError(error.message);
+    if (error) return setExtError(friendlyError(error));
     if (d.assigned_by && d.assigned_by !== me!.id) {
       await supabase.from("notifications").insert({
         company_id: me!.company_id, user_id: d.assigned_by,
@@ -600,7 +601,7 @@ export default function TasksPage() {
     });
     setCSaving(false);
 
-    if (error) return setCError(error.message);
+    if (error) return setCError(friendlyError(error));
 
     setCOpen(false);
     setCf({ title: "", kra_id: "", department: "", description: "", assigned_to: "",
@@ -626,7 +627,7 @@ export default function TasksPage() {
       const { error } = await supabase.rpc("set_checklist_done", {
         p_instance: inst.id, p_done: false,
       });
-      if (error) { toast(error.message, "error"); return; }
+      if (error) { toast(friendlyError(error), "error"); return; }
       await supabase.from("checklist_instances").update({ status: "pending" }).eq("id", inst.id);
       if (inst.assigned_to && inst.assigned_to !== me!.id) {
         await supabase.from("notifications").insert({
@@ -655,7 +656,7 @@ export default function TasksPage() {
     const { error } = await supabase.rpc("set_checklist_done", {
       p_instance: inst.id, p_done: true,
     });
-    if (error) { toast(error.message, "error"); return; }
+    if (error) { toast(friendlyError(error), "error"); return; }
     await supabase.from("checklist_instances").update({ status: "complete" }).eq("id", inst.id);
     load();
   };
@@ -668,7 +669,7 @@ export default function TasksPage() {
     const { error } = await supabase.from("checklist_instances")
       .update({ status: nextStatus })
       .eq("id", inst.id);
-    if (error) return toast(error.message, "error");
+    if (error) return toast(friendlyError(error), "error");
     toast("Checklist status updated.");
     load();
   };
@@ -714,7 +715,7 @@ export default function TasksPage() {
     const up = await supabase.storage.from("task-attachments").upload(storagePath, uploadFile, {
       upsert: false, contentType: "image/jpeg",
     });
-    if (up.error) return toast(up.error.message, "error");
+    if (up.error) return toast(friendlyError(up.error), "error");
 
     const { error } = await supabase.from("task_attachments").insert({
       company_id: me!.company_id,
@@ -727,7 +728,7 @@ export default function TasksPage() {
     });
     if (error) {
       await supabase.storage.from("task-attachments").remove([storagePath]);
-      return toast(error.message, "error");
+      return toast(friendlyError(error), "error");
     }
     toast(`Work photo uploaded · ${Math.max(1, Math.round(uploadFile.size / 1024))} KB`);
   };
@@ -769,7 +770,7 @@ export default function TasksPage() {
       upsert: false,
       contentType: "image/jpeg",
     });
-    if (up.error) return toast(up.error.message, "error");
+    if (up.error) return toast(friendlyError(up.error), "error");
 
     const { error } = await supabase.from("task_attachments").insert({
       company_id: me!.company_id,
@@ -782,7 +783,7 @@ export default function TasksPage() {
     });
     if (error) {
       await supabase.storage.from("task-attachments").remove([storagePath]);
-      return toast(error.message, "error");
+      return toast(friendlyError(error), "error");
     }
     toast(`Image uploaded · ${Math.max(1, Math.round(uploadFile.size / 1024))} KB`);
   };
@@ -873,7 +874,11 @@ export default function TasksPage() {
   const effectiveTaskPolicy = (d: any) => {
     const employee = taskPolicies.find((x) => x.scope_type === "employee" && x.employee_id === d.assigned_to);
     const assignee = members.find((x: any) => x.id === d.assigned_to) as any;
-    const department = assignee?.department_id ? taskPolicies.find((x) => x.scope_type === "department" && x.department_id === assignee.department_id) : null;
+    // profiles store the department NAME; policies store the departments.id
+    const deptId = assignee?.department
+      ? depts.find((x: any) => String(x.name).trim().toLowerCase() === String(assignee.department).trim().toLowerCase())?.id
+      : null;
+    const department = deptId ? taskPolicies.find((x) => x.scope_type === "department" && x.department_id === deptId) : null;
     return employee || department || taskPolicies.find((x) => x.scope_type === "company") || null;
   };
 
@@ -882,8 +887,10 @@ export default function TasksPage() {
       await toggleDelegationDone(d);
       return;
     }
-    const { error } = await supabase.from("delegations").update({ status: nextStatus, completed_at: null }).eq("id", d.id);
-    if (error) return toast(error.message, "error");
+    const { error } = await supabase.from("delegations")
+      .update(d.completed_at ? { status: nextStatus, completed_at: null } : { status: nextStatus })
+      .eq("id", d.id);
+    if (error) return toast(friendlyError(error, "update the task"), "error");
     toast(nextStatus === "in_progress" ? "Task started." : nextStatus === "hold" ? "Task put on hold." : "Task status updated.");
     setExpandedId(d.id);
     load();
