@@ -11,16 +11,6 @@ type Context = {
   interval: number;
 };
 
-declare global {
-  interface Window {
-    SMHRMSNative?: {
-      startDutyTracking: (configJson: string) => string;
-      updateTrackingConfig: (configJson: string) => string;
-      stopDutyTracking: () => string;
-      getTrackingStatus: () => string;
-    };
-  }
-}
 
 export default function ActiveVisitTracker() {
   const supabase = createClient();

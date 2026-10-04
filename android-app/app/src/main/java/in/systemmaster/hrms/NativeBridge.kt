@@ -89,6 +89,47 @@ class NativeBridge(
         return "stopped"
     }
 
+    /**
+     * Session hand-off between the web app and the native GPS service.
+     * Supabase refresh tokens rotate on every refresh, so exactly one copy can
+     * be valid. The web app pushes each new pair here; when the service had to
+     * refresh on its own (app closed), the web app reads the newer pair back on
+     * resume and adopts it instead of using its stale one.
+     */
+    @JavascriptInterface
+    fun getSessionTokens(): String {
+        if (!trusted()) return "{}"
+        return JSONObject().apply {
+            put("accessToken", NativePrefs.str(activity, "accessToken"))
+            put("refreshToken", NativePrefs.str(activity, "refreshToken"))
+            put("updatedAt", NativePrefs.tokenUpdatedAt(activity))
+        }.toString()
+    }
+
+    @JavascriptInterface
+    fun updateSessionTokens(json: String): String {
+        if (!trusted()) return "error:untrusted_page"
+        return try {
+            val j = JSONObject(json)
+            NativePrefs.updateTokens(activity, j.optString("accessToken"), j.optString("refreshToken"))
+            "updated"
+        } catch (_: Exception) { "error:tokens" }
+    }
+
+    /** Sign-out: stop tracking, forget the session and drop queued GPS points. */
+    @JavascriptInterface
+    fun clearSession(): String {
+        if (!trusted()) return "error:untrusted_page"
+        try {
+            activity.startService(Intent(activity, LocationTrackingService::class.java).apply {
+                action = LocationTrackingService.ACTION_STOP
+            })
+        } catch (_: Exception) { }
+        NativePrefs.clearSession(activity)
+        GpsQueue.get(activity).clear()
+        return "cleared"
+    }
+
     /** Firebase token of this phone ("" until Firebase has issued one). */
     @JavascriptInterface
     fun getPushToken(): String = if (trusted()) NativePrefs.pushToken(activity) else ""
@@ -112,6 +153,7 @@ class NativeBridge(
         put("running", NativePrefs.isRunning(activity))
         put("lastUploadAt", NativePrefs.lastUploadAt(activity))
         put("lastError", NativePrefs.lastError(activity))
+        put("queued", GpsQueue.get(activity).count())
     }.toString()
 
     /**
