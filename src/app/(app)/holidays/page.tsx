@@ -7,6 +7,7 @@ import { type Profile, isAdminRole } from "@/lib/types";
 import { CalendarDays, Plus, Trash2 } from "lucide-react";
 import { todayYMD } from "@/lib/date";
 import { confirmDialog } from "@/components/Dialogs";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 export default function HolidaysPage() {
   const supabase = createClient();
@@ -24,7 +25,7 @@ export default function HolidaysPage() {
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user!.id).single();
     setMe(p as Profile);
 
     const { data: h } = await supabase

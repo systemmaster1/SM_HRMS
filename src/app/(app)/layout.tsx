@@ -4,6 +4,7 @@ import Shell from "@/components/Shell";
 import AccountLocked from "@/components/AccountLocked";
 import type { Profile, Company } from "@/lib/types";
 import ActiveVisitTracker from "@/components/ActiveVisitTracker";
+import NativeSessionSync from "@/components/NativeSessionSync";
 import PushRegistrar from "@/components/PushRegistrar";
 import DialogHost from "@/components/Dialogs";
 import FirstLoginGuide from "@/components/FirstLoginGuide";
@@ -12,6 +13,7 @@ import OrganizationSuspended from "@/components/OrganizationSuspended";
 import { EntitlementsProvider } from "@/lib/features/client";
 import { getEntitlements } from "@/lib/features/server";
 import { hasVerifiedOrgAdmin2fa } from "@/lib/org-admin-2fa";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 export default async function AppLayout({
   children,
@@ -28,7 +30,7 @@ export default async function AppLayout({
   // Fetch the signed-in user's profile.
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("*")
+    .select(PROFILE_COLUMNS)
     .eq("id", user.id)
     .maybeSingle();
 
@@ -104,6 +106,7 @@ export default async function AppLayout({
     <EntitlementsProvider value={entitlements}>
       <Shell profile={profile as Profile} company={company as Company | null}>
         {children}
+        <NativeSessionSync />
         <ActiveVisitTracker />
         <PushRegistrar />
         <DialogHost />

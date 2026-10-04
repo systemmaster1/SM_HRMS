@@ -7,6 +7,7 @@ import { type Profile, isAdminRole } from "@/lib/types";
 import { Building2, Briefcase, Plane, Plus, Trash2, Check, Users2, MapPinned, Navigation, Pencil } from "lucide-react";
 import { confirmDialog } from "@/components/Dialogs";
 import { PageLoader } from "@/components/ui";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const DAY_TYPES = [
   { v: "full_day",       l: "Full day" },
@@ -56,7 +57,7 @@ export default function OrganizationPage() {
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user!.id).single();
     setMe(p as Profile);
 
     const { data: c } = await supabase

@@ -9,6 +9,7 @@ import {
   BarChart3, ChevronLeft, ChevronRight, Save, Check,
   TrendingUp, TrendingDown, Users,
 } from "lucide-react";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 /* ------------------------------------------------------------------ */
 /*  ISO week helpers                                                   */
@@ -81,7 +82,7 @@ export default function EMReportPage() {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) return;
       const { data: p } = await supabase
-        .from("profiles").select("*").eq("id", auth.user.id).single();
+        .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).single();
       setMe(p as Profile);
       setUserId(auth.user.id);
 
@@ -90,7 +91,7 @@ export default function EMReportPage() {
 
       if (isAdmin) {
         const { data: m } = await supabase
-          .from("profiles").select("*").eq("status", "active").order("full_name");
+          .from("profiles").select(PROFILE_COLUMNS).eq("status", "active").order("full_name");
         setMembers((m as Profile[]) || []);
       }
     })();

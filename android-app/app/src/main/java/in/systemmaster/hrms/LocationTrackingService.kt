@@ -76,7 +76,10 @@ class LocationTrackingService : Service() {
             } else if (onDuty == true) {
                 handler.post { requestUpdates() }
             } else {
-                updateNotification("Waiting for network / duty verification")
+                // No network: keep recording on the phone; the server checks
+                // duty for every point when it is uploaded.
+                handler.post { requestUpdates() }
+                updateNotification("No network • recording duty GPS on phone")
             }
         }
     }
@@ -93,27 +96,15 @@ class LocationTrackingService : Service() {
         callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 val loc = result.lastLocation ?: return
-                executor.execute {
-                    val onDuty = rpcBoolean("is_employee_on_duty_v7", JSONObject().put("p_employee_id", NativePrefs.str(this@LocationTrackingService,"userId")))
-                    if (onDuty == false) {
-                        handler.post { stopTracking() }; return@execute
-                    }
-                    if (onDuty != true) return@execute
-                    val body = JSONObject()
-                        .put("p_latitude", loc.latitude)
-                        .put("p_longitude", loc.longitude)
-                        .put("p_accuracy_m", loc.accuracy.toInt())
-                        .put("p_speed_mps", if (loc.hasSpeed()) loc.speed.toDouble() else JSONObject.NULL)
-                        .put("p_heading", if (loc.hasBearing()) loc.bearing.toDouble() else JSONObject.NULL)
-                        .put("p_app_state", "android_native")
-                    val ok = rpc("record_employee_location_v7", body)
-                    if (ok) {
-                        val now=Instant.now().toString()
-                        NativePrefs.setLastUpload(this@LocationTrackingService, now)
-                        NativePrefs.setError(this@LocationTrackingService, "")
-                        updateNotification("Live tracking • last sync now • every ${NativePrefs.interval(this@LocationTrackingService)} min")
-                    }
-                }
+                // 1) Store on the phone FIRST, so no point is lost without network.
+                GpsQueue.get(this@LocationTrackingService).add(
+                    loc.latitude, loc.longitude, loc.accuracy.toInt(),
+                    if (loc.hasSpeed()) loc.speed.toDouble() else null,
+                    if (loc.hasBearing()) loc.bearing.toDouble() else null,
+                    Instant.ofEpochMilli(if (loc.time > 0) loc.time else System.currentTimeMillis()).toString()
+                )
+                // 2) Upload whatever is queued (the server decides what is on duty).
+                executor.execute { flushQueue(force = true) }
             }
         }
         try {
@@ -152,8 +143,12 @@ class LocationTrackingService : Service() {
             }
             if (enabled && !updatesStarted && hasPermission()) requestUpdates()
             executor.execute {
+                flushQueue(force = false)
                 val duty = rpcBoolean("is_employee_on_duty_v7", JSONObject().put("p_employee_id", NativePrefs.str(this@LocationTrackingService,"userId")))
-                if (duty == false) handler.post { stopTracking() }
+                if (duty == false) {
+                    flushQueue(force = true) // last on-duty points before stopping
+                    handler.post { stopTracking() }
+                }
             }
             handler.postDelayed(this, 60_000L)
         }
@@ -164,29 +159,104 @@ class LocationTrackingService : Service() {
         ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)==PackageManager.PERMISSION_GRANTED
 
     private fun rpcBoolean(name:String, body:JSONObject): Boolean? {
-        val response=request("${NativePrefs.str(this,"supabaseUrl")}/rest/v1/rpc/$name", body, true) ?: return null
+        val (code, response) = request("${NativePrefs.str(this,"supabaseUrl")}/rest/v1/rpc/$name", body, true)
+        if (code !in 200..299 || response == null) return null
         return when(response.trim()) { "true" -> true; "false" -> false; else -> null }
     }
-    private fun rpc(name:String, body:JSONObject):Boolean = request("${NativePrefs.str(this,"supabaseUrl")}/rest/v1/rpc/$name", body, true) != null
 
-    private fun request(url:String, body:JSONObject, retry:Boolean):String? {
+    private fun rpc(name:String, body:JSONObject):Boolean =
+        request("${NativePrefs.str(this,"supabaseUrl")}/rest/v1/rpc/$name", body, true).first in 200..299
+
+    /**
+     * Uploads queued points oldest-first in batches of 100. Points are removed
+     * only after the server acknowledges them. On failure, waits with
+     * exponential backoff (30 s … 15 min) unless [force] (a new GPS fix).
+     */
+    @Synchronized
+    private fun flushQueue(force: Boolean) {
+        if (!force && System.currentTimeMillis() < NativePrefs.nextFlushAt(this)) return
+        val queue = GpsQueue.get(this)
+        val url = "${NativePrefs.str(this,"supabaseUrl")}/rest/v1/rpc/record_employee_locations_batch_v8"
+        var rounds = 0
+        while (rounds++ < 20) {
+            val batch = queue.nextBatch()
+            if (batch.length() == 0) break
+            val (code, response) = request(url, JSONObject().put("p_points", batch), true)
+            if (code == 404) { uploadLegacy(batch); continue }
+            if (code !in 200..299 || response == null) {
+                NativePrefs.flushFailed(this)
+                updateNotification("Offline • ${queue.count()} GPS points saved on phone • will upload automatically")
+                return
+            }
+            val result = try { JSONObject(response) } catch (_: Exception) { null }
+            val acked = result?.optJSONArray("acked")
+            val ids = ArrayList<String>()
+            if (acked != null) for (i in 0 until acked.length()) ids.add(acked.optString(i))
+            queue.acknowledge(ids)
+            NativePrefs.flushSucceeded(this)
+            NativePrefs.setLastUpload(this, Instant.now().toString())
+            NativePrefs.setError(this, "")
+            if (result?.optBoolean("stop") == true && queue.count() == 0) {
+                handler.post { stopTracking() }
+                return
+            }
+            if (ids.isEmpty()) break // nothing acknowledged: avoid a busy loop
+        }
+        val left = queue.count()
+        updateNotification(
+            if (left > 0) "Duty tracking active • $left points waiting to upload"
+            else "Duty tracking active • GPS every ${NativePrefs.interval(this)} min • last sync now"
+        )
+    }
+
+    /** Server without the v8 batch function yet: send points one by one through v7. */
+    private fun uploadLegacy(batch: org.json.JSONArray) {
+        val ids = ArrayList<String>()
+        for (i in 0 until batch.length()) {
+            val p = batch.getJSONObject(i)
+            val body = JSONObject()
+                .put("p_latitude", p.getDouble("lat")).put("p_longitude", p.getDouble("lng"))
+                .put("p_accuracy_m", p.opt("accuracy") ?: JSONObject.NULL)
+                .put("p_speed_mps", p.opt("speed") ?: JSONObject.NULL)
+                .put("p_heading", p.opt("heading") ?: JSONObject.NULL)
+                .put("p_app_state", "android_native")
+            val (code, _) = request("${NativePrefs.str(this,"supabaseUrl")}/rest/v1/rpc/record_employee_location_v7", body, true)
+            if (code in 200..299) ids.add(p.getString("client_id")) else break
+        }
+        GpsQueue.get(this).acknowledge(ids)
+    }
+
+    private fun request(url:String, body:JSONObject, retry:Boolean): Pair<Int, String?> {
+        val tokenUsed = NativePrefs.str(this,"accessToken")
         try {
             val con=URL(url).openConnection() as HttpURLConnection
             con.requestMethod="POST"; con.doOutput=true
-            con.connectTimeout=12000; con.readTimeout=12000
+            con.connectTimeout=12000; con.readTimeout=15000
             con.setRequestProperty("Content-Type","application/json")
             con.setRequestProperty("apikey",NativePrefs.str(this,"anonKey"))
-            con.setRequestProperty("Authorization","Bearer ${NativePrefs.str(this,"accessToken")}")
+            con.setRequestProperty("Authorization","Bearer $tokenUsed")
             con.outputStream.use { it.write(body.toString().toByteArray()) }
             val code=con.responseCode
-            if (code in 200..299) return con.inputStream.bufferedReader().readText()
-            if (code==401 && retry && refreshToken()) return request(url,body,false)
+            if (code in 200..299) return code to con.inputStream.bufferedReader().readText()
+            if (code==401 && retry && refreshToken(tokenUsed)) return request(url,body,false)
             NativePrefs.setError(this,"HTTP $code")
-        } catch(e:Exception) { NativePrefs.setError(this,e.message ?: "Network error") }
-        return null
+            return code to null
+        } catch(e:Exception) {
+            NativePrefs.setError(this,"No network")
+            return -1 to null
+        }
     }
 
-    private fun refreshToken():Boolean {
+    /**
+     * One session, two users of it (web app + this service). Refresh tokens
+     * rotate, so before refreshing we check whether the web app already
+     * delivered a newer access token; only if not do we refresh, and the new
+     * pair is stored for the web app to pick up (NativeBridge.getSessionTokens).
+     */
+    @Synchronized
+    private fun refreshToken(failedToken: String):Boolean {
+        val current = NativePrefs.str(this,"accessToken")
+        if (current.isNotBlank() && current != failedToken) return true // web app refreshed meanwhile
         val refresh=NativePrefs.str(this,"refreshToken")
         if(refresh.isBlank()) return false
         return try {
@@ -195,7 +265,10 @@ class LocationTrackingService : Service() {
             con.setRequestProperty("Content-Type","application/json")
             con.setRequestProperty("apikey",NativePrefs.str(this,"anonKey"))
             con.outputStream.use { it.write(JSONObject().put("refresh_token",refresh).toString().toByteArray()) }
-            if(con.responseCode !in 200..299) return false
+            if(con.responseCode !in 200..299) {
+                // The web app may have rotated the token a moment ago.
+                return NativePrefs.str(this,"accessToken").let { it.isNotBlank() && it != failedToken }
+            }
             val j=JSONObject(con.inputStream.bufferedReader().readText())
             NativePrefs.updateTokens(this,j.getString("access_token"),j.optString("refresh_token",refresh))
             true

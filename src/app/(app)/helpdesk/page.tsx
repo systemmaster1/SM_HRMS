@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { LifeBuoy, Plus, Send, MessageSquare, HelpCircle } from "lucide-react";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const CATEGORIES = [
   { v: "general", l: "General" }, { v: "it", l: "IT" }, { v: "hr", l: "HR" },
@@ -39,7 +40,7 @@ export default function HelpDeskPage() {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { setLoading(false); setError("Your session expired. Please sign in again."); return; }
     const { data: p, error: profileError } = await supabase
-      .from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).maybeSingle();
     if (profileError || !p?.company_id) { setLoading(false); setError(profileError?.message || "Your employee profile is not ready."); return; }
     setMe(p as Profile);
 
@@ -52,7 +53,7 @@ export default function HelpDeskPage() {
 
     if (isAdminRole((p as Profile)?.role)) {
       const { data: m } = await supabase
-        .from("profiles").select("*").eq("company_id", p.company_id).eq("status", "active").order("full_name");
+        .from("profiles").select(PROFILE_COLUMNS).eq("company_id", p.company_id).eq("status", "active").order("full_name");
       setMembers((m as Profile[]) || []);
     }
     setLoading(false);

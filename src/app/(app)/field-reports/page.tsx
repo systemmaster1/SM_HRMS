@@ -7,6 +7,7 @@ import { PageHeader, Card, inputCls } from "@/components/ui";
 import { canManageTeam, type Profile } from "@/lib/types";
 import { ArrowLeft, Download, FileText, Printer, RefreshCw, ShieldCheck, Radio, AlertTriangle } from "lucide-react";
 import { todayYMD, addDaysYMD } from "@/lib/date";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 type VisitRow = { id:string; employee_id:string; client_name:string; visit_date:string; scheduled_at:string|null; travel_started_at:string|null; check_in_at:string|null; completed_at:string|null; status:string; outcome:string|null; profiles?:{full_name?:string|null;designation?:string|null}|null };
 type Compliance = { employee_id:string; full_name:string; designation:string; tracking_mode:string; duty_minutes:number; gps_points:number; expected_points:number; interruptions:number; gps_blocked:number; stale_events:number; restored_events:number; compliance_percent:number; last_interruption:string|null; last_restored:string|null };
@@ -22,7 +23,7 @@ export default function FieldReportsPage(){
   const [me,setMe]=useState<Profile|null>(null); const [rows,setRows]=useState<VisitRow[]>([]); const [compliance,setCompliance]=useState<Compliance[]>([]); const [loading,setLoading]=useState(true);
 
   const load=useCallback(async()=>{ setLoading(true); const {data:auth}=await supabase.auth.getUser(); if(!auth.user)return;
-    const {data:p}=await supabase.from("profiles").select("*").eq("id",auth.user.id).single(); const profile=p as Profile; setMe(profile);
+    const {data:p}=await supabase.from("profiles").select(PROFILE_COLUMNS).eq("id",auth.user.id).single(); const profile=p as Profile; setMe(profile);
     await supabase.rpc("refresh_tracking_health_v6");
     const [vis,comp]=await Promise.all([
       supabase.from("field_visits").select("id,employee_id,client_name,visit_date,scheduled_at,travel_started_at,check_in_at,completed_at,status,outcome,profiles:employee_id(full_name,designation)").gte("visit_date",from).lte("visit_date",to).order("visit_date",{ascending:false}),

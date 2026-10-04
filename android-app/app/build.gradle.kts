@@ -13,8 +13,8 @@ android {
         applicationId = "in.systemmaster.hrms"
         minSdk = 26
         targetSdk = 36
-        versionCode = 14
-        versionName = "1.8.5"
+        versionCode = 15
+        versionName = "1.8.6"
         buildConfigField("String", "WEB_APP_URL", "\"https://hrms.systemmaster.in\"")
     }
 

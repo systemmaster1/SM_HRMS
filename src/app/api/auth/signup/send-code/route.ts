@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { rateLimit, clientIpKey } from "@/lib/server/rate-limit";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, randomInt } from "crypto";
 import { sendGmailMessage } from "@/lib/gmail";
@@ -37,6 +38,14 @@ function getAdminClient() {
 }
 
 export async function POST(request: Request) {
+  // Per-IP limit across all server instances (10 per 15 minutes).
+  if (!(await rateLimit(`signup:${clientIpKey(request)}`, 10, 900))) {
+    return NextResponse.json(
+      { error: "Too many attempts from this network. Please wait 15 minutes and try again." },
+      { status: 429, headers: { "Retry-After": "900" } }
+    );
+  }
+
   try {
     const body = await request.json();
 

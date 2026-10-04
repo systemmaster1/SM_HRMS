@@ -7,6 +7,7 @@ import { PageHeader, Card, Badge, Modal, EmptyState, inputCls } from "@/componen
 import { FadeIn, StaggerGroup, StaggerItem, HoverLift, MotionButton, SkeletonRows, motion } from "@/components/motion";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { Users2, SlidersHorizontal, History, Search, Check, X, Clock, Plane } from "lucide-react";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const DAY_LABELS: Record<string, string> = {
   full_day: "Full day", first_half: "First half", second_half: "Second half",
@@ -36,7 +37,7 @@ export default function TeamLeaveBalancePage() {
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user!.id).single();
     setMe(p as Profile);
 
     if (!isAdminRole((p as Profile)?.role)) {
@@ -50,7 +51,7 @@ export default function TeamLeaveBalancePage() {
     if (t?.length) setAf((prev) => ({ ...prev, leave_type_id: prev.leave_type_id || t[0].id }));
 
     const { data: members } = await supabase
-      .from("profiles").select("*").eq("status", "active").order("full_name");
+      .from("profiles").select(PROFILE_COLUMNS).eq("status", "active").order("full_name");
 
     const balances = await Promise.all(
       (members || []).map(async (m) => {

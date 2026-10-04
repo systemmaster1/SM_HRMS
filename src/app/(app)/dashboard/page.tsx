@@ -21,7 +21,7 @@ export default async function DashboardPage() {
   const teamView = canManageTeam(profile?.role as Role);
   const today = todayYMD(); // server runs in UTC - always use IST
 
-  let teamQuery = supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active");
+  let teamQuery = supabase.from("profiles").select("id", { count: "exact", head: true }).eq("status", "active");
   if (manager) teamQuery = teamQuery.eq("manager_id", user.id);
   if (!teamView) teamQuery = teamQuery.eq("id", user.id);
 
@@ -30,7 +30,7 @@ export default async function DashboardPage() {
     supabase.from("attendance").select("*", { count: "exact", head: true }).eq("work_date", today).eq("status", "present"),
     supabase.from("field_visits").select("*", { count: "exact", head: true }).eq("visit_date", today).in("status", ["accepted", "on_the_way", "reached", "checked_in", "meeting"]),
     supabase.from("leaves").select("*", { count: "exact", head: true }).eq("status", "approved").lte("from_date", today).gte("to_date", today),
-    supabase.from("profiles").select("*", { count: "exact", head: true }).eq("status", "active").eq("field_tracking_enabled", true),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("status", "active").eq("field_tracking_enabled", true),
     supabase.from("field_visits").select("*", { count: "exact", head: true }).eq("visit_date", today).eq("status", "completed"),
     supabase.from("employee_live_locations").select("employee_id, permission_state, tracking_state, last_seen_at"),
   ]);

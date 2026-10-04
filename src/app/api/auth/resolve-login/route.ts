@@ -1,31 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalisePhone, isEmail } from "@/lib/phone";
-import { createHmac, timingSafeEqual } from "crypto";
-
-const WINDOW_MS = 10 * 60 * 1000;
-const MAX_ATTEMPTS = 10;
-const attempts = new Map<string, { count: number; resetAt: number }>();
-
-function clientKey(req: Request) {
-  const forwarded = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = forwarded || req.headers.get("x-real-ip") || "unknown";
-  return createHmac("sha256", process.env.AUTH_RATE_LIMIT_SECRET || "sm-hrms-login-rate-limit")
-    .update(ip)
-    .digest("hex");
-}
-
-function limited(req: Request) {
-  const key = clientKey(req);
-  const now = Date.now();
-  const current = attempts.get(key);
-  if (!current || current.resetAt <= now) {
-    attempts.set(key, { count: 1, resetAt: now + WINDOW_MS });
-    return false;
-  }
-  current.count += 1;
-  return current.count > MAX_ATTEMPTS;
-}
+import { timingSafeEqual } from "crypto";
+import { rateLimit, clientIpKey } from "@/lib/server/rate-limit";
 
 function sameSecret(a: string, b: string) {
   const aa = Buffer.from(a);
@@ -42,7 +19,7 @@ function sameSecret(a: string, b: string) {
  * email account enumeration.
  */
 export async function POST(req: Request) {
-  if (limited(req)) {
+  if (!(await rateLimit(`login:${clientIpKey(req)}`, 10, 600))) {
     return NextResponse.json(
       { error: "Too many sign-in attempts. Please wait a few minutes and try again." },
       { status: 429, headers: { "Retry-After": "600", "Cache-Control": "no-store" } }

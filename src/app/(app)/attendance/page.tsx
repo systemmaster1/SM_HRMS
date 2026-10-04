@@ -18,6 +18,7 @@ import {
   LogIn, LogOut, MapPin, CalendarCheck, Clock, AlertTriangle,
   Camera, Globe, Loader2, Download, Printer, ExternalLink, Navigation, ShieldCheck,
 } from "lucide-react";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 type Mode = "in" | "out";
 
@@ -62,7 +63,7 @@ export default function AttendancePage() {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { setLoading(false); setError("Your session expired. Please sign in again."); return; }
     const { data: p, error: profileError } = await supabase
-      .from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).maybeSingle();
     if (profileError || !p?.company_id) { setLoading(false); setError(profileError?.message || "Your employee profile is not ready."); return; }
     setMe(p as Profile);
 
@@ -82,7 +83,7 @@ export default function AttendancePage() {
 
     if (isAdminRole((p as Profile)?.role)) {
       const { data: m } = await supabase
-        .from("profiles").select("*").eq("status", "active").order("full_name");
+        .from("profiles").select(PROFILE_COLUMNS).eq("status", "active").order("full_name");
       setMembers((m as Profile[]) || []);
     }
     setLoading(false);

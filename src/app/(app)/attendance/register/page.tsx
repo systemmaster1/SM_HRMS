@@ -11,6 +11,7 @@ import { type Profile, isAdminRole } from "@/lib/types";
 import {
   ChevronLeft, ChevronRight, Download, RefreshCw, CalendarRange, ArrowLeft, Search,
 } from "lucide-react";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 type Status = "present" | "late" | "half_day" | "on_leave" | "holiday" | "weekly_off" | "absent" | "pending";
 
@@ -57,7 +58,7 @@ export default function AttendanceRegisterPage() {
     try {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) return;
-      const { data: p } = await supabase.from("profiles").select("*").eq("id", auth.user.id).single();
+      const { data: p } = await supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).single();
       setMe(p as Profile);
 
       const log = await fetchAll((from, to) => supabase

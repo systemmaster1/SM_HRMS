@@ -18,6 +18,7 @@ import { confirmDialog, promptDialog, alertDialog, toast } from "@/components/Di
 import { PageLoader } from "@/components/ui";
 import { useFeature } from "@/lib/features/client";
 import ModuleLocked from "@/components/ModuleLocked";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 /** Completed tasks older than this are not loaded on the Tasks screen. */
 const HISTORY_DAYS = 90;
@@ -314,14 +315,14 @@ export default function TasksPage() {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { setLoading(false); return; }
     const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).maybeSingle();
     if (!p?.company_id) { setLoading(false); return; }
     setMe(p as Profile);
 
     if (isAdminRole((p as Profile)?.role)) {
       const [{ data: c }, { data: m }, { data: dpts }] = await Promise.all([
         supabase.from("companies").select("*").eq("id", (p as Profile).company_id).single(),
-        supabase.from("profiles").select("*").eq("status", "active").order("full_name"),
+        supabase.from("profiles").select(PROFILE_COLUMNS).eq("status", "active").order("full_name"),
         supabase.from("departments").select("*").order("name"),
       ]);
       setCompany(c);

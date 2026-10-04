@@ -6,6 +6,7 @@ import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
 import { type Profile, isAdminRole } from "@/lib/types";
 import { FileText, Upload, Download, Trash2, Plus } from "lucide-react";
 import { confirmDialog } from "@/components/Dialogs";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const CATEGORIES = [
   { v: "policy", l: "Policy" },
@@ -34,7 +35,7 @@ export default function PoliciesPage() {
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user!.id).single();
     setMe(p as Profile);
 
     const { data: d } = await supabase
