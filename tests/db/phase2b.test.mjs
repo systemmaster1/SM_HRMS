@@ -244,6 +244,8 @@ await expect("protocol-relative link", "deny", EMP_A, A,
 await expect("created_by recorded", "allow", EMP_A, A,
   `insert into notifications(company_id,user_id,title,body,kind,link) values ('${CO_A}','${MGR_A}','Hi','x','task','/tasks')`,
   async () => (await db.query(`select created_by from notifications order by created_at desc limit 1`)).rows[0].created_by === EMP_A || "not set");
+await expect("notification without a link (empty default) is allowed", "allow", EMP_A, A,
+  `insert into notifications(company_id,user_id,title,body,kind,link) values ('${CO_A}','${MGR_A}','Hi','x','task','')`);
 await db.exec(`insert into notifications(id,company_id,user_id,title,body,kind,link) values ('50000000-0000-0000-0000-000000000001','${CO_A}','${EMP_A}','T','B','task','/tasks');`);
 await expect("recipient marks as read", "allow", EMP_A, A, `update notifications set is_read=true where id='50000000-0000-0000-0000-000000000001'`);
 await expect("recipient rewrites text/link", "deny", EMP_A, A, `update notifications set link='https://evil' where id='50000000-0000-0000-0000-000000000001'`);
