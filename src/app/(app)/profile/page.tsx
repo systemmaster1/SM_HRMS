@@ -6,6 +6,8 @@ import { PageHeader, Card, inputCls } from "@/components/ui";
 import type { Profile } from "@/lib/types";
 import { Upload, Check, User, Camera } from "lucide-react";
 import { PageLoader } from "@/components/ui";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
+import { friendlyError } from "@/lib/errors";
 
 export default function ProfilePage() {
   const supabase = createClient();
@@ -25,13 +27,17 @@ export default function ProfilePage() {
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
-    setMe(p as Profile);
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user!.id).single();
+    setMe(p as unknown as Profile);
     setAvatar(p?.avatar_url || null);
+    // Date of birth is private: read through the protected RPC, not profiles.
+    const { data: priv } = auth.user
+      ? await supabase.rpc("get_employee_private_details", { p_employee: auth.user.id })
+      : { data: null };
     setF({
       full_name: p?.full_name || "",
       phone: p?.phone || "",
-      date_of_birth: p?.date_of_birth || "",
+      date_of_birth: (priv as any)?.date_of_birth || "",
     });
     setLoading(false);
   }, [supabase]);
@@ -49,7 +55,7 @@ export default function ProfilePage() {
     const { error: upErr } = await supabase.storage
       .from("avatars").upload(path, file, { upsert: true });
 
-    if (upErr) { setUploading(false); return setError(upErr.message); }
+    if (upErr) { setUploading(false); return setError(friendlyError(upErr, "upload the photo")); }
 
     const url = supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
     await supabase.from("profiles").update({ avatar_url: url }).eq("id", me!.id);
@@ -59,15 +65,21 @@ export default function ProfilePage() {
   };
 
   const save = async () => {
+    if (saving) return;
     setSaving(true);
     setError("");
     const { error } = await supabase.from("profiles").update({
       full_name: f.full_name,
       phone: f.phone || null,
-      date_of_birth: f.date_of_birth || null,
     }).eq("id", me!.id);
+    const { error: privErr } = error
+      ? { error: null }
+      : await supabase.rpc("set_employee_private_details", {
+          p_employee: me!.id,
+          p_details: { date_of_birth: f.date_of_birth || null },
+        });
     setSaving(false);
-    if (error) return setError(error.message);
+    if (error || privErr) return setError(friendlyError(error || privErr, "save your profile"));
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
     load();

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyError } from "@/lib/errors";
 import { Modal, inputCls, Badge } from "@/components/ui";
 import { MotionButton } from "@/components/motion";
 import { PrivateLink } from "@/components/PrivateFile";
@@ -42,18 +43,29 @@ export default function EmployeeDetail({
   const [docCategory, setDocCategory] = useState("id_proof");
   const [confirming, setConfirming] = useState<"disabled" | "left" | null>(null);
 
-  const [f, setF] = useState({
-    address: employee.address || "",
-    city: employee.city || "",
-    state: employee.state || "",
-    pincode: employee.pincode || "",
-    bank_account_name: employee.bank_account_name || "",
-    bank_account_number: employee.bank_account_number || "",
-    bank_ifsc: employee.bank_ifsc || "",
-    bank_name: employee.bank_name || "",
-    emergency_contact_name: employee.emergency_contact_name || "",
-    emergency_contact_phone: employee.emergency_contact_phone || "",
-  });
+  const emptyPrivate = {
+    address: "", city: "", state: "", pincode: "",
+    bank_account_name: "", bank_account_number: "", bank_ifsc: "", bank_name: "",
+    emergency_contact_name: "", emergency_contact_phone: "",
+  };
+  const [f, setF] = useState(emptyPrivate);
+  const [privateLoaded, setPrivateLoaded] = useState(false);
+
+  // Bank, address and emergency contact are private: loaded through a
+  // protected RPC (self or Owner/Admin only), never from the profiles list.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error: e } = await supabase.rpc("get_employee_private_details", { p_employee: employee.id });
+      if (cancelled) return;
+      if (e) { setError(friendlyError(e, "load the private details")); return; }
+      const d = (data || {}) as Record<string, string | null>;
+      setF(Object.fromEntries(Object.keys(emptyPrivate).map((k) => [k, d[k] || ""])) as typeof emptyPrivate);
+      setPrivateLoaded(true);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supabase, employee.id]);
   const set = (k: string, v: string) => setF((p) => ({ ...p, [k]: v }));
 
   const loadDocs = useCallback(async () => {
@@ -68,11 +80,15 @@ export default function EmployeeDetail({
   useEffect(() => { loadDocs(); }, [loadDocs]);
 
   const saveDetails = async () => {
+    if (saving || !privateLoaded) return;
     setSaving(true);
     setError("");
-    const { error } = await supabase.from("profiles").update(f).eq("id", employee.id);
+    const { error } = await supabase.rpc("set_employee_private_details", {
+      p_employee: employee.id,
+      p_details: Object.fromEntries(Object.entries(f).map(([k, v]) => [k, v.trim() || null])),
+    });
     setSaving(false);
-    if (error) return setError(error.message);
+    if (error) return setError(friendlyError(error, "save the details"));
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
     onChanged();

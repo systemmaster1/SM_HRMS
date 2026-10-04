@@ -15,6 +15,7 @@ import { fetchAll } from "@/lib/supabase/fetch-all";
 import { PageLoader } from "@/components/ui";
 import { useEntitlements } from "@/lib/features/client";
 import { isFeatureOn, type FeatureKey } from "@/lib/features/registry";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 type ModuleKey =
   | "attendance" | "leaves" | "leave_balances" | "checklist" | "delegation"
@@ -68,7 +69,7 @@ export default function ExportPage() {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) return;
       const { data: p } = await supabase
-        .from("profiles").select("*").eq("id", auth.user.id).single();
+        .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).single();
       setMe(p as Profile);
       setReady(true);
     })();
@@ -139,7 +140,7 @@ export default function ExportPage() {
 
       if (key === "leave_balances") {
         const { data: members } = await supabase
-          .from("profiles").select("*").eq("status", "active").order("full_name");
+          .from("profiles").select(PROFILE_COLUMNS).eq("status", "active").order("full_name");
 
         const rows: (string | number)[][] = [];
         for (const m of (members as any[]) || []) {
@@ -235,7 +236,7 @@ export default function ExportPage() {
 
       if (key === "employees") {
         const data = await fetchAll((pgFrom, pgTo) => supabase
-          .from("profiles").select("*").order("full_name")
+          .from("profiles").select(PROFILE_COLUMNS).order("full_name")
           .order("id").range(pgFrom, pgTo));
 
         exportCsv(`Employees_${todayYMD()}`,

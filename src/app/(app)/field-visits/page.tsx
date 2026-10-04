@@ -15,6 +15,7 @@ import {
 import { addDaysYMD, fmtStampIST, todayYMD } from "@/lib/date";
 import { visitState } from "@/lib/tracking";
 import { PageLoader } from "@/components/ui";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const activeStatuses = ["accepted", "on_the_way", "reached", "checked_in", "meeting"];
 const travellingStatuses = ["accepted", "on_the_way", "reached"];
@@ -120,7 +121,7 @@ export default function FieldVisitsPage() {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return;
 
-    const { data: p } = await supabase.from("profiles").select("*").eq("id", auth.user.id).single();
+    const { data: p } = await supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).single();
     const profile = p as Profile;
     setMe(profile);
 
@@ -143,7 +144,7 @@ export default function FieldVisitsPage() {
     const fieldScope = profile?.access_permissions?.live_tracking || profile?.access_permissions?.field_visits || "none";
     const canViewFieldTeam = canManageTeam(profile?.role) || fieldScope === "team" || fieldScope === "company";
     if (canViewFieldTeam) {
-      let q = supabase.from("profiles").select("*").eq("status", "active").order("full_name");
+      let q = supabase.from("profiles").select(PROFILE_COLUMNS).eq("status", "active").order("full_name");
       if (!isAdminRole(profile.role) && fieldScope !== "company") q = q.eq("field_manager_id", profile.id);
       const { data: m } = await q;
       setMembers((m as Profile[]) || []);

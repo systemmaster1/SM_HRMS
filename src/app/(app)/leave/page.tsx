@@ -9,6 +9,7 @@ import { type Profile, isAdminRole } from "@/lib/types";
 import { MONTHS } from "@/lib/geo";
 import { Plane, Plus, Check, X, Users2, Clock, SlidersHorizontal, Users, Wallet, CalendarDays } from "lucide-react";
 import Link from "next/link";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const DAY_LABELS: Record<string, string> = {
   full_day: "Full day",
@@ -67,7 +68,7 @@ export default function LeavePage() {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) { setLoading(false); setLoadError("Your session expired. Please sign in again."); return; }
     const { data: p, error: profileError } = await supabase
-      .from("profiles").select("*").eq("id", auth.user.id).maybeSingle();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).maybeSingle();
     if (profileError || !p?.company_id) { setLoading(false); setLoadError(profileError?.message || "Your employee profile is not ready."); return; }
     setMe(p as Profile);
 
@@ -86,7 +87,7 @@ export default function LeavePage() {
 
     if (isAdminRole((p as Profile)?.role)) {
       const { data: mem } = await supabase
-        .from("profiles").select("*").eq("status", "active").order("full_name");
+        .from("profiles").select(PROFILE_COLUMNS).eq("status", "active").order("full_name");
       setMembers((mem as Profile[]) || []);
     }
 

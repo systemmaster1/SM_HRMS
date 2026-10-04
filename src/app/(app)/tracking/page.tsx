@@ -20,6 +20,7 @@ import {
   ChevronLeft, ChevronRight, Navigation, CheckCircle2, Timer, Users, ArrowLeft, Crosshair,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const TrackingMap = dynamic(() => import("@/components/TrackingMap"), {
   ssr: false,
@@ -73,7 +74,7 @@ export default function TrackingPage() {
     (async () => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) return;
-      const { data: p } = await supabase.from("profiles").select("*").eq("id", auth.user.id).single();
+      const { data: p } = await supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).single();
       const profile = p as Profile;
       setMe(profile);
 
@@ -85,7 +86,7 @@ export default function TrackingPage() {
         ["team", "company"].includes(String(profile.access_permissions?.live_tracking || profile.access_permissions?.field_visits || ""));
       let list: Profile[] = [profile];
       if (isMgr) {
-        let q = supabase.from("profiles").select("*").eq("status", "active").eq("field_tracking_enabled", true).order("full_name");
+        let q = supabase.from("profiles").select(PROFILE_COLUMNS).eq("status", "active").eq("field_tracking_enabled", true).order("full_name");
         const scope = String(profile.access_permissions?.live_tracking || profile.access_permissions?.field_visits || "");
         if (!isAdminRole(profile.role) && scope !== "company") {
           q = q.or(`field_manager_id.eq.${profile.id},manager_id.eq.${profile.id}`);

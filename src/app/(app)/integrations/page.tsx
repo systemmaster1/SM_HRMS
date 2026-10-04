@@ -11,6 +11,7 @@ import {
   ShieldCheck, Clock, ExternalLink,
 } from "lucide-react";
 import { PageLoader } from "@/components/ui";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const SCRIPT_VERSION = "2.0";
 
@@ -198,7 +199,7 @@ export default function IntegrationsPage() {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth.user) return;
       const { data: p } = await supabase
-        .from("profiles").select("*").eq("id", auth.user.id).single();
+        .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user.id).single();
       setMe(p as Profile);
 
       const { data: c } = await supabase

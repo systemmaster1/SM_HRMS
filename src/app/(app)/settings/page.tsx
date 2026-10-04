@@ -20,7 +20,7 @@ export default async function SettingsPage() {
 
   const { count: activeUsers } = await supabase
     .from("profiles")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("status", "active")
     .eq("company_id", profile!.company_id);
 

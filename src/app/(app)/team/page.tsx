@@ -8,6 +8,7 @@ import { type Profile, isAdminRole } from "@/lib/types";
 import { PageHeader, Card, Modal, EmptyState, inputCls } from "@/components/ui";
 import { UserPlus, KeyRound, Users, RefreshCw, Copy, Check, Settings2, IdCard, Search, Trash2, LoaderCircle, Workflow, MapPinned, Pencil } from "lucide-react";
 import EmployeeDetail from "@/components/EmployeeDetail";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const randomPassword = () => {
   const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -83,13 +84,13 @@ export default function TeamPage() {
     setLoadError("");
     const { data: auth } = await supabase.auth.getUser();
     const { data: mine } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user!.id).single();
     setMe(mine as Profile);
 
     if (isAdminRole((mine as Profile)?.role)) {
       const { data: list } = await supabase
         .from("profiles")
-        .select("*, manager:manager_id(full_name), work_manager:work_manager_id(full_name), field_manager:field_manager_id(full_name), branch:branch_id(name)")
+        .select(`${PROFILE_COLUMNS}, manager:manager_id(full_name), work_manager:work_manager_id(full_name), field_manager:field_manager_id(full_name), branch:branch_id(name)`)
         .order("created_at");
       setMembers((list as any[]) || []);
     } else {

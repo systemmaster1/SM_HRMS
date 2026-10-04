@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/Dialogs";
 import { PageLoader } from "@/components/ui";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 export default function PayrollPage() {
   const supabase = createClient();
@@ -47,7 +48,7 @@ export default function PayrollPage() {
   const load = useCallback(async () => {
     const { data: auth } = await supabase.auth.getUser();
     const { data: p } = await supabase
-      .from("profiles").select("*").eq("id", auth.user!.id).single();
+      .from("profiles").select(PROFILE_COLUMNS).eq("id", auth.user!.id).single();
     setMe(p as Profile);
 
     const { data: c } = await supabase
@@ -56,7 +57,7 @@ export default function PayrollPage() {
 
     if (isAdminRole((p as Profile)?.role)) {
       const { data: m } = await supabase
-        .from("profiles").select("*").eq("status", "active").order("full_name");
+        .from("profiles").select(PROFILE_COLUMNS).eq("status", "active").order("full_name");
       setMembers((m as Profile[]) || []);
     }
     setLoading(false);

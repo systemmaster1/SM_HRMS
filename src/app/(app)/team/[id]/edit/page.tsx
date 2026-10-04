@@ -21,6 +21,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useEntitlements } from "@/lib/features/client";
 import { ACCESS_KEY_FEATURE, isFeatureOn } from "@/lib/features/registry";
+import { PROFILE_COLUMNS } from "@/lib/profile-columns";
 
 const fieldCls =
   "mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-brand-600 focus:ring-4 focus:ring-brand-600/10";
@@ -94,7 +95,7 @@ export default function EditEmployeePage() {
     (async () => {
       setLoading(true);
       const [{ data: employee, error: employeeErr }, d, g, b, p] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", employeeId).single(),
+        supabase.from("profiles").select(PROFILE_COLUMNS).eq("id", employeeId).single(),
         supabase.from("departments").select("*").order("name"),
         supabase.from("designations").select("*").order("name"),
         supabase.from("branches").select("*").order("name"),
