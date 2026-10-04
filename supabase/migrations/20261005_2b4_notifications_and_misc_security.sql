@@ -59,7 +59,8 @@ begin
      or not public.smhrms_same_org_member(new.user_id, a.company_id) then
     raise exception 'You can notify only people in your organization.' using errcode = '42501';
   end if;
-  if new.link is not null and (new.link !~ '^/' or new.link ~ '^//' or position(E'\\' in new.link) > 0) then
+  -- empty link (the column default) means "no link" and is fine
+  if nullif(new.link, '') is not null and (new.link !~ '^/' or new.link ~ '^//' or position(E'\\' in new.link) > 0) then
     raise exception 'Notification links must point inside SM HRMS.' using errcode = '22023';
   end if;
   if public.smhrms_notifications_sent_recently(a.user_id) >= 300 then
